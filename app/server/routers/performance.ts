@@ -1,6 +1,6 @@
 import { router, protectedProcedure } from '../trpc';
 import { db } from '@/db/drizzle';
-import { trades, tradeLotMatches } from '@/db/schema';
+import { trades, tradeLotMatches, platforms, buckets } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { format, startOfWeek } from 'date-fns';
 
@@ -58,12 +58,12 @@ export const performanceRouter = router({
       }
     });
 
-    const positionsMap = new Map<string, { bought: number; sold: number; cost: number }>();
+    const positionsMap = new Map<string, { platformId: string; bucketId: string | null; bought: number; sold: number; cost: number }>();
 
     allTrades.forEach(t => {
       if (t.tradeType === 'buy') {
         const key = `${t.platformId}_${t.symbolId}_${t.bucketId}`;
-        const p = positionsMap.get(key) || { bought: 0, sold: 0, cost: 0 };
+        const p = positionsMap.get(key) || { platformId: t.platformId, bucketId: t.bucketId, bought: 0, sold: 0, cost: 0 };
         p.bought += Number(t.quantity);
         p.cost += Number(t.quantity) * Number(t.price) + Number(t.fee);
         positionsMap.set(key, p);
@@ -79,11 +79,37 @@ export const performanceRouter = router({
       }
     });
 
+    const platformCostMap = new Map<string, number>();
+    const bucketCostMap = new Map<string, number>();
+
     Array.from(positionsMap.values()).forEach(p => {
       const openQty = p.bought - p.sold;
       const openRatio = p.bought > 0 ? openQty / p.bought : 0;
-      totalInvested += p.cost * openRatio;
+      const openCost = p.cost * openRatio;
+      totalInvested += openCost;
+      
+      if (openCost > 0) {
+        platformCostMap.set(p.platformId, (platformCostMap.get(p.platformId) || 0) + openCost);
+        bucketCostMap.set(p.bucketId || "uncategorized", (bucketCostMap.get(p.bucketId || "uncategorized") || 0) + openCost);
+      }
     });
+
+    // Fetch names for labels
+    const allPlatforms = await db.query.platforms.findMany({ where: eq(platforms.userId, userId) });
+    const allBuckets = await db.query.buckets.findMany({ where: eq(buckets.userId, userId) });
+    
+    const platformMap = new Map(allPlatforms.map(p => [p.id, p]));
+    const bucketMap = new Map(allBuckets.map(b => [b.id, b]));
+
+    const investedPerPlatform = Array.from(platformCostMap.entries()).map(([id, amount]) => ({
+      name: platformMap.get(id)?.name || 'Unknown',
+      value: amount
+    }));
+
+    const investedPerBucket = Array.from(bucketCostMap.entries()).map(([id, amount]) => ({
+      name: id === "uncategorized" ? "Uncategorized" : (bucketMap.get(id)?.label || 'Unknown'),
+      value: amount
+    }));
 
     const winRate = allMatches.length > 0 ? (winningTrades / allMatches.length) * 100 : 0;
 
@@ -115,6 +141,8 @@ export const performanceRouter = router({
     return {
       totalInvested,
       totalRealizedPnl,
+      investedPerPlatform,
+      investedPerBucket,
       winRate,
       totalMatches: allMatches.length,
       dailyStats,

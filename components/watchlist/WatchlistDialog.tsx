@@ -109,7 +109,7 @@ export function WatchlistDialog() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {symbols?.map((s: any) => (
+                      {symbols?.slice().sort((a: any, b: any) => a.ticker.localeCompare(b.ticker)).map((s: any) => (
                         <SelectItem key={s.id} value={s.id}>
                           {s.ticker} {s.displayName ? `- ${s.displayName}` : ""}
                         </SelectItem>

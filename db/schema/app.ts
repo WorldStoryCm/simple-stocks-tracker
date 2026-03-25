@@ -62,7 +62,7 @@ export const trades = pgTable(
     userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
     platformId: text("platform_id").notNull().references(() => platforms.id, { onDelete: "restrict" }),
     symbolId: text("symbol_id").notNull().references(() => symbols.id, { onDelete: "restrict" }),
-    bucketId: text("bucket_id").notNull().references(() => buckets.id, { onDelete: "restrict" }),
+    bucketId: text("bucket_id").references(() => buckets.id, { onDelete: "set null" }),
     tradeType: text("trade_type", { enum: ["buy", "sell"] }).notNull(),
     tradeDate: date("trade_date").notNull(),
     quantity: decimal("quantity", { precision: 16, scale: 4 }).notNull(),

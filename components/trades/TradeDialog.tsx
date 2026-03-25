@@ -29,7 +29,7 @@ const formSchema = z.object({
   platformId: z.string().min(1, "Broker is required"),
   symbolId: z.string().min(1, "Symbol is required"),
   newTicker: z.string().optional(),
-  bucketId: z.string().min(1, "Bucket is required"),
+  bucketId: z.string().optional(),
   tradeType: z.enum(["buy", "sell"]),
   tradeDate: z.string().min(1, "Date is required"),
   quantity: z.string().min(1, "Quantity is required"),
@@ -238,7 +238,7 @@ export function TradeDialog({ open, onOpenChange, trade }: { open: boolean, onOp
                   <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Select broker" /></SelectTrigger></FormControl>
                     <SelectContent>
-                      {platforms?.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                      {platforms?.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -252,8 +252,8 @@ export function TradeDialog({ open, onOpenChange, trade }: { open: boolean, onOp
                     <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                       <FormControl><SelectTrigger><SelectValue placeholder="Select symbol" /></SelectTrigger></FormControl>
                       <SelectContent>
-                        {symbols?.map(s => <SelectItem key={s.id} value={s.id}>{s.ticker}</SelectItem>)}
                         <SelectItem value="new" className="text-primary font-medium">+ Add New Symbol</SelectItem>
+                        {symbols?.slice().sort((a: any, b: any) => a.ticker.localeCompare(b.ticker)).map((s: any) => <SelectItem key={s.id} value={s.id}>{s.ticker}</SelectItem>)}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -276,7 +276,7 @@ export function TradeDialog({ open, onOpenChange, trade }: { open: boolean, onOp
                 <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                   <FormControl><SelectTrigger><SelectValue placeholder="Select bucket" /></SelectTrigger></FormControl>
                   <SelectContent>
-                    {buckets?.map(b => <SelectItem key={b.id} value={b.id}>{b.label}</SelectItem>)}
+                    {buckets?.map((b: any) => <SelectItem key={b.id} value={b.id}>{b.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 <FormMessage />

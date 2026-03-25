@@ -5,6 +5,9 @@ import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
 import { Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
+import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from "recharts";
+
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#a28bfe', '#ff7675', '#fdcb6e', '#e17055', '#d63031', '#e84393'];
 
 export default function Dashboard() {
   const { data: session } = useSession();
@@ -69,26 +72,49 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Win Rate</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Capital by Platform</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{(perf?.winRate || 0).toFixed(1)}%</div>
+              <CardContent className="h-[300px]">
+                {perf?.investedPerPlatform?.length ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={perf.investedPerPlatform} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85} label={(props: any) => `$${Number(props.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
+                        {perf.investedPerPlatform.map((entry: any, index: number) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                      </Pie>
+                      <RechartsTooltip formatter={(val: any) => `$${Number(val).toLocaleString(undefined, { minimumFractionDigits: 2 })}`} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : <div className="flex h-full items-center justify-center text-muted-foreground text-sm">No active investments</div>}
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Trade Lots Sold</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Capital by Bucket</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{perf?.totalMatches || 0}</div>
+              <CardContent className="h-[300px]">
+                {perf?.investedPerBucket?.length ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={perf.investedPerBucket} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85} label={(props: any) => `$${Number(props.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
+                        {perf.investedPerBucket.map((entry: any, index: number) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                      </Pie>
+                      <RechartsTooltip formatter={(val: any) => `$${Number(val).toLocaleString(undefined, { minimumFractionDigits: 2 })}`} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : <div className="flex h-full items-center justify-center text-muted-foreground text-sm">No active investments</div>}
               </CardContent>
             </Card>
           </div>
 
-          <Card className="max-w-3xl">
+          <Card className="">
             <CardHeader className="pb-4 border-b">
               <div className="flex items-center justify-between">
                 <CardTitle>Performance Logs</CardTitle>

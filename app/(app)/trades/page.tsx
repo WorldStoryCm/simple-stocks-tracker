@@ -9,8 +9,28 @@ import { TradeDialog } from "@/components/trades/TradeDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/dropdown-menu";
 import { format } from "date-fns";
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
+import { Input } from "@/components/input";
+
 export default function TradesPage() {
-  const { data: trades, isLoading } = trpc.trades.list.useQuery();
+  const [page, setPage] = useState(1);
+  const [actionFilter, setActionFilter] = useState("all");
+  const [symbolFilter, setSymbolFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const { data: symbols } = trpc.symbols.list.useQuery();
+  const { data: tradesData, isLoading } = trpc.trades.list.useQuery({
+    page,
+    limit: 40,
+    action: actionFilter,
+    symbolId: symbolFilter !== "all" ? symbolFilter : undefined,
+    search: searchQuery || undefined,
+  });
+
+  const trades = tradesData?.items || [];
+  const totalPages = tradesData?.totalPages || 1;
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTrade, setEditingTrade] = useState<any>(null);
 
@@ -38,6 +58,37 @@ export default function TradesPage() {
         <Button onClick={() => { setEditingTrade(null); setIsDialogOpen(true); }}>
           <Plus className="mr-2 h-4 w-4" /> Add Trade
         </Button>
+      </div>
+
+      <div className="flex flex-col sm:flex-row items-center gap-4">
+        <Tabs defaultValue="all" value={actionFilter} onValueChange={(v) => { setActionFilter(v); setPage(1); }} className="w-full sm:w-auto overflow-x-auto rounded-lg">
+          <TabsList className="grid w-full grid-cols-3 min-w-[200px]">
+            <TabsTrigger value="all">All Actions</TabsTrigger>
+            <TabsTrigger value="buy">Buy</TabsTrigger>
+            <TabsTrigger value="sell">Sell</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto flex-1">
+          <Select value={symbolFilter} onValueChange={(v) => { setSymbolFilter(v); setPage(1); }}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="All Symbols" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Symbols</SelectItem>
+              {symbols?.slice().sort((a: any, b: any) => a.ticker.localeCompare(b.ticker)).map((s: any) => (
+                <SelectItem key={s.id} value={s.id}>{s.ticker}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Input 
+            placeholder="Search notes..." 
+            value={searchQuery}
+            onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+            className="flex-1 min-w-[150px]"
+          />
+        </div>
       </div>
 
       <div className="rounded-md border bg-card overflow-x-auto">
@@ -111,6 +162,16 @@ export default function TradesPage() {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      <div className="flex items-center justify-between py-2">
+        <div className="text-sm text-muted-foreground">
+          Showing page {page} of {totalPages} ({tradesData?.totalCount || 0} total)
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1 || isLoading}>Previous</Button>
+          <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages || isLoading}>Next</Button>
+        </div>
       </div>
 
       <TradeDialog

@@ -8,18 +8,55 @@ import { TRPCError } from '@trpc/server';
 // It's safer to just use standard float arithmetic and Number() for v1, or Big() if installed.
 // We'll use Number for simplicity but caution floating points for exact accounting.
 
+import { ilike, SQL, count } from 'drizzle-orm';
+
 export const tradesRouter = router({
-  list: protectedProcedure.query(async ({ ctx }) => {
-    return await db.query.trades.findMany({
-      where: eq(trades.userId, ctx.session.user.id),
-      orderBy: [desc(trades.tradeDate), desc(trades.createdAt)],
-      with: {
-        platform: true,
-        symbol: true,
-        bucket: true,
+  list: protectedProcedure
+    .input(z.object({
+      page: z.number().min(1).default(1),
+      limit: z.number().min(1).max(100).default(40),
+      action: z.string().default("all"),
+      symbolId: z.string().optional(),
+      search: z.string().optional(),
+    }).optional().default({}))
+    .query(async ({ ctx, input }) => {
+      const { page, limit, action, symbolId, search } = input;
+      const conditions: SQL[] = [eq(trades.userId, ctx.session.user.id)];
+      
+      if (action && action !== "all") {
+        conditions.push(eq(trades.tradeType, action as "buy" | "sell"));
       }
-    });
-  }),
+      if (symbolId && symbolId !== "all") {
+        conditions.push(eq(trades.symbolId, symbolId));
+      }
+      if (search) {
+        conditions.push(ilike(trades.notes, `%${search}%`));
+      }
+
+      const whereClause = and(...conditions);
+
+      const items = await db.query.trades.findMany({
+        where: whereClause,
+        orderBy: [desc(trades.tradeDate), desc(trades.createdAt)],
+        limit,
+        offset: (page - 1) * limit,
+        with: {
+          platform: true,
+          symbol: true,
+          bucket: true,
+        }
+      });
+
+      const totalCountRes = await db.select({ value: count() }).from(trades).where(whereClause);
+      const totalCount = totalCountRes[0].value;
+      
+      return {
+        items,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        page,
+      };
+    }),
   getOpenQuantity: protectedProcedure
     .input(z.object({
       platformId: z.string(),
