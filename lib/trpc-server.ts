@@ -1,7 +1,7 @@
 import "server-only";
 
-import { appRouter } from "@/server/routers/_app";
-import { createCallerFactory, createContext } from "@/server/trpc";
+import { appRouter } from "@/app/server/routers/_app";
+import { createCallerFactory, createContext } from "@/app/server/trpc";
 import { headers } from "next/headers";
 
 const createCaller = createCallerFactory(appRouter);

@@ -4,10 +4,41 @@ import { useSession } from "@/lib/auth-client";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
 import { Loader2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 
 export default function Dashboard() {
   const { data: session } = useSession();
   const { data: perf, isLoading } = trpc.performance.stats.useQuery();
+
+  const renderStatsList = (dataObj: any) => {
+    if (!dataObj || !dataObj.data || dataObj.data.length === 0) {
+      return (
+        <div className="text-muted-foreground text-sm italic py-4">
+          No realized matching data yet. Add Sell trades to see realized performance.
+        </div>
+      );
+    }
+    
+    return (
+      <div className="space-y-4 pt-2">
+        <div className="flex items-center justify-between text-sm pb-3 border-b border-border/50 bg-muted/30 p-2 rounded-lg">
+          <span className="text-muted-foreground">Avg: <span className={dataObj.average >= 0 ? "text-green-500 font-medium" : "text-red-500 font-medium"}>${dataObj.average.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
+          <span className="text-muted-foreground">Min: <span className={dataObj.min >= 0 ? "text-green-500 font-medium" : "text-red-500 font-medium"}>${dataObj.min.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
+          <span className="text-muted-foreground">Max: <span className={dataObj.max >= 0 ? "text-green-500 font-medium" : "text-red-500 font-medium"}>${dataObj.max.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
+        </div>
+        <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 px-1">
+          {dataObj.data.map((m: any, i: number) => (
+            <div key={i} className="flex items-center justify-between border-b border-border/50 pb-3 last:border-0 last:pb-0">
+              <div className="font-medium text-lg">{m.period}</div>
+              <div className={`font-bold text-lg ${m.pnl >= 0 ? "text-green-500" : "text-red-500"}`}>
+                {m.pnl >= 0 ? "+" : ""}${m.pnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -57,25 +88,29 @@ export default function Dashboard() {
             </Card>
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Monthly Performance</CardTitle>
+          <Card className="max-w-3xl">
+            <CardHeader className="pb-4 border-b">
+              <div className="flex items-center justify-between">
+                <CardTitle>Performance Logs</CardTitle>
+              </div>
             </CardHeader>
-            <CardContent>
-              {perf?.monthlyPnl && perf.monthlyPnl.length > 0 ? (
-                <div className="space-y-4">
-                  {perf.monthlyPnl.map((m: any) => (
-                    <div key={m.month} className="flex items-center justify-between border-b border-border/50 pb-3 last:border-0 last:pb-0">
-                      <div className="font-medium text-lg">{m.month}</div>
-                      <div className={`font-bold text-lg ${m.pnl >= 0 ? "text-green-500" : "text-red-500"}`}>
-                        {m.pnl >= 0 ? "+" : ""}${m.pnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-muted-foreground text-sm italic">No realized matching data yet. Add Sell trades to see realized performance.</div>
-              )}
+            <CardContent className="pt-4">
+              <Tabs defaultValue="monthly" className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="daily">Daily</TabsTrigger>
+                  <TabsTrigger value="weekly">Weekly</TabsTrigger>
+                  <TabsTrigger value="monthly">Monthly</TabsTrigger>
+                </TabsList>
+                <TabsContent value="daily">
+                  {renderStatsList(perf?.dailyStats)}
+                </TabsContent>
+                <TabsContent value="weekly">
+                  {renderStatsList(perf?.weeklyStats)}
+                </TabsContent>
+                <TabsContent value="monthly">
+                  {renderStatsList(perf?.monthlyStats)}
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         </>

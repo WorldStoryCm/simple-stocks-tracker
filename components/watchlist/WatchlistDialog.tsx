@@ -7,7 +7,7 @@ import * as z from "zod";
 import { Loader2, Plus } from "lucide-react";
 
 import { trpc } from "@/lib/trpc";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/button";
 import {
   Dialog,
   DialogContent,
@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from "@/components/dialog";
 import {
   Form,
   FormControl,
@@ -24,16 +24,16 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+} from "@/components/Form";
+import { Input } from "@/components/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+} from "@/components/select";
+import { Textarea } from "@/components/textarea";
 
 const formSchema = z.object({
   symbolId: z.string().min(1, "Symbol is required"),
@@ -87,8 +87,7 @@ export function WatchlistDialog() {
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Add to Watchlist</DialogTitle>
+        <DialogHeader title="Add to Watchlist">
           <DialogDescription>
             Track a symbol and set optional target prices and thesis.
           </DialogDescription>

@@ -1,9 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/table";
-import { Loader2 } from "lucide-react";
+import { Loader2, MoreHorizontal } from "lucide-react";
+import { Button } from "@/components/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/dropdown-menu";
+import { TradeDialog } from "@/components/trades/TradeDialog";
 
 export default function PositionsPage() {
   const { data: positions, isLoading } = trpc.positions.list.useQuery();
@@ -18,6 +21,19 @@ export default function PositionsPage() {
     enabled: tickers.length > 0,
     refetchInterval: 60000 // Refetch every 1 minute
   });
+
+  const [isTradeDialogOpen, setIsTradeDialogOpen] = useState(false);
+  const [prefilledTrade, setPrefilledTrade] = useState<any>(null);
+
+  const handleQuickAction = (pos: any, type: "buy" | "sell") => {
+    setPrefilledTrade({
+      platformId: pos.platform?.id,
+      symbolId: pos.symbol?.id,
+      bucketId: pos.bucket?.id,
+      tradeType: type,
+    });
+    setIsTradeDialogOpen(true);
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -39,18 +55,19 @@ export default function PositionsPage() {
               <TableHead className="text-right">Live Price</TableHead>
               <TableHead className="text-right">Total Value</TableHead>
               <TableHead className="text-right">Unrealized P/L</TableHead>
+              <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={9} className="h-24 text-center">
+                <TableCell colSpan={10} className="h-24 text-center">
                   <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
                 </TableCell>
               </TableRow>
             ) : openPositions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
                   No open positions found. Buy some stocks to see them here.
                 </TableCell>
               </TableRow>
@@ -82,6 +99,23 @@ export default function PositionsPage() {
                       {pnl >= 0 ? '+' : ''}${pnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       <span className="text-xs ml-1 opacity-75">({pnlPercent >= 0 ? '+' : ''}{pnlPercent.toFixed(2)}%)</span>
                     </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleQuickAction(pos, 'buy')}>
+                            Buy More
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleQuickAction(pos, 'sell')}>
+                            Sell Position
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 );
               })
@@ -89,6 +123,12 @@ export default function PositionsPage() {
           </TableBody>
         </Table>
       </div>
+
+      <TradeDialog
+        open={isTradeDialogOpen}
+        onOpenChange={setIsTradeDialogOpen}
+        trade={prefilledTrade}
+      />
     </div>
   );
 }

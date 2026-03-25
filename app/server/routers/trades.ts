@@ -20,6 +20,43 @@ export const tradesRouter = router({
       }
     });
   }),
+  getOpenQuantity: protectedProcedure
+    .input(z.object({
+      platformId: z.string(),
+      symbolId: z.string()
+    }))
+    .query(async ({ ctx, input }) => {
+      const { platformId, symbolId } = input;
+      const userId = ctx.session.user.id;
+
+      const buys = await db.query.trades.findMany({
+        where: and(
+          eq(trades.userId, userId),
+          eq(trades.platformId, platformId),
+          eq(trades.symbolId, symbolId),
+          eq(trades.tradeType, 'buy')
+        )
+      });
+
+      if (buys.length === 0) return 0;
+
+      const buyIds = buys.map(b => b.id);
+      const allMatches = await db.query.tradeLotMatches.findMany({
+        where: eq(tradeLotMatches.userId, userId)
+      });
+      
+      const scopeMatches = allMatches.filter(m => buyIds.includes(m.buyTradeId));
+
+      let totalOpen = 0;
+      for (const buy of buys) {
+        const buyQty = Number(buy.quantity);
+        const matchesForBuy = scopeMatches.filter(m => m.buyTradeId === buy.id);
+        const matchedSoFar = matchesForBuy.reduce((sum, m) => sum + Number(m.matchedQuantity), 0);
+        totalOpen += (buyQty - matchedSoFar);
+      }
+      
+      return totalOpen;
+    }),
   create: protectedProcedure
     .input(z.object({
       platformId: z.string(),
@@ -129,6 +166,39 @@ export const tradesRouter = router({
 
         return trade;
       });
+    }),
+  update: protectedProcedure
+    .input(z.object({
+      id: z.string(),
+      platformId: z.string(),
+      symbolId: z.string(),
+      bucketId: z.string(),
+      tradeType: z.enum(['buy', 'sell']),
+      tradeDate: z.string(),
+      quantity: z.string(),
+      price: z.string(),
+      fee: z.string().default('0'),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { id, platformId, symbolId, bucketId, tradeType, tradeDate, quantity, price, fee, notes } = input;
+      const userId = ctx.session.user.id;
+
+      await db.update(trades)
+        .set({
+          platformId,
+          symbolId,
+          bucketId,
+          tradeDate,
+          tradeType,
+          quantity,
+          price,
+          fee,
+          notes
+        })
+        .where(and(eq(trades.id, id), eq(trades.userId, userId)));
+      
+      return { success: true };
     }),
   delete: protectedProcedure
     .input(z.object({ id: z.string() }))

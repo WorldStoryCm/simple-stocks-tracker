@@ -12,7 +12,7 @@ export const quotesRouter = router({
 
       try {
         const quotes = await yahooFinance.quote(input.tickers);
-        const quotesArray = Array.isArray(quotes) ? quotes : [quotes];
+        const quotesArray = (Array.isArray(quotes) ? quotes : [quotes]) as any[];
         
         for (const q of quotesArray) {
           if (q && q.symbol) {

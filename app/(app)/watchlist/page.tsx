@@ -4,8 +4,8 @@ import { useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { Loader2, Trash2 } from "lucide-react";
 import { WatchlistDialog } from "@/components/watchlist/WatchlistDialog";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/card";
+import {Button} from "@/components/button";
 
 export default function WatchlistPage() {
   const { data: items, isLoading } = trpc.watchlist.list.useQuery();

@@ -37,7 +37,7 @@ const TabsTrigger = React.forwardRef<
     ref={ref}
     className={cn(
       [
-        "relative inline-flex items-center gap-2 cursor-pointer",
+        "relative inline-flex items-center justify-center gap-2 cursor-pointer",
         "h-8 px-1",
         "text-sm font-medium",
         "text-muted-foreground",

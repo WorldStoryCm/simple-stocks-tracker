@@ -12,6 +12,7 @@ import { format } from "date-fns";
 export default function TradesPage() {
   const { data: trades, isLoading } = trpc.trades.list.useQuery();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingTrade, setEditingTrade] = useState<any>(null);
 
   const utils = trpc.useUtils();
   const deleteMutation = trpc.trades.delete.useMutation({
@@ -34,7 +35,7 @@ export default function TradesPage() {
           <h1 className="text-3xl font-bold">Trading Ledger</h1>
           <p className="text-muted-foreground mt-1">Record your buys and sells here.</p>
         </div>
-        <Button onClick={() => setIsDialogOpen(true)}>
+        <Button onClick={() => { setEditingTrade(null); setIsDialogOpen(true); }}>
           <Plus className="mr-2 h-4 w-4" /> Add Trade
         </Button>
       </div>
@@ -50,7 +51,7 @@ export default function TradesPage() {
               <TableHead>Bucket</TableHead>
               <TableHead className="text-right">Price</TableHead>
               <TableHead className="text-right">Quantity</TableHead>
-              <TableHead className="text-right">Total Fee</TableHead>
+              <TableHead className="text-right">Total Volume</TableHead>
               <TableHead className="w-[80px]"></TableHead>
             </TableRow>
           </TableHeader>
@@ -87,7 +88,7 @@ export default function TradesPage() {
                   <TableCell>{trade.bucket.label}</TableCell>
                   <TableCell className="text-right">${Number(trade.price).toFixed(2)}</TableCell>
                   <TableCell className="text-right font-mono">{Number(trade.quantity).toFixed(4)}</TableCell>
-                  <TableCell className="text-right">${Number(trade.fee).toFixed(2)}</TableCell>
+                  <TableCell className="text-right">${(Number(trade.quantity) * Number(trade.price)).toFixed(2)}</TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -96,6 +97,9 @@ export default function TradesPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => { setEditingTrade(trade); setIsDialogOpen(true); }}>
+                          Edit Trade
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleDelete(trade.id)} className="text-destructive">
                           Delete Trade
                         </DropdownMenuItem>
@@ -112,6 +116,7 @@ export default function TradesPage() {
       <TradeDialog
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
+        trade={editingTrade}
       />
     </div>
   );

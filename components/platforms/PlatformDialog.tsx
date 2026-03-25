@@ -10,7 +10,6 @@ import {
   Dialog,
   DialogContent,
   DialogHeader,
-  DialogTitle,
   DialogFooter,
 } from "@/components/dialog";
 import {
@@ -110,9 +109,7 @@ export function PlatformDialog({ open, onOpenChange, platform }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>{isEditing ? "Edit Platform" : "Add Platform"}</DialogTitle>
-        </DialogHeader>
+        <DialogHeader title={isEditing ? "Edit Platform" : "Add Platform"} />
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
             <FormField
