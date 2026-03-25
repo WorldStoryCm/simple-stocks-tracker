@@ -27,7 +27,7 @@ import toast from "react-hot-toast";
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
   currencyCode: z.string().min(1, "Currency is required").max(3),
-  isActive: z.boolean().default(true),
+  isActive: z.boolean(),
   notes: z.string().optional(),
 });
 
