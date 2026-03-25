@@ -11,25 +11,53 @@ import { format } from "date-fns";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
-import { Input } from "@/components/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/Popover";
+import { ArrowUpDown, ArrowDown, ArrowUp, Search } from "lucide-react";
 
 export default function TradesPage() {
   const [page, setPage] = useState(1);
   const [actionFilter, setActionFilter] = useState("all");
   const [symbolFilter, setSymbolFilter] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [platformFilter, setPlatformFilter] = useState("all");
+  const [bucketFilter, setBucketFilter] = useState("all");
+  const [sortField, setSortField] = useState<"tradeDate"|"symbolId"|"platformId"|"tradeType"|"price"|"quantity"|"total">("tradeDate");
+  const [sortDir, setSortDir] = useState<"asc"|"desc">("desc");
+
+  const [symbolOpen, setSymbolOpen] = useState(false);
+  const [symbolSearch, setSymbolSearch] = useState("");
 
   const { data: symbols } = trpc.symbols.list.useQuery();
+  const { data: platforms } = trpc.platforms.list.useQuery();
+  const { data: buckets } = trpc.buckets.list.useQuery();
+
   const { data: tradesData, isLoading } = trpc.trades.list.useQuery({
     page,
     limit: 40,
     action: actionFilter,
     symbolId: symbolFilter !== "all" ? symbolFilter : undefined,
-    search: searchQuery || undefined,
+    platformId: platformFilter !== "all" ? platformFilter : undefined,
+    bucketId: bucketFilter !== "all" ? bucketFilter : undefined,
+    sortField,
+    sortDir,
   });
 
   const trades = tradesData?.items || [];
   const totalPages = tradesData?.totalPages || 1;
+
+  const toggleSort = (field: any) => {
+    if (sortField === field) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDir("desc");
+    }
+    setPage(1);
+  };
+
+  const SortIcon = ({ field }: { field: string }) => {
+    if (sortField !== field) return <ArrowUpDown className="ml-2 h-4 w-4 inline opacity-20" />;
+    return sortDir === "asc" ? <ArrowUp className="ml-2 h-4 w-4 inline" /> : <ArrowDown className="ml-2 h-4 w-4 inline" />;
+  };
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTrade, setEditingTrade] = useState<any>(null);
@@ -69,25 +97,59 @@ export default function TradesPage() {
           </TabsList>
         </Tabs>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto flex-1">
-          <Select value={symbolFilter} onValueChange={(v) => { setSymbolFilter(v); setPage(1); }}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="All Symbols" />
+        <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap flex-1">
+          <Popover open={symbolOpen} onOpenChange={setSymbolOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-[150px] justify-between font-normal">
+                {symbolFilter === "all" ? "All Symbols" : symbols?.find((s: any) => s.id === symbolFilter)?.ticker || "All Symbols"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[200px] p-0 shadow-lg border">
+              <div className="flex items-center border-b px-3">
+                <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                <input
+                  placeholder="Search symbol..."
+                  className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 border-0 focus-visible:ring-0"
+                  value={symbolSearch}
+                  onChange={(e) => setSymbolSearch(e.target.value)}
+                />
+              </div>
+              <div className="max-h-[300px] overflow-y-auto p-1">
+                <Button variant="ghost" className="w-full justify-start font-normal" onClick={() => { setSymbolFilter("all"); setSymbolOpen(false); }}>
+                  All Symbols
+                </Button>
+                {symbols?.filter((s: any) => s.ticker.toLowerCase().includes(symbolSearch.toLowerCase())).sort((a: any, b: any) => a.ticker.localeCompare(b.ticker)).map((s: any) => (
+                  <Button key={s.id} variant="ghost" className="w-full justify-start font-normal" onClick={() => { setSymbolFilter(s.id); setSymbolOpen(false); setPage(1); }}>
+                    {s.ticker}
+                  </Button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          <Select value={platformFilter} onValueChange={(v) => { setPlatformFilter(v); setPage(1); }}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="All Platforms" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Symbols</SelectItem>
-              {symbols?.slice().sort((a: any, b: any) => a.ticker.localeCompare(b.ticker)).map((s: any) => (
-                <SelectItem key={s.id} value={s.id}>{s.ticker}</SelectItem>
+              <SelectItem value="all">All Platforms</SelectItem>
+              {platforms?.map((p: any) => (
+                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
 
-          <Input 
-            placeholder="Search notes..." 
-            value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-            className="flex-1 min-w-[150px]"
-          />
+          <Select value={bucketFilter} onValueChange={(v) => { setBucketFilter(v); setPage(1); }}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="All Buckets" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Buckets</SelectItem>
+              {buckets?.map((b: any) => (
+                <SelectItem key={b.id} value={b.id}>{b.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -95,14 +157,14 @@ export default function TradesPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Action</TableHead>
-              <TableHead>Symbol</TableHead>
-              <TableHead>Platform</TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => toggleSort("tradeDate")}>Date <SortIcon field="tradeDate" /></TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => toggleSort("tradeType")}>Action <SortIcon field="tradeType" /></TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => toggleSort("symbolId")}>Symbol <SortIcon field="symbolId" /></TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => toggleSort("platformId")}>Platform <SortIcon field="platformId" /></TableHead>
               <TableHead>Bucket</TableHead>
-              <TableHead className="text-right">Price</TableHead>
-              <TableHead className="text-right">Quantity</TableHead>
-              <TableHead className="text-right">Total Volume</TableHead>
+              <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => toggleSort("price")}>Price <SortIcon field="price" /></TableHead>
+              <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => toggleSort("quantity")}>Quantity <SortIcon field="quantity" /></TableHead>
+              <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => toggleSort("total")}>Total Volume <SortIcon field="total" /></TableHead>
               <TableHead className="w-[80px]"></TableHead>
             </TableRow>
           </TableHeader>

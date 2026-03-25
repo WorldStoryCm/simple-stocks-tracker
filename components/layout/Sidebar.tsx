@@ -47,9 +47,6 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 export function Sidebar() {
   return (
     <div className="hidden md:flex w-64 flex-col border-r bg-card h-full">
-      <div className="flex h-16 items-center px-6 border-b">
-        <span className="text-xl font-bold font-mono tracking-tighter text-primary">Stocker.</span>
-      </div>
       <div className="flex-1 overflow-y-auto py-4">
         <SidebarNav />
       </div>

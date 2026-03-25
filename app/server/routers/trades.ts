@@ -8,7 +8,7 @@ import { TRPCError } from '@trpc/server';
 // It's safer to just use standard float arithmetic and Number() for v1, or Big() if installed.
 // We'll use Number for simplicity but caution floating points for exact accounting.
 
-import { ilike, SQL, count } from 'drizzle-orm';
+import { ilike, SQL, count, isNull, sql } from 'drizzle-orm';
 
 export const tradesRouter = router({
   list: protectedProcedure
@@ -17,10 +17,13 @@ export const tradesRouter = router({
       limit: z.number().min(1).max(100).default(40),
       action: z.string().default("all"),
       symbolId: z.string().optional(),
-      search: z.string().optional(),
+      platformId: z.string().optional(),
+      bucketId: z.string().optional(),
+      sortField: z.enum(["tradeDate", "symbolId", "platformId", "tradeType", "price", "quantity", "total"]).default("tradeDate"),
+      sortDir: z.enum(["asc", "desc"]).default("desc"),
     }).optional().default({}))
     .query(async ({ ctx, input }) => {
-      const { page, limit, action, symbolId, search } = input;
+      const { page, limit, action, symbolId, platformId, bucketId, sortField, sortDir } = input;
       const conditions: SQL[] = [eq(trades.userId, ctx.session.user.id)];
       
       if (action && action !== "all") {
@@ -29,15 +32,20 @@ export const tradesRouter = router({
       if (symbolId && symbolId !== "all") {
         conditions.push(eq(trades.symbolId, symbolId));
       }
-      if (search) {
-        conditions.push(ilike(trades.notes, `%${search}%`));
+      if (platformId && platformId !== "all") {
+        conditions.push(eq(trades.platformId, platformId));
+      }
+      if (bucketId && bucketId !== "all") {
+        conditions.push(eq(trades.bucketId, bucketId));
       }
 
       const whereClause = and(...conditions);
 
       const items = await db.query.trades.findMany({
         where: whereClause,
-        orderBy: [desc(trades.tradeDate), desc(trades.createdAt)],
+        orderBy: sortField === "total"
+          ? [sortDir === "desc" ? desc(sql`${trades.quantity} * ${trades.price}`) : asc(sql`${trades.quantity} * ${trades.price}`)]
+          : [sortDir === "desc" ? desc(trades[sortField]) : asc(trades[sortField])],
         limit,
         offset: (page - 1) * limit,
         with: {
@@ -98,7 +106,7 @@ export const tradesRouter = router({
     .input(z.object({
       platformId: z.string(),
       symbolId: z.string(),
-      bucketId: z.string(),
+      bucketId: z.string().optional(),
       tradeType: z.enum(['buy', 'sell']),
       tradeDate: z.string(), // YYYY-MM-DD
       quantity: z.string(), // decimal string
@@ -112,11 +120,13 @@ export const tradesRouter = router({
 
       return await db.transaction(async (tx) => {
         // 1. Insert the trade
+        const finalBucketId = (bucketId && bucketId.trim() !== "") ? bucketId : null;
+        
         const [trade] = await tx.insert(trades).values({
           userId,
           platformId,
           symbolId,
-          bucketId,
+          bucketId: finalBucketId,
           tradeType,
           tradeDate: tradeDate,
           quantity,
@@ -137,7 +147,7 @@ export const tradesRouter = router({
               eq(trades.userId, userId),
               eq(trades.platformId, platformId),
               eq(trades.symbolId, symbolId),
-              eq(trades.bucketId, bucketId),
+              finalBucketId === null ? isNull(trades.bucketId) : eq(trades.bucketId, finalBucketId),
               eq(trades.tradeType, 'buy')
             ),
             orderBy: [asc(trades.tradeDate), asc(trades.createdAt)],
@@ -209,7 +219,7 @@ export const tradesRouter = router({
       id: z.string(),
       platformId: z.string(),
       symbolId: z.string(),
-      bucketId: z.string(),
+      bucketId: z.string().optional(),
       tradeType: z.enum(['buy', 'sell']),
       tradeDate: z.string(),
       quantity: z.string(),
@@ -221,11 +231,13 @@ export const tradesRouter = router({
       const { id, platformId, symbolId, bucketId, tradeType, tradeDate, quantity, price, fee, notes } = input;
       const userId = ctx.session.user.id;
 
+      const finalBucketId = (bucketId && bucketId.trim() !== "") ? bucketId : null;
+
       await db.update(trades)
         .set({
           platformId,
           symbolId,
-          bucketId,
+          bucketId: finalBucketId,
           tradeDate,
           tradeType,
           quantity,
