@@ -35,7 +35,7 @@ export default function PlatformsPage() {
         </Button>
       </div>
 
-      <div className="rounded-md border bg-card">
+      <div className="rounded-md border bg-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -59,7 +59,7 @@ export default function PlatformsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              platforms?.map((platform) => (
+              platforms?.map((platform: any) => (
                 <TableRow key={platform.id}>
                   <TableCell className="font-medium">{platform.name}</TableCell>
                   <TableCell>{platform.currencyCode}</TableCell>

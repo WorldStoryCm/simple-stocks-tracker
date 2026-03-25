@@ -40,7 +40,7 @@ export default function TradesPage() {
         </Button>
       </div>
 
-      <div className="rounded-md border bg-card">
+      <div className="rounded-md border bg-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -69,7 +69,7 @@ export default function TradesPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              trades?.map((trade) => (
+              trades?.map((trade: any) => (
                 <TableRow key={trade.id}>
                   <TableCell>{format(new Date(trade.tradeDate), "MMM d, yyyy")}</TableCell>
                   <TableCell>

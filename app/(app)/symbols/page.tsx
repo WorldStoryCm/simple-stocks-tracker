@@ -35,7 +35,7 @@ export default function SymbolsPage() {
         </Button>
       </div>
 
-      <div className="rounded-md border bg-card">
+      <div className="rounded-md border bg-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -59,7 +59,7 @@ export default function SymbolsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              symbols?.map((sym) => (
+              symbols?.map((sym: any) => (
                 <TableRow key={sym.id}>
                   <TableCell className="font-bold">{sym.ticker}</TableCell>
                   <TableCell>{sym.displayName || "-"}</TableCell>

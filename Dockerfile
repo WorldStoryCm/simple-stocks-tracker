@@ -6,7 +6,7 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY ./package.json ././
 
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # ── Stage 2: Build ──
 FROM oven/bun:1-alpine AS build
