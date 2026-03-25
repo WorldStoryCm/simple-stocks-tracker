@@ -93,7 +93,7 @@ export default function PerformancePage() {
 
       <Card className="col-span-full mt-4">
         <CardContent className="pt-6">
-          <Tabs defaultValue="monthly" className="w-full">
+          <Tabs defaultValue="daily" className="w-full">
             <TabsList className="grid w-full grid-cols-3 sm:w-[400px]">
               <TabsTrigger value="daily">Daily</TabsTrigger>
               <TabsTrigger value="weekly">Weekly</TabsTrigger>
