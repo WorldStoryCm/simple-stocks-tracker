@@ -81,7 +81,6 @@ export default function TradesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Trading Ledger</h1>
-          <p className="text-muted-foreground mt-1">Record your buys and sells here.</p>
         </div>
         <Button onClick={() => { setEditingTrade(null); setIsDialogOpen(true); }}>
           <Plus className="mr-2 h-4 w-4" /> Add Trade

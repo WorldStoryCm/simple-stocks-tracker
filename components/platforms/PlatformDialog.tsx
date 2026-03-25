@@ -22,6 +22,7 @@ import {
 } from "@/components/Form"; // Assuming components/Form exists in a specific way
 import { Input } from "@/components/input";
 import { Switch } from "@/components/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select";
 import toast from "react-hot-toast";
 
 const formSchema = z.object({
@@ -80,7 +81,7 @@ export function PlatformDialog({ open, onOpenChange, platform }: Props) {
       utils.platforms.list.invalidate();
       onOpenChange(false);
     },
-    onError: (err) => {
+    onError: (err: any) => {
       toast.error(err.message || "Failed to create platform");
     }
   });
@@ -91,7 +92,7 @@ export function PlatformDialog({ open, onOpenChange, platform }: Props) {
       utils.platforms.list.invalidate();
       onOpenChange(false);
     },
-    onError: (err) => {
+    onError: (err: any) => {
       toast.error(err.message || "Failed to update platform");
     }
   });
@@ -132,9 +133,22 @@ export function PlatformDialog({ open, onOpenChange, platform }: Props) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Base Currency</FormLabel>
-                  <FormControl>
-                    <Input placeholder="USD, EUR..." {...field} />
-                  </FormControl>
+                  <Select onValueChange={field.onChange} defaultValue={field.value || "USD"}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a currency" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="USD">USD - US Dollar</SelectItem>
+                      <SelectItem value="EUR">EUR - Euro</SelectItem>
+                      <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                      <SelectItem value="AUD">AUD - Australian Dollar</SelectItem>
+                      <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
+                      <SelectItem value="CHF">CHF - Swiss Franc</SelectItem>
+                      <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

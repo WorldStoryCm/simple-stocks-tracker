@@ -3,11 +3,24 @@ import { db } from '@/db/drizzle';
 import { trades, tradeLotMatches, platforms, buckets } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { format, startOfWeek } from 'date-fns';
+import { getExchangeRates, convertToUSD } from '@/lib/exchange-rates';
 
 export const performanceRouter = router({
   stats: protectedProcedure.query(async ({ ctx }) => {
     const userId = ctx.session.user.id;
     
+    const rates = await getExchangeRates();
+    const allPlatforms = await db.query.platforms.findMany({ where: eq(platforms.userId, userId) });
+    const allBuckets = await db.query.buckets.findMany({ where: eq(buckets.userId, userId) });
+    
+    const platformMap = new Map(allPlatforms.map(p => [p.id, p]));
+    const bucketMap = new Map(allBuckets.map(b => [b.id, b]));
+    
+    const getPlatformCurrency = (pId: string | null | undefined) => {
+      if (!pId) return "USD";
+      return platformMap.get(pId)?.currencyCode || "USD";
+    };
+
     // In v1 we do in-memory aggregations for simplicity.
     const allMatches = await db.query.tradeLotMatches.findMany({
       where: eq(tradeLotMatches.userId, userId),
@@ -30,17 +43,18 @@ export const performanceRouter = router({
     const monthlyPnl: Record<string, number> = {};
 
     allMatches.forEach(match => {
-      const pnl = Number(match.realizedPnl);
+      const pId = match.sellTrade?.platformId;
+      const currency = getPlatformCurrency(pId);
+      const rawPnl = Number(match.realizedPnl);
+      const pnl = convertToUSD(rawPnl, currency, rates);
+      
       totalRealizedPnl += pnl;
       if (pnl > 0) winningTrades++;
 
       if (match.sellTrade) {
-        // Safe check for valid tradeDate string
         if (!match.sellTrade.tradeDate) return;
 
-        // Use UTC or simple split to avoid timezone drifting dates
         const dateStr = match.sellTrade.tradeDate; // "YYYY-MM-DD"
-        // date-fns parsing from standard YYYY-MM-DD correctly in local time
         const date = new Date(dateStr + "T00:00:00");
         
         // Daily
@@ -58,14 +72,18 @@ export const performanceRouter = router({
       }
     });
 
-    const positionsMap = new Map<string, { platformId: string; bucketId: string | null; bought: number; sold: number; cost: number }>();
+    const positionsMap = new Map<string, { platformId: string; bucketId: string | null; bought: number; sold: number; costUSD: number }>();
 
     allTrades.forEach(t => {
       if (t.tradeType === 'buy') {
         const key = `${t.platformId}_${t.symbolId}_${t.bucketId}`;
-        const p = positionsMap.get(key) || { platformId: t.platformId, bucketId: t.bucketId, bought: 0, sold: 0, cost: 0 };
+        const p = positionsMap.get(key) || { platformId: t.platformId, bucketId: t.bucketId, bought: 0, sold: 0, costUSD: 0 };
         p.bought += Number(t.quantity);
-        p.cost += Number(t.quantity) * Number(t.price) + Number(t.fee);
+        
+        const buyCost = Number(t.quantity) * Number(t.price) + Number(t.fee);
+        const buyCostUSD = convertToUSD(buyCost, getPlatformCurrency(t.platformId), rates);
+        p.costUSD += buyCostUSD;
+        
         positionsMap.set(key, p);
       }
     });
@@ -85,21 +103,15 @@ export const performanceRouter = router({
     Array.from(positionsMap.values()).forEach(p => {
       const openQty = p.bought - p.sold;
       const openRatio = p.bought > 0 ? openQty / p.bought : 0;
-      const openCost = p.cost * openRatio;
-      totalInvested += openCost;
+      const openCostUSD = p.costUSD * openRatio;
       
-      if (openCost > 0) {
-        platformCostMap.set(p.platformId, (platformCostMap.get(p.platformId) || 0) + openCost);
-        bucketCostMap.set(p.bucketId || "uncategorized", (bucketCostMap.get(p.bucketId || "uncategorized") || 0) + openCost);
+      totalInvested += openCostUSD;
+      
+      if (openCostUSD > 0) {
+        platformCostMap.set(p.platformId, (platformCostMap.get(p.platformId) || 0) + openCostUSD);
+        bucketCostMap.set(p.bucketId || "uncategorized", (bucketCostMap.get(p.bucketId || "uncategorized") || 0) + openCostUSD);
       }
     });
-
-    // Fetch names for labels
-    const allPlatforms = await db.query.platforms.findMany({ where: eq(platforms.userId, userId) });
-    const allBuckets = await db.query.buckets.findMany({ where: eq(buckets.userId, userId) });
-    
-    const platformMap = new Map(allPlatforms.map(p => [p.id, p]));
-    const bucketMap = new Map(allBuckets.map(b => [b.id, b]));
 
     const investedPerPlatform = Array.from(platformCostMap.entries()).map(([id, amount]) => ({
       name: platformMap.get(id)?.name || 'Unknown',
