@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Stock Tracker",
+  title: "Stock",
   description: "Track your trades and watchlists",
 };
 

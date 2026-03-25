@@ -30,9 +30,6 @@ export function Header() {
             <VisuallyHidden>
               <SheetTitle>Navigation Menu</SheetTitle>
             </VisuallyHidden>
-            <div className="flex h-16 items-center px-6 border-b">
-              <span className="text-xl font-bold font-mono tracking-tighter text-primary">Stock</span>
-            </div>
             <div className="flex-1 overflow-y-auto py-4">
               <SidebarNav onNavigate={() => setOpen(false)} />
             </div>
