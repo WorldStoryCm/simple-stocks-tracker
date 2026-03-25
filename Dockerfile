@@ -20,11 +20,9 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Better Auth needs these at build time to avoid warnings during page collection
-ARG RESEND_API_KEY
 ARG BETTER_AUTH_SECRET
 
 # Set them as environment variables for the build
-ENV RESEND_API_KEY=$RESEND_API_KEY
 ENV BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET
 
 # Build the Next.js app (standalone output)
