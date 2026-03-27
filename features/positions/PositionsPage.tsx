@@ -110,7 +110,7 @@ export function PositionsPage() {
   const paginatedPositions = filteredPositions.slice((page - 1) * limit, page * limit);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Unrealized Positions</h1>
@@ -191,7 +191,7 @@ export function PositionsPage() {
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody className="animate-stagger-in">
             {isLoading ? (
               <TableRow>
                 <TableCell colSpan={10} className="h-24 text-center">
@@ -218,9 +218,9 @@ export function PositionsPage() {
                     <TableCell className="font-bold">{pos.symbol.ticker}</TableCell>
                     <TableCell>{pos.platform.name}</TableCell>
                     <TableCell>{pos.bucket?.label || <span className="text-muted-foreground italic">None</span>}</TableCell>
-                    <TableCell className="text-right font-mono">{Number(pos.openQty).toFixed(4)}</TableCell>
-                    <TableCell className="text-right">${Number(pos.avgCost).toFixed(2)}</TableCell>
-                    <TableCell className="text-right">${investedAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                    <TableCell className="text-right tabular-nums font-medium">{Number(pos.openQty).toFixed(4)}</TableCell>
+                    <TableCell className="text-right tabular-nums">${Number(pos.avgCost).toFixed(2)}</TableCell>
+                    <TableCell className="text-right tabular-nums">${investedAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
                     <TableCell className="text-right font-medium">
                       ${marketPrice.toFixed(2)}
                       {quote && <span className={`ml-1 text-xs ${quote.changePercent >= 0 ? "text-green-500" : "text-red-500"}`}>

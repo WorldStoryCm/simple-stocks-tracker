@@ -77,7 +77,7 @@ export function TradesPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Trading Ledger</h1>
@@ -167,7 +167,7 @@ export function TradesPage() {
               <TableHead className="w-[80px]"></TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody className="animate-stagger-in">
             {isLoading ? (
               <TableRow>
                 <TableCell colSpan={9} className="h-24 text-center">
@@ -198,9 +198,9 @@ export function TradesPage() {
                   <TableCell className="font-bold">{trade.symbol.ticker}</TableCell>
                   <TableCell>{trade.platform.name}</TableCell>
                   <TableCell>{trade.bucket.label}</TableCell>
-                  <TableCell className="text-right">${Number(trade.price).toFixed(2)}</TableCell>
-                  <TableCell className="text-right font-mono">{Number(trade.quantity).toFixed(4)}</TableCell>
-                  <TableCell className="text-right">${(Number(trade.quantity) * Number(trade.price)).toFixed(2)}</TableCell>
+                  <TableCell className="text-right tabular-nums">${Number(trade.price).toFixed(2)}</TableCell>
+                  <TableCell className="text-right tabular-nums font-medium">{Number(trade.quantity).toFixed(4)}</TableCell>
+                  <TableCell className="text-right tabular-nums font-bold">${(Number(trade.quantity) * Number(trade.price)).toFixed(2)}</TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
