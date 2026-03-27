@@ -1,6 +1,8 @@
 import { router, protectedProcedure } from '../trpc';
 import { z } from 'zod';
-import yahooFinance from 'yahoo-finance2';
+import YahooFinance from 'yahoo-finance2';
+
+const yahooFinance = new YahooFinance();
 
 export const quotesRouter = router({
   getMany: protectedProcedure

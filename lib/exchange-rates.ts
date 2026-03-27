@@ -1,14 +1,14 @@
-type ExchangeRatesValidResponse = {
-  result: "success";
-  rates: Record<string, number>;
-  time_next_update_unix: number;
-};
+import YahooFinance from 'yahoo-finance2';
 
-// Simple global memory cache to prevent spamming the free API on every Dashboard load
+const yahooFinance = new YahooFinance();
+
+// Simple global memory cache to prevent spamming the Yahoo API on every Dashboard load
 let globalRatesCache: Record<string, number> | null = null;
 let cacheExpiryUnix = 0;
 
-export async function getExchangeRates(base = "USD"): Promise<Record<string, number>> {
+const SUPPORTED_CURRENCIES = ["EUR", "GBP", "AUD", "CAD", "CHF", "JPY"];
+
+export async function getExchangeRates(): Promise<Record<string, number>> {
   const now = Math.floor(Date.now() / 1000);
 
   // Return cached rates if valid
@@ -17,23 +17,30 @@ export async function getExchangeRates(base = "USD"): Promise<Record<string, num
   }
 
   try {
-    const res = await fetch(`https://open.er-api.com/v6/latest/${base}`);
-    if (!res.ok) {
-      console.error("Exchange API returned non-ok status:", res.status);
-      return globalRatesCache || { "USD": 1 }; // Fallback to stale or 1:1 format
+    const pairs = SUPPORTED_CURRENCIES.map(c => `${c}USD=X`);
+    const quotes = await yahooFinance.quote(pairs);
+    const quotesArray = (Array.isArray(quotes) ? quotes : [quotes]) as any[];
+
+    const newRates: Record<string, number> = { "USD": 1 };
+    
+    for (const q of quotesArray) {
+      if (q && q.symbol && q.regularMarketPrice) {
+        // q.symbol is like 'EURUSD=X'
+        const currency = q.symbol.substring(0, 3);
+        newRates[currency] = q.regularMarketPrice;
+      }
     }
 
-    const data: ExchangeRatesValidResponse = await res.json();
-    if (data.result === "success" && data.rates) {
-      globalRatesCache = data.rates;
-      // The API specifies next update time, otherwise assume 1 hour
-      cacheExpiryUnix = data.time_next_update_unix || (now + 3600);
+    if (Object.keys(newRates).length > 1) {
+      globalRatesCache = newRates;
+      // Cache for 15 minutes as Yahoo quotes are live market data
+      cacheExpiryUnix = now + 900;
       return globalRatesCache;
     }
     
     return globalRatesCache || { "USD": 1 };
   } catch (err) {
-    console.error("Failed to fetch exchange rates", err);
+    console.error("Failed to fetch exchange rates via YahooFinance", err);
     return globalRatesCache || { "USD": 1 };
   }
 }
@@ -45,10 +52,9 @@ export async function getExchangeRates(base = "USD"): Promise<Record<string, num
 export function convertToUSD(amount: number, fromCurrency: string, rates: Record<string, number>): number {
   if (fromCurrency === "USD" || !fromCurrency) return amount;
   
-  const rate = rates[fromCurrency];
-  if (!rate) return amount; // Fallback strictly if rate completely missing
+  // Now our rates array holds direct USD multipliers! (e.g. 1 EUR = 1.08 USD)
+  const multiplier = rates[fromCurrency];
+  if (!multiplier) return amount; // Fallback strictly if rate completely missing
   
-  // ER API defines rates as: 1 Base (USD) = X Target (EUR)
-  // So to go Target -> Base, divide by rate:
-  return amount / rate;
+  return amount * multiplier;
 }
