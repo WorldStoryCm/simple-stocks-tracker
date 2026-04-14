@@ -10,6 +10,7 @@ import { TradeDialog } from "@/components/trades/TradeDialog";
 import { ViewPositionDialog } from "@/components/positions/ViewPositionDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/Popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select";
+import { formatAmount, formatPrice, currencySymbol } from "@/lib/currency";
 
 export function PositionsPage() {
   const { data: positions, isLoading } = trpc.positions.list.useQuery();
@@ -228,15 +229,15 @@ export function PositionsPage() {
                     <TableCell>{pos.platform.name}</TableCell>
                     <TableCell>{pos.bucket?.label || <span className="text-muted-foreground italic">None</span>}</TableCell>
                     <TableCell className="text-right tabular-nums font-medium">{Number(pos.openQty).toFixed(4)}</TableCell>
-                    <TableCell className="text-right tabular-nums">${Number(pos.avgCost).toFixed(2)}</TableCell>
-                    <TableCell className="text-right tabular-nums">${investedAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatPrice(Number(pos.avgCost), pos.currencyCode || 'USD')}</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatAmount(investedAmount, pos.currencyCode || 'USD')}</TableCell>
                     <TableCell className="text-right font-medium">
-                      ${marketPrice.toFixed(2)}
+                      {formatPrice(marketPrice, quote?.currency || pos.currencyCode || 'USD')}
                       {quote && <span className={`ml-1 text-xs ${quote.changePercent >= 0 ? "text-green-500" : "text-red-500"}`}>
                         ({quote.changePercent >= 0 ? '+' : ''}{quote.changePercent.toFixed(2)}%)
                       </span>}
                     </TableCell>
-                    <TableCell className={`text-right font-medium ${currentVal < investedAmount ? "text-red-500 dark:text-red-400" : ""}`}>${currentVal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                    <TableCell className={`text-right font-medium ${currentVal < investedAmount ? "text-red-500 dark:text-red-400" : ""}`}>{formatAmount(currentVal, quote?.currency || pos.currencyCode || 'USD')}</TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

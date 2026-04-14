@@ -195,6 +195,8 @@ export function TradeDialog({ open, onOpenChange, trade }: { open: boolean, onOp
   const watchPlatformId = form.watch("platformId");
   const watchSymbol = form.watch("symbolId");
 
+  const selectedPlatformCurrency = platforms?.find((p: any) => p.id === watchPlatformId)?.currencyCode || null;
+
   const { data: openQty } = trpc.trades.getOpenQuantity.useQuery(
     { platformId: watchPlatformId, symbolId: watchSymbol },
     { enabled: watchTradeType === "sell" && !!watchPlatformId && !!watchSymbol && watchSymbol !== "new" }
@@ -282,6 +284,13 @@ export function TradeDialog({ open, onOpenChange, trade }: { open: boolean, onOp
                 <FormMessage />
               </FormItem>
             )} />
+
+            {selectedPlatformCurrency && selectedPlatformCurrency !== 'USD' && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 border rounded-md px-3 py-1.5">
+                <span className="font-medium text-foreground">{selectedPlatformCurrency}</span>
+                <span>Prices for this broker are recorded in {selectedPlatformCurrency}</span>
+              </div>
+            )}
 
             <div className="grid grid-cols-3 gap-4">
               <FormField control={form.control} name="quantity" render={({ field }) => (

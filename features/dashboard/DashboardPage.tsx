@@ -3,11 +3,69 @@
 import { useSession } from "@/lib/auth-client";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, Target, TrendingUp, TrendingDown } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from "recharts";
+import { Progress } from "@/components/progress";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#a28bfe', '#ff7675', '#fdcb6e', '#e17055', '#d63031', '#e84393'];
+
+const GOAL_LABELS: Record<string, { label: string; period: string }> = {
+  monthly_profit: { label: "Monthly Goal", period: "this month" },
+  yearly_profit: { label: "Yearly Goal", period: "this year" },
+};
+
+function GoalProgressCard({ goal }: { goal: { goalType: string; target: number; current: number } }) {
+  const meta = GOAL_LABELS[goal.goalType] ?? { label: goal.goalType, period: "" };
+  const pct = goal.target > 0 ? Math.min((goal.current / goal.target) * 100, 100) : 0;
+  const remaining = goal.target - goal.current;
+  const isAhead = goal.current >= goal.target;
+  const isNegative = goal.current < 0;
+
+  return (
+    <Card className="flex flex-col gap-1">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+            <Target className="h-4 w-4" />
+            {meta.label}
+          </CardTitle>
+          {isAhead ? (
+            <span className="text-xs font-semibold text-green-500 flex items-center gap-1">
+              <TrendingUp className="h-3.5 w-3.5" /> On target
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">{pct.toFixed(0)}%</span>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <div className="flex items-baseline gap-1">
+          <span className={`text-2xl font-bold ${isNegative ? "text-red-500" : isAhead ? "text-green-500" : ""}`}>
+            {goal.current >= 0 ? "+" : ""}${goal.current.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+          <span className="text-sm text-muted-foreground">
+            / ${goal.target.toLocaleString(undefined, { minimumFractionDigits: 0 })}
+          </span>
+        </div>
+
+        <Progress
+          value={Math.max(0, pct)}
+          className="h-2"
+        />
+
+        <p className="text-xs text-muted-foreground">
+          {isAhead
+            ? `$${Math.abs(goal.current - goal.target).toLocaleString(undefined, { minimumFractionDigits: 2 })} above target ${meta.period}`
+            : isNegative
+            ? `${meta.period} P/L is negative`
+            : `$${remaining.toLocaleString(undefined, { minimumFractionDigits: 2 })} remaining ${meta.period}`
+          }
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
 
 export function DashboardPage() {
   const { data: session } = useSession();
@@ -21,7 +79,10 @@ export function DashboardPage() {
         </div>
       );
     }
-    
+
+    // Reverse so most recent is at top
+    const reversed = [...dataObj.data].reverse();
+
     return (
       <div className="space-y-4 pt-2">
         <div className="flex items-center justify-between text-sm pb-3 border-b border-border/50 bg-muted/30 p-2 rounded-lg">
@@ -29,11 +90,29 @@ export function DashboardPage() {
           <span className="text-muted-foreground">Min: <span className={dataObj.min >= 0 ? "text-green-500 font-medium" : "text-red-500 font-medium"}>${dataObj.min.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
           <span className="text-muted-foreground">Max: <span className={dataObj.max >= 0 ? "text-green-500 font-medium" : "text-red-500 font-medium"}>${dataObj.max.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
         </div>
-        <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 px-1">
-          {dataObj.data.map((m: any, i: number) => (
-            <div key={i} className="flex items-center justify-between border-b border-border/50 pb-3 last:border-0 last:pb-0">
-              <div className="font-medium text-lg">{m.period}</div>
-              <div className={`font-bold text-lg ${m.pnl >= 0 ? "text-green-500" : "text-red-500"}`}>
+        <div className="space-y-1 max-h-[300px] overflow-y-auto pr-2 px-1">
+          {reversed.map((m: any, i: number) => (
+            <div
+              key={i}
+              className={`flex items-center justify-between rounded-md px-3 py-2 ${
+                m.pnl === 0
+                  ? "opacity-40"
+                  : m.pnl > 0
+                  ? "bg-green-500/5 hover:bg-green-500/10"
+                  : "bg-red-500/5 hover:bg-red-500/10"
+              } transition-colors`}
+            >
+              <div className="flex items-center gap-2">
+                {m.pnl > 0 ? (
+                  <TrendingUp className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                ) : m.pnl < 0 ? (
+                  <TrendingDown className="h-3.5 w-3.5 text-red-500 shrink-0" />
+                ) : (
+                  <span className="h-3.5 w-3.5 shrink-0" />
+                )}
+                <span className="font-medium">{m.period}</span>
+              </div>
+              <div className={`font-bold tabular-nums ${m.pnl >= 0 ? "text-green-500" : "text-red-500"}`}>
                 {m.pnl >= 0 ? "+" : ""}${m.pnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
             </div>
@@ -43,14 +122,17 @@ export function DashboardPage() {
     );
   };
 
+  const hasGoals = (perf?.goalProgress?.length ?? 0) > 0;
+
   return (
     <div className="flex flex-col gap-6 animate-stagger-in">
       <h1 className="text-3xl font-bold">Welcome back, {session?.user?.name?.split(' ')[0] || "Trader"}</h1>
-      
+
       {isLoading ? (
         <div className="flex justify-center p-8"><Loader2 className="animate-spin text-muted-foreground w-8 h-8" /></div>
       ) : (
         <>
+          {/* Top stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card>
               <CardHeader className="pb-2">
@@ -60,7 +142,7 @@ export function DashboardPage() {
                 <div className="text-2xl font-bold">${(perf?.totalInvested || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Realized P/L</CardTitle>
@@ -71,9 +153,23 @@ export function DashboardPage() {
                 </div>
               </CardContent>
             </Card>
-
           </div>
 
+          {/* Goal Progress */}
+          {hasGoals && (
+            <div>
+              <h2 className="text-base font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+                <Target className="h-4 w-4" /> Profit Goals
+              </h2>
+              <div className={`grid gap-4 ${perf!.goalProgress.length === 1 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-2"}`}>
+                {perf!.goalProgress.map((g: any) => (
+                  <GoalProgressCard key={g.goalType} goal={g} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Pie charts */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
               <CardHeader className="pb-2">
@@ -114,11 +210,10 @@ export function DashboardPage() {
             </Card>
           </div>
 
-          <Card className="">
+          {/* Performance Logs */}
+          <Card>
             <CardHeader className="pb-4 border-b">
-              <div className="flex items-center justify-between">
-                <CardTitle>Performance Logs</CardTitle>
-              </div>
+              <CardTitle>Performance Logs</CardTitle>
             </CardHeader>
             <CardContent className="pt-4">
               <Tabs defaultValue="daily" className="w-full">

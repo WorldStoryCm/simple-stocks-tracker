@@ -8,7 +8,7 @@ export const quotesRouter = router({
   getMany: protectedProcedure
     .input(z.object({ tickers: z.array(z.string()) }))
     .query(async ({ input }) => {
-      const results: Record<string, { price: number; changePercent: number }> = {};
+      const results: Record<string, { price: number; changePercent: number; currency: string }> = {};
       
       if (input.tickers.length === 0) return results;
 
@@ -20,7 +20,8 @@ export const quotesRouter = router({
           if (q && q.symbol) {
             results[q.symbol] = {
               price: q.regularMarketPrice || 0,
-              changePercent: q.regularMarketChangePercent || 0
+              changePercent: q.regularMarketChangePercent || 0,
+              currency: (q.currency || 'USD').toUpperCase(),
             };
           }
         }
@@ -29,5 +30,5 @@ export const quotesRouter = router({
       }
 
       return results;
-    })
+    }),
 });

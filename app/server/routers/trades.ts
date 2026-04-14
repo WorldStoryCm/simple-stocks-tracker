@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc';
 import { db } from '@/db/drizzle';
-import { trades, tradeLotMatches } from '@/db/schema';
+import { trades, tradeLotMatches, platforms } from '@/db/schema';
 import { eq, and, desc, asc } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 
@@ -118,6 +118,12 @@ export const tradesRouter = router({
       const { platformId, symbolId, bucketId, tradeType, tradeDate, quantity, price, fee, notes } = input;
       const userId = ctx.session.user.id;
 
+      // Resolve platform currency so trades are tagged correctly from the start
+      const platform = await db.query.platforms.findFirst({
+        where: and(eq(platforms.id, platformId), eq(platforms.userId, userId)),
+      });
+      const currencyCode = platform?.currencyCode || 'USD';
+
       return await db.transaction(async (tx) => {
         // 1. Insert the trade
         const finalBucketId = (bucketId && bucketId.trim() !== "") ? bucketId : null;
@@ -132,6 +138,7 @@ export const tradesRouter = router({
           quantity,
           price,
           fee,
+          currencyCode,
           notes,
         }).returning();
 

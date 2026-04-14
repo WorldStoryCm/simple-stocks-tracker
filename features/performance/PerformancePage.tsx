@@ -3,8 +3,51 @@
 import { trpc } from "@/lib/trpc";
 import { Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import {
+  ComposedChart,
+  Bar,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+  ReferenceLine,
+  CartesianGrid,
+} from "recharts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
+
+const GREEN = "hsl(142, 71%, 45%)";
+const RED = "hsl(0, 84%, 60%)";
+const ZERO_LINE = "hsl(220, 9%, 46%)";
+const CUMULATIVE_LINE = "hsl(217, 91%, 60%)";
+
+function buildCumulative(data: { period: string; pnl: number }[]) {
+  let running = 0;
+  return data.map((d) => {
+    running += d.pnl;
+    return { ...d, cumulative: running };
+  });
+}
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  const pnl = payload.find((p: any) => p.dataKey === "pnl")?.value ?? 0;
+  const cum = payload.find((p: any) => p.dataKey === "cumulative")?.value;
+  return (
+    <div className="rounded-lg border bg-card shadow-lg px-3 py-2 text-sm">
+      <p className="font-semibold text-muted-foreground mb-1">{label}</p>
+      <p className={`font-bold ${pnl >= 0 ? "text-green-500" : "text-red-500"}`}>
+        P/L: ${Number(pnl).toFixed(2)}
+      </p>
+      {cum !== undefined && (
+        <p className="text-blue-400 text-xs mt-0.5">
+          Cumulative: ${Number(cum).toFixed(2)}
+        </p>
+      )}
+    </div>
+  );
+};
 
 export function PerformancePage() {
   const { data: stats, isLoading } = trpc.performance.stats.useQuery();
@@ -30,32 +73,93 @@ export function PerformancePage() {
       );
     }
 
+    const enriched = buildCumulative(dataObj.data);
+    const hasAnyNonZero = enriched.some((d) => d.pnl !== 0);
+
     return (
       <Card className="col-span-full mt-4 border-0 shadow-none">
         <CardHeader className="px-0 pt-0">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <CardTitle>{title} Performance</CardTitle>
-            <div className="flex items-center gap-4 mt-2 sm:mt-0 text-sm font-medium bg-muted/50 p-2 rounded-lg border">
-              <span className="text-muted-foreground">Avg: <span className={dataObj.average >= 0 ? "text-green-500" : "text-red-500"}>${dataObj.average.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
-              <span className="text-muted-foreground">Min: <span className={dataObj.min >= 0 ? "text-green-500" : "text-red-500"}>${dataObj.min.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
-              <span className="text-muted-foreground">Max: <span className={dataObj.max >= 0 ? "text-green-500" : "text-red-500"}>${dataObj.max.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
+            <div className="flex items-center gap-4 text-sm font-medium bg-muted/50 p-2 rounded-lg border">
+              <span className="text-muted-foreground">
+                Avg:{" "}
+                <span className={dataObj.average >= 0 ? "text-green-500" : "text-red-500"}>
+                  ${dataObj.average.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </span>
+              <span className="text-muted-foreground">
+                Min:{" "}
+                <span className={dataObj.min >= 0 ? "text-green-500" : "text-red-500"}>
+                  ${dataObj.min.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </span>
+              <span className="text-muted-foreground">
+                Max:{" "}
+                <span className={dataObj.max >= 0 ? "text-green-500" : "text-red-500"}>
+                  ${dataObj.max.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </span>
             </div>
+          </div>
+          {/* Legend */}
+          <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block w-3 h-3 rounded-sm" style={{ background: GREEN }} />
+              Profit
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block w-3 h-3 rounded-sm" style={{ background: RED }} />
+              Loss
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block w-6 h-0.5 rounded" style={{ background: CUMULATIVE_LINE }} />
+              Cumulative
+            </span>
           </div>
         </CardHeader>
         <CardContent className="h-[400px] px-0">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={dataObj.data}>
-              <XAxis dataKey="period" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis
-                stroke="#888888"
-                fontSize={12}
+            <ComposedChart data={enriched} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,9%,22%)" vertical={false} />
+              <XAxis
+                dataKey="period"
+                stroke={ZERO_LINE}
+                fontSize={11}
                 tickLine={false}
                 axisLine={false}
-                tickFormatter={(value) => `$${value}`}
+                interval="preserveStartEnd"
               />
-              <Tooltip formatter={(value: any) => [`$${Number(value).toFixed(2)}`, 'P/L']} />
-              <Bar dataKey="pnl" fill="currentColor" radius={[4, 4, 0, 0]} className="fill-primary" />
-            </BarChart>
+              <YAxis
+                stroke={ZERO_LINE}
+                fontSize={11}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(v) => `$${v}`}
+                width={60}
+              />
+              <ReferenceLine y={0} stroke={ZERO_LINE} strokeDasharray="4 2" strokeWidth={1.5} />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: "hsl(220,9%,22%,0.4)" }} />
+              <Bar dataKey="pnl" radius={[3, 3, 0, 0]} maxBarSize={40}>
+                {enriched.map((entry, idx) => (
+                  <Cell
+                    key={idx}
+                    fill={entry.pnl >= 0 ? GREEN : RED}
+                    opacity={entry.pnl === 0 ? 0.25 : 1}
+                  />
+                ))}
+              </Bar>
+              {hasAnyNonZero && (
+                <Line
+                  type="monotone"
+                  dataKey="cumulative"
+                  stroke={CUMULATIVE_LINE}
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 4, fill: CUMULATIVE_LINE }}
+                />
+              )}
+            </ComposedChart>
           </ResponsiveContainer>
         </CardContent>
       </Card>

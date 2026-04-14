@@ -101,7 +101,7 @@ export const goals = pgTable(
   {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-    goalType: text("goal_type", { enum: ["weekly_profit"] }).notNull().default("weekly_profit"),
+    goalType: text("goal_type", { enum: ["monthly_profit", "yearly_profit"] }).notNull().default("monthly_profit"),
     amount: decimal("amount", { precision: 14, scale: 2 }).notNull(),
     isActive: boolean("is_active").notNull().default(true),
     startsAt: timestamp("starts_at", { withTimezone: true }),

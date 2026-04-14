@@ -5,6 +5,7 @@ import { TrendingUp, TrendingDown, ShoppingCart, ArrowUpFromLine } from "lucide-
 import { Dialog, DialogContent, DialogHeader } from "@/components/dialog";
 import { Button } from "@/components/button";
 import { TradeDialog } from "@/components/trades/TradeDialog";
+import { formatAmount, formatPrice, currencySymbol } from "@/lib/currency";
 
 interface ViewPositionDialogProps {
   open: boolean;
@@ -18,6 +19,9 @@ export function ViewPositionDialog({ open, onOpenChange, pos, quote }: ViewPosit
   const [prefilledTrade, setPrefilledTrade] = useState<any>(null);
 
   if (!pos) return null;
+
+  const platformCurrency = pos.currencyCode || 'USD';
+  const quoteCurrency = quote?.currency || platformCurrency;
 
   const marketPrice = quote?.price || Number(pos.avgCost);
   const currentVal = Number(pos.openQty) * marketPrice;
@@ -58,7 +62,7 @@ export function ViewPositionDialog({ open, onOpenChange, pos, quote }: ViewPosit
               <div className="text-right">
                 <div className="font-bold text-lg leading-tight">
                   {isProfit ? "+" : ""}
-                  {pnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {formatAmount(pnl, quoteCurrency)}
                 </div>
                 <div className="text-xs opacity-80">
                   {isProfit ? "+" : ""}
@@ -70,13 +74,13 @@ export function ViewPositionDialog({ open, onOpenChange, pos, quote }: ViewPosit
             {/* Stats Grid */}
             <div className="grid grid-cols-2 gap-3">
               <StatRow label="Open Qty" value={Number(pos.openQty).toFixed(4)} />
-              <StatRow label="Avg Cost" value={`$${Number(pos.avgCost).toFixed(2)}`} />
-              <StatRow label="Invested" value={`$${investedAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} />
+              <StatRow label={`Avg Cost (${platformCurrency})`} value={formatPrice(Number(pos.avgCost), platformCurrency)} />
+              <StatRow label={`Invested (${platformCurrency})`} value={formatAmount(investedAmount, platformCurrency)} />
               <StatRow
-                label="Live Price"
+                label={`Live Price (${quoteCurrency})`}
                 value={
                   <span>
-                    ${marketPrice.toFixed(2)}
+                    {formatPrice(marketPrice, quoteCurrency)}
                     {quote && (
                       <span
                         className={`ml-1 text-xs ${
@@ -91,8 +95,8 @@ export function ViewPositionDialog({ open, onOpenChange, pos, quote }: ViewPosit
                 }
               />
               <StatRow
-                label="Current Value"
-                value={`$${currentVal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                label={`Current Value (${quoteCurrency})`}
+                value={formatAmount(currentVal, quoteCurrency)}
                 className={currentVal < investedAmount ? "text-red-500 dark:text-red-400" : ""}
               />
               <StatRow label="Bucket" value={pos.bucket?.label || <span className="text-muted-foreground italic">None</span>} />

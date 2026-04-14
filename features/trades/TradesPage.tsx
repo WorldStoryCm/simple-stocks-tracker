@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/Popover";
 import { ArrowUpDown, ArrowDown, ArrowUp, Search } from "lucide-react";
+import { formatAmount, formatPrice } from "@/lib/currency";
 
 export function TradesPage() {
   const [page, setPage] = useState(1);
@@ -197,10 +198,14 @@ export function TradesPage() {
                   </TableCell>
                   <TableCell className="font-bold">{trade.symbol.ticker}</TableCell>
                   <TableCell>{trade.platform.name}</TableCell>
-                  <TableCell>{trade.bucket.label}</TableCell>
-                  <TableCell className="text-right tabular-nums">${Number(trade.price).toFixed(2)}</TableCell>
+                  <TableCell>{trade.bucket?.label || <span className="text-muted-foreground italic">None</span>}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatPrice(Number(trade.price), trade.currencyCode || 'USD')}
+                  </TableCell>
                   <TableCell className="text-right tabular-nums font-medium">{Number(trade.quantity).toFixed(4)}</TableCell>
-                  <TableCell className="text-right tabular-nums font-bold">${(Number(trade.quantity) * Number(trade.price)).toFixed(2)}</TableCell>
+                  <TableCell className="text-right tabular-nums font-bold">
+                    {formatAmount(Number(trade.quantity) * Number(trade.price), trade.currencyCode || 'USD')}
+                  </TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

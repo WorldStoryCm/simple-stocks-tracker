@@ -1,16 +1,56 @@
 import { router, protectedProcedure } from '../trpc';
 import { db } from '@/db/drizzle';
-import { trades, tradeLotMatches, platforms, buckets } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { trades, tradeLotMatches, platforms, buckets, goals } from '@/db/schema';
+import { and, eq } from 'drizzle-orm';
 import { format, startOfWeek } from 'date-fns';
 import { getExchangeRates, convertToUSD } from '@/lib/exchange-rates';
+
+/** Generate every YYYY-MM-DD string between two dates (inclusive). */
+function fillDailyKeys(from: string, to: string): string[] {
+  const keys: string[] = [];
+  const d = new Date(from + 'T00:00:00');
+  const end = new Date(to + 'T00:00:00');
+  while (d <= end) {
+    keys.push(format(d, 'yyyy-MM-dd'));
+    d.setDate(d.getDate() + 1);
+  }
+  return keys;
+}
+
+/** Generate week-start keys from firstWeek to current week. */
+function fillWeeklyKeys(from: string, to: string): string[] {
+  const keys: string[] = [];
+  const d = new Date(from + 'T00:00:00');
+  const end = new Date(to + 'T00:00:00');
+  while (d <= end) {
+    keys.push(format(d, 'yyyy-MM-dd'));
+    d.setDate(d.getDate() + 7);
+  }
+  return keys;
+}
+
+/** Generate every YYYY-MM key between two months (inclusive). */
+function fillMonthlyKeys(from: string, to: string): string[] {
+  const keys: string[] = [];
+  let [y, m] = from.split('-').map(Number);
+  const [ey, em] = to.split('-').map(Number);
+  while (y < ey || (y === ey && m <= em)) {
+    keys.push(`${y}-${String(m).padStart(2, '0')}`);
+    m++;
+    if (m > 12) { m = 1; y++; }
+  }
+  return keys;
+}
 
 export const performanceRouter = router({
   stats: protectedProcedure.query(async ({ ctx }) => {
     const userId = ctx.session.user.id;
     
     const rates = await getExchangeRates();
-    const allPlatforms = await db.query.platforms.findMany({ where: eq(platforms.userId, userId) });
+    const [allPlatforms, activeGoals] = await Promise.all([
+      db.query.platforms.findMany({ where: eq(platforms.userId, userId) }),
+      db.query.goals.findMany({ where: and(eq(goals.userId, userId), eq(goals.isActive, true)) }),
+    ]);
     const allBuckets = await db.query.buckets.findMany({ where: eq(buckets.userId, userId) });
     
     const platformMap = new Map(allPlatforms.map(p => [p.id, p]));
@@ -125,14 +165,14 @@ export const performanceRouter = router({
 
     const winRate = allMatches.length > 0 ? (winningTrades / allMatches.length) * 100 : 0;
 
-    const buildStats = (record: Record<string, number>, formatKey: (k: string) => string) => {
-      const entries = Object.entries(record).sort((a, b) => a[0].localeCompare(b[0]));
-      if (entries.length === 0) return { data: [], average: 0, min: 0, max: 0 };
-      
+    const buildStats = (record: Record<string, number>, keys: string[], formatKey: (k: string) => string) => {
+      if (keys.length === 0) return { data: [], average: 0, min: 0, max: 0 };
+
       let sum = 0;
       let min = Infinity;
       let max = -Infinity;
-      const data = entries.map(([k, pnl]) => {
+      const data = keys.map(k => {
+        const pnl = record[k] || 0;
         sum += pnl;
         if (pnl < min) min = pnl;
         if (pnl > max) max = pnl;
@@ -141,14 +181,42 @@ export const performanceRouter = router({
       return {
         data,
         average: sum / data.length,
-        min,
-        max
+        min: min === Infinity ? 0 : min,
+        max: max === -Infinity ? 0 : max,
       };
     };
 
-    const dailyStats = buildStats(dailyPnl, (k) => format(new Date(k + "T00:00:00"), "MMM d"));
-    const weeklyStats = buildStats(weeklyPnl, (k) => `Wk ${format(new Date(k + "T00:00:00"), "MMM d")}`);
-    const monthlyStats = buildStats(monthlyPnl, (k) => format(new Date(k + "-01T00:00:00"), "MMM yyyy"));
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const todayMonth = format(new Date(), 'yyyy-MM');
+    const todayWeekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+
+    const dailyKeys = Object.keys(dailyPnl).length > 0
+      ? fillDailyKeys(Object.keys(dailyPnl).sort()[0], today)
+      : [];
+    const weeklyKeys = Object.keys(weeklyPnl).length > 0
+      ? fillWeeklyKeys(Object.keys(weeklyPnl).sort()[0], todayWeekStart)
+      : [];
+    const monthlyKeys = Object.keys(monthlyPnl).length > 0
+      ? fillMonthlyKeys(Object.keys(monthlyPnl).sort()[0], todayMonth)
+      : [];
+
+    const dailyStats = buildStats(dailyPnl, dailyKeys, (k) => format(new Date(k + "T00:00:00"), "MMM d"));
+    const weeklyStats = buildStats(weeklyPnl, weeklyKeys, (k) => `Wk ${format(new Date(k + "T00:00:00"), "MMM d")}`);
+    const monthlyStats = buildStats(monthlyPnl, monthlyKeys, (k) => format(new Date(k + "-01T00:00:00"), "MMM yyyy"));
+
+    // Current-period P/L for goal progress tracking
+    const todayYear = format(new Date(), 'yyyy');
+    const currentMonthPnl = monthlyPnl[todayMonth] || 0;
+    const currentYearPnl = Object.entries(monthlyPnl)
+      .filter(([k]) => k.startsWith(todayYear))
+      .reduce((sum, [, v]) => sum + v, 0);
+
+    // Shape goals for the frontend
+    const goalProgress = activeGoals.map(g => ({
+      goalType: g.goalType,
+      target: Number(g.amount),
+      current: g.goalType === 'monthly_profit' ? currentMonthPnl : currentYearPnl,
+    }));
 
     return {
       totalInvested,
@@ -160,7 +228,10 @@ export const performanceRouter = router({
       dailyStats,
       weeklyStats,
       monthlyStats,
-      monthlyPnl: monthlyStats.data.map(d => ({ month: d.period, pnl: d.pnl })) // backward compatibility
+      monthlyPnl: monthlyStats.data.map(d => ({ month: d.period, pnl: d.pnl })), // backward compatibility
+      currentMonthPnl,
+      currentYearPnl,
+      goalProgress,
     };
   })
 });

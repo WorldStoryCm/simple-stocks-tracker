@@ -7,6 +7,7 @@ import { positionsRouter } from './positions';
 import { performanceRouter } from './performance';
 import { watchlistRouter } from './watchlist';
 import { quotesRouter } from './quotes';
+import { goalsRouter } from './goals';
 
 export const appRouter = router({
   platforms: platformsRouter,
@@ -16,7 +17,8 @@ export const appRouter = router({
   positions: positionsRouter,
   performance: performanceRouter,
   watchlist: watchlistRouter,
-  quotes: quotesRouter
+  quotes: quotesRouter,
+  goals: goalsRouter,
 });
 
 export type AppRouter = typeof appRouter;

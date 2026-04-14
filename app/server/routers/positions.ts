@@ -71,6 +71,7 @@ export const positionsRouter = router({
         openQty,
         investedAmount,
         avgCost,
+        currencyCode: (p.platform?.currencyCode || 'USD') as string,
       };
     });
 
