@@ -7,6 +7,7 @@ import { Loader2, MoreHorizontal, ArrowUpDown, ArrowDown, ArrowUp, Search } from
 import { Button } from "@/components/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/dropdown-menu";
 import { TradeDialog } from "@/components/trades/TradeDialog";
+import { ViewPositionDialog } from "@/components/positions/ViewPositionDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/Popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select";
 
@@ -41,6 +42,9 @@ export function PositionsPage() {
   const [isTradeDialogOpen, setIsTradeDialogOpen] = useState(false);
   const [prefilledTrade, setPrefilledTrade] = useState<any>(null);
 
+  const [viewPosition, setViewPosition] = useState<any>(null);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+
   const handleQuickAction = (pos: any, type: "buy" | "sell") => {
     setPrefilledTrade({
       platformId: pos.platform?.id,
@@ -49,6 +53,11 @@ export function PositionsPage() {
       tradeType: type,
     });
     setIsTradeDialogOpen(true);
+  };
+
+  const handleViewPosition = (pos: any) => {
+    setViewPosition(pos);
+    setIsViewDialogOpen(true);
   };
 
   const toggleSort = (field: any) => {
@@ -227,7 +236,7 @@ export function PositionsPage() {
                         ({quote.changePercent >= 0 ? '+' : ''}{quote.changePercent.toFixed(2)}%)
                       </span>}
                     </TableCell>
-                    <TableCell className="text-right font-medium">${currentVal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                    <TableCell className={`text-right font-medium ${currentVal < investedAmount ? "text-red-500 dark:text-red-400" : ""}`}>${currentVal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -236,6 +245,9 @@ export function PositionsPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleViewPosition(pos)}>
+                            View Details
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleQuickAction(pos, 'buy')}>
                             Buy More
                           </DropdownMenuItem>
@@ -267,6 +279,13 @@ export function PositionsPage() {
         open={isTradeDialogOpen}
         onOpenChange={setIsTradeDialogOpen}
         trade={prefilledTrade}
+      />
+
+      <ViewPositionDialog
+        open={isViewDialogOpen}
+        onOpenChange={setIsViewDialogOpen}
+        pos={viewPosition}
+        quote={viewPosition ? quotes?.[viewPosition.symbol?.ticker] : undefined}
       />
     </div>
   );
