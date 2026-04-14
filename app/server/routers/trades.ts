@@ -118,7 +118,7 @@ export const tradesRouter = router({
       const { platformId, symbolId, bucketId, tradeType, tradeDate, quantity, price, fee, notes } = input;
       const userId = ctx.session.user.id;
 
-      // Resolve platform currency so trades are tagged correctly from the start
+      // Resolve platform currency + current cash balance
       const platform = await db.query.platforms.findFirst({
         where: and(eq(platforms.id, platformId), eq(platforms.userId, userId)),
       });
@@ -127,7 +127,7 @@ export const tradesRouter = router({
       return await db.transaction(async (tx) => {
         // 1. Insert the trade
         const finalBucketId = (bucketId && bucketId.trim() !== "") ? bucketId : null;
-        
+
         const [trade] = await tx.insert(trades).values({
           userId,
           platformId,
@@ -142,7 +142,21 @@ export const tradesRouter = router({
           notes,
         }).returning();
 
-        // 2. If Buy, we are done. If Sell, we must match FIFO.
+        // 2. Update platform cash balance
+        // Buy: deduct cost from cash (if insufficient, auto-fund the gap so balance stays >= 0)
+        // Sell: credit net proceeds to cash
+        const currentBalance = Number(platform?.cashBalance ?? 0);
+        const cost = Number(quantity) * Number(price) + Number(fee);
+        const proceeds = Number(quantity) * Number(price) - Number(fee);
+        const newBalance = tradeType === 'buy'
+          ? Math.max(0, currentBalance - cost)   // auto-fund if gap
+          : currentBalance + proceeds;
+
+        await tx.update(platforms)
+          .set({ cashBalance: newBalance.toFixed(2) })
+          .where(eq(platforms.id, platformId));
+
+        // 3. If Buy, we are done. If Sell, we must match FIFO.
         if (tradeType === 'sell') {
           let sellQtyRemaining = Number(quantity);
           const sellPrice = Number(price);

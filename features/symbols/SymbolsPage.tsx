@@ -59,7 +59,7 @@ export function SymbolsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              symbols?.map((sym: any) => (
+              symbols?.slice().sort((a: any, b: any) => a.ticker.localeCompare(b.ticker)).map((sym: any) => (
                 <TableRow key={sym.id}>
                   <TableCell className="font-bold">{sym.ticker}</TableCell>
                   <TableCell>{sym.displayName || "-"}</TableCell>

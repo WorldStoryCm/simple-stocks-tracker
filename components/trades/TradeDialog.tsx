@@ -22,7 +22,8 @@ import {
 } from "@/components/Form";
 import { Input } from "@/components/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select";
-import { Calculator } from "lucide-react";
+import { Calculator, ChevronsUpDown, Search, Check } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/Popover";
 import toast from "react-hot-toast";
 
 const formSchema = z.object({
@@ -100,6 +101,8 @@ export function TradeDialog({ open, onOpenChange, trade }: { open: boolean, onOp
   const utils = trpc.useUtils();
   
   const [submitMode, setSubmitMode] = useState<"close" | "add-another">("close");
+  const [symbolPopoverOpen, setSymbolPopoverOpen] = useState(false);
+  const [symbolSearch, setSymbolSearch] = useState("");
 
   const createTradeMutation = trpc.trades.create.useMutation({
     onSuccess: () => {
@@ -248,19 +251,77 @@ export function TradeDialog({ open, onOpenChange, trade }: { open: boolean, onOp
               )} />
               
               <div className="space-y-2">
-                <FormField control={form.control} name="symbolId" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Symbol</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                      <FormControl><SelectTrigger><SelectValue placeholder="Select symbol" /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        <SelectItem value="new" className="text-primary font-medium">+ Add New Symbol</SelectItem>
-                        {symbols?.slice().sort((a: any, b: any) => a.ticker.localeCompare(b.ticker)).map((s: any) => <SelectItem key={s.id} value={s.id}>{s.ticker}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )} />
+                <FormField control={form.control} name="symbolId" render={({ field }) => {
+                  const sortedSymbols = symbols?.slice().sort((a: any, b: any) => a.ticker.localeCompare(b.ticker)) ?? [];
+                  const filtered = symbolSearch.trim()
+                    ? sortedSymbols.filter((s: any) =>
+                        s.ticker.toLowerCase().includes(symbolSearch.toLowerCase()) ||
+                        (s.displayName ?? "").toLowerCase().includes(symbolSearch.toLowerCase())
+                      )
+                    : sortedSymbols;
+                  const selectedLabel = field.value === "new"
+                    ? "+ New Symbol"
+                    : sortedSymbols.find((s: any) => s.id === field.value)?.ticker ?? "";
+
+                  return (
+                    <FormItem>
+                      <FormLabel>Symbol</FormLabel>
+                      <Popover open={symbolPopoverOpen} onOpenChange={(o) => { setSymbolPopoverOpen(o); if (!o) setSymbolSearch(""); }}>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <button
+                              type="button"
+                              className={`flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${!field.value ? "text-muted-foreground" : ""}`}
+                            >
+                              <span className="truncate">{selectedLabel || "Select symbol"}</span>
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[260px] p-0 shadow-lg border" align="start">
+                          {/* Search input */}
+                          <div className="flex items-center border-b px-3">
+                            <Search className="mr-2 h-4 w-4 shrink-0 opacity-40" />
+                            <input
+                              autoFocus
+                              placeholder="Search ticker or name…"
+                              className="flex h-10 w-full bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
+                              value={symbolSearch}
+                              onChange={(e) => setSymbolSearch(e.target.value)}
+                            />
+                          </div>
+                          {/* Results */}
+                          <div className="max-h-[220px] overflow-y-auto p-1">
+                            {/* Add new option */}
+                            <button
+                              type="button"
+                              className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm text-primary font-medium hover:bg-accent"
+                              onClick={() => { field.onChange("new"); setSymbolPopoverOpen(false); setSymbolSearch(""); }}
+                            >
+                              + Add New Symbol
+                            </button>
+                            {filtered.length === 0 && symbolSearch && (
+                              <p className="px-2 py-4 text-center text-xs text-muted-foreground">No symbols match "{symbolSearch}"</p>
+                            )}
+                            {filtered.map((s: any) => (
+                              <button
+                                key={s.id}
+                                type="button"
+                                className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent ${field.value === s.id ? "bg-accent" : ""}`}
+                                onClick={() => { field.onChange(s.id); setSymbolPopoverOpen(false); setSymbolSearch(""); }}
+                              >
+                                <Check className={`h-3.5 w-3.5 shrink-0 ${field.value === s.id ? "opacity-100" : "opacity-0"}`} />
+                                <span className="font-semibold">{s.ticker}</span>
+                                {s.displayName && <span className="truncate text-muted-foreground text-xs">{s.displayName}</span>}
+                              </button>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }} />
                 {watchSymbol === "new" && (
                   <FormField control={form.control} name="newTicker" render={({ field }) => (
                     <FormItem>

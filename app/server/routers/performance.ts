@@ -218,6 +218,53 @@ export const performanceRouter = router({
       current: g.goalType === 'monthly_profit' ? currentMonthPnl : currentYearPnl,
     }));
 
+    // ── Portfolio growth over time ──────────────────────────────────────────
+    // Per month: cumulative capital deployed (buy costs in USD) and cumulative
+    // realized P/L. Together they represent the "book value" of the portfolio.
+    const monthlyBuyCostUSD: Record<string, number> = {};
+    const monthlySellProceedsUSD: Record<string, number> = {};
+
+    allTrades.forEach(t => {
+      const monthKey = t.tradeDate.substring(0, 7); // YYYY-MM
+      const currency = getPlatformCurrency(t.platformId);
+      if (t.tradeType === 'buy') {
+        const cost = Number(t.quantity) * Number(t.price) + Number(t.fee);
+        monthlyBuyCostUSD[monthKey] = (monthlyBuyCostUSD[monthKey] || 0) + convertToUSD(cost, currency, rates);
+      } else {
+        const proceeds = Number(t.quantity) * Number(t.price) - Number(t.fee);
+        monthlySellProceedsUSD[monthKey] = (monthlySellProceedsUSD[monthKey] || 0) + convertToUSD(proceeds, currency, rates);
+      }
+    });
+
+    // Build a complete month range for the portfolio chart
+    const allMonthKeys = (() => {
+      const buyCostKeys = Object.keys(monthlyBuyCostUSD);
+      const pnlKeys = Object.keys(monthlyPnl);
+      const allKeys = [...new Set([...buyCostKeys, ...pnlKeys])];
+      if (allKeys.length === 0) return [];
+      const minMonth = allKeys.sort()[0];
+      return fillMonthlyKeys(minMonth, todayMonth);
+    })();
+
+    // Walk month by month to build cumulative chart data
+    let runningDeployed = 0;   // total buy costs ever
+    let runningReturned = 0;   // total sell proceeds ever
+    let runningPnl = 0;        // cumulative realized P/L
+
+    const portfolioStats = allMonthKeys.map(k => {
+      runningDeployed += monthlyBuyCostUSD[k] || 0;
+      runningReturned += monthlySellProceedsUSD[k] || 0;
+      runningPnl += monthlyPnl[k] || 0;
+      // Net open positions cost = deployed - returned (approximate open cost basis)
+      const netInvested = Math.max(0, runningDeployed - runningReturned);
+      return {
+        period: format(new Date(k + '-01T00:00:00'), 'MMM yyyy'),
+        netInvested,            // open cost basis (deployed - returned)
+        cumulativePnl: runningPnl,
+        totalValue: netInvested + runningPnl, // portfolio book value
+      };
+    });
+
     return {
       totalInvested,
       totalRealizedPnl,
@@ -232,6 +279,7 @@ export const performanceRouter = router({
       currentMonthPnl,
       currentYearPnl,
       goalProgress,
+      portfolioStats,
     };
   })
 });

@@ -10,6 +10,7 @@ export const platforms = pgTable(
     name: text("name").notNull(),
     currencyCode: text("currency_code").notNull().default("USD"),
     isActive: boolean("is_active").notNull().default(true),
+    cashBalance: decimal("cash_balance", { precision: 14, scale: 2 }).notNull().default("0"),
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
