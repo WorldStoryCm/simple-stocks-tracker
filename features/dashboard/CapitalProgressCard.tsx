@@ -1,15 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {
-  type CSSProperties,
-  type SVGProps,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type SVGProps, useId } from "react";
 import { Rocket, Settings2 } from "lucide-react";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/button";
@@ -33,12 +25,6 @@ type CapitalProgressData = {
   totalAmount: number;
   remainingAmount: number;
   progressPercent: number;
-  milestones: Array<{
-    amount: number;
-    ratio: number;
-    isReached: boolean;
-    progress: number;
-  }>;
 };
 
 type ProgressChartDatum = {
@@ -55,7 +41,6 @@ type SegmentShapeProps = {
   fill?: string;
 };
 
-const CONFETTI_COLORS = ["#60a5fa", "#818cf8", "#34d399", "#2dd4bf", "#f9a8d4"];
 const SEGMENT_JOIN_OVERLAP = 6;
 
 function clamp(value: number, min: number, max: number) {
@@ -66,81 +51,6 @@ function createSvgId(...parts: Array<string | number>) {
   return parts
     .map((part) => String(part).replace(/[^a-zA-Z0-9_-]/g, "-"))
     .join("-");
-}
-
-function compactMoney(amount: number, currencyCode: string) {
-  const formatter = new Intl.NumberFormat(undefined, {
-    notation: "compact",
-    maximumFractionDigits: 1,
-  });
-
-  return `${
-    currencyCode === "EUR" ? "€" : currencyCode === "USD" ? "$" : `${currencyCode} `
-  }${formatter.format(amount)}`;
-}
-
-function usePrefersReducedMotion() {
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => setPrefersReducedMotion(mediaQuery.matches);
-
-    update();
-    mediaQuery.addEventListener("change", update);
-    return () => mediaQuery.removeEventListener("change", update);
-  }, []);
-
-  return prefersReducedMotion;
-}
-
-function createParticles(seed: number) {
-  let state = seed || 1;
-  const next = () => {
-    state = (state * 1664525 + 1013904223) % 4294967296;
-    return state / 4294967296;
-  };
-
-  return Array.from({ length: 22 }, (_, index) => ({
-    id: `${seed}-${index}`,
-    width: 5 + next() * 4,
-    height: 9 + next() * 10,
-    x: (next() - 0.5) * 210,
-    y: 14 + next() * 96,
-    rotate: -240 + next() * 480,
-    delay: Math.round(next() * 140),
-    duration: Math.round(900 + next() * 600),
-    color: CONFETTI_COLORS[index % CONFETTI_COLORS.length],
-  }));
-}
-
-function ConfettiBurst({ seed }: { seed: number }) {
-  const particles = useMemo(() => createParticles(seed), [seed]);
-
-  return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-36 overflow-hidden">
-      {particles.map((particle) => (
-        <span
-          key={particle.id}
-          className="animate-milestone-confetti absolute left-1/2 top-8 rounded-[2px] opacity-0"
-          style={
-            {
-              width: `${particle.width}px`,
-              height: `${particle.height}px`,
-              backgroundColor: particle.color,
-              "--confetti-x": `${particle.x}px`,
-              "--confetti-y": `${particle.y}px`,
-              "--confetti-rotate": `${particle.rotate}deg`,
-              "--confetti-delay": `${particle.delay}ms`,
-              "--confetti-duration": `${particle.duration}ms`,
-            } as CSSProperties
-          }
-        />
-      ))}
-    </div>
-  );
 }
 
 function getRoundedSegmentPath(
@@ -209,29 +119,6 @@ function SegmentTooltip({
   );
 }
 
-function MilestoneLabel({
-  amount,
-  currencyCode,
-  isReached,
-}: {
-  amount: number;
-  currencyCode: string;
-  isReached: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-[0.16em] shadow-[0_8px_20px_rgba(15,23,42,0.08)] backdrop-blur-xl transition-all duration-500",
-        isReached
-          ? "border-sky-200/80 bg-white/92 text-slate-900"
-          : "border-slate-200/80 bg-white/78 text-slate-400"
-      )}
-    >
-      {compactMoney(amount, currencyCode)}
-    </div>
-  );
-}
-
 function LegendItem({
   label,
   amount,
@@ -251,10 +138,6 @@ function LegendItem({
 }
 
 export function CapitalProgressCard({ progress }: { progress: CapitalProgressData }) {
-  const prefersReducedMotion = usePrefersReducedMotion();
-  const [celebrationSeed, setCelebrationSeed] = useState<number | null>(null);
-  const didHydrateRef = useRef(false);
-  const previousHighestReachedRef = useRef(0);
   const gradientSeed = useId().replace(/:/g, "");
 
   const targetAmount = Math.max(progress.targetAmount, 1);
@@ -275,7 +158,6 @@ export function CapitalProgressCard({ progress }: { progress: CapitalProgressDat
   const baseWidthPercent = clamp((baseVisibleAmount / targetAmount) * 100, 0, 100);
   const marketWidthPercent = clamp((marketVisibleAmount / targetAmount) * 100, 0, 100);
   const drawdownWidthPercent = clamp((drawdownAmount / targetAmount) * 100, 0, 100);
-  const currentMarkerPercent = clamp((clampedTotalAmount / targetAmount) * 100, 0, 100);
 
   const chartData: ProgressChartDatum[] = [
     {
@@ -285,44 +167,10 @@ export function CapitalProgressCard({ progress }: { progress: CapitalProgressDat
     },
   ];
 
-  const highestReachedMilestone =
-    progress.milestones.filter((milestone) => milestone.isReached).at(-1) ?? null;
-
-  useEffect(() => {
-    const nextAmount = highestReachedMilestone?.amount ?? 0;
-    let timeoutId: number | null = null;
-
-    if (!didHydrateRef.current) {
-      previousHighestReachedRef.current = nextAmount;
-      didHydrateRef.current = true;
-      return;
-    }
-
-    if (nextAmount > previousHighestReachedRef.current && !prefersReducedMotion) {
-      timeoutId = window.setTimeout(() => setCelebrationSeed(nextAmount), 0);
-    }
-
-    previousHighestReachedRef.current = nextAmount;
-    return () => {
-      if (timeoutId !== null) {
-        window.clearTimeout(timeoutId);
-      }
-    };
-  }, [highestReachedMilestone, prefersReducedMotion]);
-
-  useEffect(() => {
-    if (celebrationSeed === null) return;
-
-    const timeoutId = window.setTimeout(() => setCelebrationSeed(null), 2200);
-    return () => window.clearTimeout(timeoutId);
-  }, [celebrationSeed]);
-
   const baseGradientId = `${gradientSeed}-capital-progress-base`;
   const marketGradientId = `${gradientSeed}-capital-progress-market`;
   const baseShadowId = `${gradientSeed}-capital-progress-base-shadow`;
   const marketShadowId = `${gradientSeed}-capital-progress-market-shadow`;
-  const filledOverlayClipId = `${gradientSeed}-capital-progress-filled-overlay-clip`;
-  const filledOverlaySheenId = `${gradientSeed}-capital-progress-filled-overlay-sheen`;
 
   const renderSegmentSurface = ({
     x,
@@ -441,28 +289,14 @@ export function CapitalProgressCard({ progress }: { progress: CapitalProgressDat
       <Card className="relative overflow-hidden rounded-[2rem] border border-slate-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96))] text-slate-950 shadow-[0_24px_80px_rgba(15,23,42,0.08)] hover:border-slate-200 hover:shadow-[0_28px_88px_rgba(15,23,42,0.12)]">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(96,165,250,0.18),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(45,212,191,0.14),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.72),transparent_42%)]" />
         <div className="pointer-events-none absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(148,163,184,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.06)_1px,transparent_1px)] [background-size:30px_30px]" />
-        {!prefersReducedMotion && celebrationSeed !== null ? (
-          <ConfettiBurst seed={celebrationSeed} />
-        ) : null}
 
-        <CardContent className="relative p-6 sm:p-7">
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <CardContent className="relative p-4">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
               <div className="min-w-0">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  Path to{" "}
-                  {formatAmount(progress.targetAmount, progress.currencyCode, {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0,
-                  })}
-                </div>
 
-                <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/80 bg-[linear-gradient(135deg,rgba(59,130,246,0.14),rgba(16,185,129,0.12))] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_10px_24px_rgba(148,163,184,0.16)]">
-                    <Rocket className="h-5 w-5 text-slate-900" />
-                  </div>
-
-                  <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <div className="flex flex-wrap items-start gap-x-3">
                     <div className="text-3xl font-semibold tracking-[-0.06em] text-slate-950 sm:text-[2.7rem]">
                       {formatAmount(progress.totalAmount, progress.currencyCode, {
                         minimumFractionDigits: 0,
@@ -488,267 +322,130 @@ export function CapitalProgressCard({ progress }: { progress: CapitalProgressDat
               </Button>
             </div>
 
-            <div className="relative py-10">
-              {progress.milestones.map((milestone, index) => (
-                <div
-                  key={milestone.amount}
-                  className={cn(
-                    "pointer-events-none absolute z-10",
-                    index % 2 === 0 ? "top-0" : "bottom-0",
-                    index === 0
-                      ? "translate-x-0"
-                      : index === progress.milestones.length - 1
-                        ? "-translate-x-full"
-                        : "-translate-x-1/2"
-                  )}
-                  style={{ left: `${milestone.progress}%` }}
-                >
-                  <MilestoneLabel
-                    amount={milestone.amount}
-                    currencyCode={progress.currencyCode}
-                    isReached={milestone.isReached}
-                  />
-                </div>
-              ))}
+            <div className="relative py-2">
+              <div className="relative">
+                <div className="pointer-events-none absolute inset-x-6 top-3 h-8 rounded-full bg-[linear-gradient(90deg,rgba(37,99,235,0.14),rgba(45,212,191,0.16))] blur-2xl" />
+                <div className="pointer-events-none absolute inset-x-3 top-4 h-6 rounded-full bg-slate-900/10 blur-xl" />
+                <div className="relative h-[24px] overflow-hidden rounded-full border border-slate-200/80 bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(241,245,249,0.98))] shadow-[0_20px_44px_rgba(15,23,42,0.14),0_8px_18px_rgba(99,102,241,0.08),inset_0_1px_0_rgba(255,255,255,0.98),inset_0_-10px_18px_rgba(148,163,184,0.12)]">
+                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.92),transparent_60%)]" />
 
-              <div className="relative h-[34px] overflow-hidden rounded-full border border-slate-200/80 bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(241,245,249,0.98))] shadow-[inset_0_1px_0_rgba(255,255,255,0.98),inset_0_-10px_18px_rgba(148,163,184,0.12)]">
-                <div className="pointer-events-none absolute inset-0 opacity-55 [background-image:repeating-linear-gradient(90deg,rgba(148,163,184,0.11)_0,rgba(148,163,184,0.11)_1px,transparent_1px,transparent_14px)]" />
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.92),transparent_60%)]" />
-
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={chartData}
-                    layout="vertical"
-                    margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
-                    barCategoryGap="0%"
-                    barGap={0}
-                  >
-                    <defs>
-                      <linearGradient id={baseGradientId} x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor="#2563eb" />
-                        <stop offset="55%" stopColor="#4f46e5" />
-                        <stop offset="100%" stopColor="#6366f1" />
-                      </linearGradient>
-                      <linearGradient id={marketGradientId} x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor="#10b981" />
-                        <stop offset="100%" stopColor="#2dd4bf" />
-                      </linearGradient>
-                      <filter
-                        id={baseShadowId}
-                        x="-20%"
-                        y="-80%"
-                        width="140%"
-                        height="260%"
-                      >
-                        <feDropShadow
-                          dx="0"
-                          dy="8"
-                          stdDeviation="10"
-                          floodColor="#2563eb"
-                          floodOpacity="0.12"
-                        />
-                      </filter>
-                      <filter
-                        id={marketShadowId}
-                        x="-20%"
-                        y="-80%"
-                        width="140%"
-                        height="260%"
-                      >
-                        <feDropShadow
-                          dx="0"
-                          dy="8"
-                          stdDeviation="10"
-                          floodColor="#10b981"
-                          floodOpacity="0.12"
-                        />
-                      </filter>
-                    </defs>
-
-                    <XAxis type="number" hide domain={[0, targetAmount]} />
-                    <YAxis type="category" dataKey="name" hide width={0} />
-                    <Bar
-                      dataKey="base"
-                      stackId="progress"
-                      fill={`url(#${baseGradientId})`}
-                      isAnimationActive={!prefersReducedMotion}
-                      animationDuration={1000}
-                      shape={renderBaseShape as SVGProps<SVGPathElement>}
-                    />
-                    <Bar
-                      dataKey="market"
-                      stackId="progress"
-                      fill={`url(#${marketGradientId})`}
-                      isAnimationActive={!prefersReducedMotion}
-                      animationDuration={1000}
-                      shape={renderMarketShape as SVGProps<SVGPathElement>}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-
-                {baseWidthPercent + marketWidthPercent > 0 ? (
-                  <svg
-                    className="pointer-events-none absolute inset-0 z-[5]"
-                    viewBox="0 0 100 100"
-                    preserveAspectRatio="none"
-                    aria-hidden="true"
-                  >
-                    <defs>
-                      <clipPath id={filledOverlayClipId}>
-                        <rect
-                          x="0"
-                          y="0"
-                          width={clamp(baseWidthPercent + marketWidthPercent, 0, 100)}
-                          height="100"
-                          rx="50"
-                          ry="50"
-                        />
-                      </clipPath>
-                    </defs>
-
-                    <g clipPath={`url(#${filledOverlayClipId})`} opacity="0.7">
-                      {Array.from({ length: 12 }, (_, index) => {
-                        const x = 4 + index * 4;
-                        return (
-                          <line
-                            key={`tick-${x}`}
-                            x1={x}
-                            y1="28"
-                            x2={x}
-                            y2="72"
-                            stroke="rgba(255,255,255,0.72)"
-                            strokeWidth="0.8"
-                            strokeLinecap="round"
-                          />
-                        );
-                      })}
-
-                      {Array.from({ length: 5 }, (_, index) => {
-                        const x = 49 + index * 5;
-                        return (
-                          <path
-                            key={`slash-${x}`}
-                            d={`M ${x} 30 L ${x + 2.8} 50 L ${x} 70`}
-                            fill="none"
-                            stroke="rgba(255,255,255,0.7)"
-                            strokeWidth="0.9"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        );
-                      })}
-
-                      {Array.from({ length: 5 }, (_, index) => {
-                        const x = 74 + index * 5;
-                        return (
-                          <path
-                            key={`chevron-${x}`}
-                            d={`M ${x} 30 L ${x + 3.4} 50 L ${x} 70`}
-                            fill="none"
-                            stroke="rgba(255,255,255,0.84)"
-                            strokeWidth="1"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        );
-                      })}
-
-                      <rect
-                        x="0"
-                        y="0"
-                        width="100"
-                        height="46"
-                        fill={`url(#${filledOverlaySheenId})`}
-                      />
-                    </g>
-
-                    <defs>
-                      <linearGradient id={filledOverlaySheenId} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#ffffff" stopOpacity="0.24" />
-                        <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                ) : null}
-
-                {progress.milestones.map((milestone) => (
-                  <div
-                    key={milestone.amount}
-                    className="pointer-events-none absolute inset-y-0 z-10"
-                    style={{ left: `${milestone.progress}%` }}
-                  >
-                      <div
-                        className={cn(
-                          "absolute left-1/2 top-1/2 h-[74%] w-px -translate-x-1/2 -translate-y-1/2 transition-all duration-500",
-                        milestone.isReached ? "bg-emerald-400/60" : "bg-slate-300/95"
-                      )}
-                    />
-                      <div
-                        className={cn(
-                          "absolute left-1/2 top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] transition-all duration-500",
-                          milestone.isReached
-                            ? "border-white bg-emerald-400 shadow-[0_0_0_4px_rgba(167,243,208,0.55)]"
-                            : "border-white bg-slate-300"
-                      )}
-                    />
-                  </div>
-                ))}
-
-                {drawdownWidthPercent > 0 ? (
-                  <div
-                    className="pointer-events-none absolute inset-y-0 z-20 overflow-hidden rounded-r-full"
-                    style={{
-                      left: `${baseWidthPercent}%`,
-                      width: `${drawdownWidthPercent}%`,
-                    }}
-                  >
-                    <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(251,146,60,0.85),rgba(244,63,94,0.82))]" />
-                    <div className="absolute inset-0 opacity-65 [background-image:repeating-linear-gradient(135deg,rgba(255,255,255,0.34)_0,rgba(255,255,255,0.34)_9px,transparent_9px,transparent_18px)]" />
-                  </div>
-                ) : null}
-
-                {currentMarkerPercent > 0 ? (
-                  <div
-                    className="pointer-events-none absolute inset-y-0 z-30"
-                    style={{ left: `${currentMarkerPercent}%` }}
-                  >
-                    <div className="absolute left-1/2 top-1/2 h-5 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/95 shadow-[0_8px_20px_rgba(15,23,42,0.18)]" />
-                  </div>
-                ) : null}
-
-                {baseWidthPercent > 0 ? (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        aria-label="Show base amount"
-                        className="absolute inset-y-0 left-0 z-40"
-                        style={{ width: `${baseWidthPercent}%` }}
-                      />
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="top"
-                      sideOffset={14}
-                      className="border-0 bg-transparent p-0 shadow-none"
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={chartData}
+                      layout="vertical"
+                      margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
+                      barCategoryGap="0%"
+                      barGap={0}
                     >
-                      <SegmentTooltip
-                        label="Base"
-                        amount={formatAmount(
-                          progress.manualContributionAmount,
-                          progress.currencyCode,
-                          {
-                            minimumFractionDigits: 0,
-                            maximumFractionDigits: 0,
-                          }
-                        )}
-                        dotClassName="bg-[linear-gradient(90deg,#2563eb,#6366f1)]"
-                      />
-                    </TooltipContent>
-                  </Tooltip>
-                ) : null}
+                      <defs>
+                        <linearGradient id={baseGradientId} x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="0%" stopColor="#2563eb" />
+                          <stop offset="55%" stopColor="#4f46e5" />
+                          <stop offset="100%" stopColor="#6366f1" />
+                        </linearGradient>
+                        <linearGradient id={marketGradientId} x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="0%" stopColor="#10b981" />
+                          <stop offset="100%" stopColor="#2dd4bf" />
+                        </linearGradient>
+                        <filter
+                          id={baseShadowId}
+                          x="-20%"
+                          y="-80%"
+                          width="140%"
+                          height="260%"
+                        >
+                          <feDropShadow
+                            dx="0"
+                            dy="10"
+                            stdDeviation="12"
+                            floodColor="#2563eb"
+                            floodOpacity="0.16"
+                          />
+                        </filter>
+                        <filter
+                          id={marketShadowId}
+                          x="-20%"
+                          y="-80%"
+                          width="140%"
+                          height="260%"
+                        >
+                          <feDropShadow
+                            dx="0"
+                            dy="10"
+                            stdDeviation="12"
+                            floodColor="#10b981"
+                            floodOpacity="0.16"
+                          />
+                        </filter>
+                      </defs>
 
-                {marketWidthPercent > 0 ? (
-                  <Tooltip>
+                      <XAxis type="number" hide domain={[0, targetAmount]} />
+                      <YAxis type="category" dataKey="name" hide width={0} />
+                      <Bar
+                        dataKey="base"
+                        stackId="progress"
+                        fill={`url(#${baseGradientId})`}
+                        isAnimationActive
+                        animationDuration={900}
+                        shape={renderBaseShape as SVGProps<SVGPathElement>}
+                      />
+                      <Bar
+                        dataKey="market"
+                        stackId="progress"
+                        fill={`url(#${marketGradientId})`}
+                        isAnimationActive
+                        animationDuration={900}
+                        shape={renderMarketShape as SVGProps<SVGPathElement>}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+
+                  {drawdownWidthPercent > 0 ? (
+                    <div
+                      className="pointer-events-none absolute inset-y-0 z-20 overflow-hidden rounded-r-full"
+                      style={{
+                        left: `${baseWidthPercent}%`,
+                        width: `${drawdownWidthPercent}%`,
+                      }}
+                    >
+                      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(251,146,60,0.85),rgba(244,63,94,0.82))]" />
+                      <div className="absolute inset-0 opacity-65 [background-image:repeating-linear-gradient(135deg,rgba(255,255,255,0.34)_0,rgba(255,255,255,0.34)_9px,transparent_9px,transparent_18px)]" />
+                    </div>
+                  ) : null}
+
+                  {baseWidthPercent > 0 ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label="Show base amount"
+                          className="absolute inset-y-0 left-0 z-40"
+                          style={{ width: `${baseWidthPercent}%` }}
+                        />
+                      </TooltipTrigger>
+                      <TooltipContent
+                        side="top"
+                        sideOffset={14}
+                        className="border-0 bg-transparent p-0 shadow-none"
+                      >
+                        <SegmentTooltip
+                          label="Base"
+                          amount={formatAmount(
+                            progress.manualContributionAmount,
+                            progress.currencyCode,
+                            {
+                              minimumFractionDigits: 0,
+                              maximumFractionDigits: 0,
+                            }
+                          )}
+                          dotClassName="bg-[linear-gradient(90deg,#2563eb,#6366f1)]"
+                        />
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : null}
+
+                  {marketWidthPercent > 0 ? (
+                    <Tooltip>
                     <TooltipTrigger asChild>
                       <button
                         type="button"
@@ -777,8 +474,8 @@ export function CapitalProgressCard({ progress }: { progress: CapitalProgressDat
                   </Tooltip>
                 ) : null}
 
-                {drawdownWidthPercent > 0 ? (
-                  <Tooltip>
+                  {drawdownWidthPercent > 0 ? (
+                    <Tooltip>
                     <TooltipTrigger asChild>
                       <button
                         type="button"
@@ -805,7 +502,9 @@ export function CapitalProgressCard({ progress }: { progress: CapitalProgressDat
                       />
                     </TooltipContent>
                   </Tooltip>
-                ) : null}
+                  ) : null}
+                </div>
+
               </div>
             </div>
 

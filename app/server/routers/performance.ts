@@ -54,7 +54,7 @@ function clamp(value: number, min: number, max: number) {
 }
 
 function buildCapitalMilestones(targetAmount: number) {
-  return [0.85, 0.9, 0.95, 1].map((ratio) => ({
+  return [0.9, 0.95, 1].map((ratio) => ({
     amount: Math.round(targetAmount * ratio),
     ratio,
   }));
