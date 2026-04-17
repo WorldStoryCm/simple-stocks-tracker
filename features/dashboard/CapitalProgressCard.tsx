@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Coins, PartyPopper, Settings2, Sparkles, Target, TrendingDown, TrendingUp, Trophy } from "lucide-react";
+import { Coins, PartyPopper, Settings2, TrendingDown, TrendingUp } from "lucide-react";
 import { Button } from "@/components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
 import { cn } from "@/components/component.utils";
 import { currencySymbol, formatAmount } from "@/lib/currency";
 
@@ -13,6 +13,8 @@ type CapitalProgressData = {
   targetAmount: number;
   manualContributionAmount: number;
   marketProfitAmount: number;
+  livePositionsAmount: number;
+  cashAmount: number;
   totalAmount: number;
   remainingAmount: number;
   progressPercent: number;
@@ -127,15 +129,13 @@ export function CapitalProgressCard({ progress }: { progress: CapitalProgressDat
   const previousHighestReachedRef = useRef(0);
 
   const positiveProfit = Math.max(progress.marketProfitAmount, 0);
-  const negativeProfit = Math.min(progress.marketProfitAmount, 0);
-  const baseVisibleAmount = Math.max(0, progress.manualContributionAmount + negativeProfit);
-  const baseShare = clamp(baseVisibleAmount / progress.targetAmount, 0, 1);
+  const negativeProfit = Math.abs(Math.min(progress.marketProfitAmount, 0));
+  const baseShare = clamp(progress.manualContributionAmount / progress.targetAmount, 0, 1);
   const profitShare = clamp(positiveProfit / progress.targetAmount, 0, Math.max(0, 1 - baseShare));
+  const drawdownShare = clamp(negativeProfit / progress.targetAmount, 0, baseShare);
   const totalShare = clamp(progress.totalAmount / progress.targetAmount, 0, 1);
 
   const highestReachedMilestone = progress.milestones.filter((milestone) => milestone.isReached).at(-1) ?? null;
-  const nextMilestone = progress.milestones.find((milestone) => !milestone.isReached) ?? null;
-  const completedMilestones = progress.milestones.filter((milestone) => milestone.isReached).length;
 
   useEffect(() => {
     const nextAmount = highestReachedMilestone?.amount ?? 0;
@@ -172,117 +172,124 @@ export function CapitalProgressCard({ progress }: { progress: CapitalProgressDat
   }, [celebration]);
 
   return (
-    <Card className="relative overflow-hidden border-amber-500/20 bg-[linear-gradient(135deg,rgba(255,247,237,0.96),rgba(255,255,255,1)_38%,rgba(240,253,244,0.94)_100%)] shadow-lg shadow-black/5 dark:bg-[linear-gradient(135deg,rgba(38,24,8,0.88),rgba(20,20,21,0.96)_38%,rgba(6,22,16,0.92)_100%)]">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.2),transparent_52%),radial-gradient(circle_at_top_right,rgba(16,185,129,0.16),transparent_42%)]" />
+    <Card className="relative overflow-hidden border-amber-500/15 bg-[linear-gradient(180deg,rgba(255,251,235,0.88),rgba(255,255,255,0.98))] shadow-lg shadow-black/5 dark:bg-[linear-gradient(180deg,rgba(32,22,8,0.88),rgba(20,20,21,0.96))]">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.14),transparent_52%),radial-gradient(circle_at_top_right,rgba(16,185,129,0.12),transparent_46%)]" />
       {!prefersReducedMotion && celebration ? <ConfettiBurst celebration={celebration} /> : null}
 
-      <CardHeader className="relative gap-4 pb-4">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-white/75 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.26em] text-amber-700 shadow-sm dark:bg-white/5 dark:text-amber-300">
-              <Sparkles className="h-3.5 w-3.5" />
-              Path to the first {compactMoney(progress.targetAmount, progress.currencyCode)}
-            </div>
-            <CardTitle className="mt-4 text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">
-              Keep the base growing. Let the market color the upside.
+      <CardHeader className="relative pb-3">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="min-w-0">
+            <CardTitle className="text-sm font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+              Path to {formatAmount(progress.targetAmount, progress.currencyCode, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </CardTitle>
-            <CardDescription className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-              The amber layer tracks your manual contributions. The green layer shows realized market profit. Each checkpoint is split out so the next push always feels close.
-            </CardDescription>
+            <div className="mt-2 flex flex-wrap items-end gap-x-3 gap-y-1">
+              <div className="text-3xl font-semibold tracking-[-0.06em] sm:text-4xl">
+                {formatAmount(progress.totalAmount, progress.currencyCode)}
+              </div>
+              <div className="pb-1 text-sm text-muted-foreground">
+                / {formatAmount(progress.targetAmount, progress.currencyCode, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              </div>
+            </div>
           </div>
 
-          <Button asChild variant="outline" className="shrink-0 border-amber-500/20 bg-white/70 hover:border-amber-500 dark:bg-white/5">
+          <Button asChild variant="outline" className="shrink-0 bg-white/75 dark:bg-white/5">
             <Link href="/settings#capital-progress-settings">
-              Tune progress settings
+              Configuration
               <Settings2 className="h-4 w-4" />
             </Link>
           </Button>
         </div>
       </CardHeader>
 
-      <CardContent className="relative flex flex-col gap-6">
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.8fr)_minmax(320px,0.95fr)]">
-          <div className="rounded-[calc(var(--radius)+0.6rem)] border border-white/70 bg-white/70 p-5 shadow-sm backdrop-blur-sm dark:border-white/10 dark:bg-white/5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Current total</div>
-                <div className="mt-2 text-4xl font-semibold tracking-[-0.06em] text-foreground sm:text-5xl">
-                  {formatAmount(progress.totalAmount, progress.currencyCode)}
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 text-sm">
-                <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 font-medium text-amber-700 dark:text-amber-300">
-                  <Coins className="h-4 w-4" />
-                  Base {formatAmount(progress.manualContributionAmount, progress.currencyCode, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                </div>
-                <div
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-full px-3 py-1.5 font-medium",
-                    progress.marketProfitAmount >= 0
-                      ? "border border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                      : "border border-red-500/20 bg-red-500/10 text-red-600 dark:text-red-300"
-                  )}
-                >
-                  {progress.marketProfitAmount >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                  Market {formatAmount(progress.marketProfitAmount, progress.currencyCode, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                </div>
-              </div>
+      <CardContent className="relative pt-1">
+        <div className="rounded-[1.15rem] border border-black/8 bg-white/78 p-4 shadow-sm backdrop-blur-sm dark:border-white/10 dark:bg-white/5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              <span className="inline-flex items-center gap-2 rounded-full bg-black/[0.04] px-3 py-1.5 dark:bg-white/[0.06]">
+                <span className="h-2.5 w-2.5 rounded-full bg-[linear-gradient(90deg,#f59e0b,#f97316)]" />
+                Base
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full bg-black/[0.04] px-3 py-1.5 dark:bg-white/[0.06]">
+                <span className="h-2.5 w-2.5 rounded-full bg-[linear-gradient(90deg,#10b981,#14b8a6)]" />
+                Market
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full bg-black/[0.04] px-3 py-1.5 dark:bg-white/[0.06]">
+                <span className="h-2.5 w-2.5 rounded-full border border-black/25 bg-white dark:border-white/25 dark:bg-zinc-900" />
+                Checkpoints
+              </span>
             </div>
 
-            <div className="mt-6">
-              <div className="mb-3 flex items-center justify-between text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
-                <span>{progress.progressPercent.toFixed(1)}% complete</span>
-                <span>{formatAmount(progress.remainingAmount, progress.currencyCode, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} to go</span>
-              </div>
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              {progress.progressPercent.toFixed(1)}%
+            </div>
+          </div>
 
-              <div className="relative h-7 overflow-hidden rounded-full border border-black/10 bg-black/[0.06] dark:border-white/10 dark:bg-white/[0.08]">
-                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.4),transparent_35%,rgba(255,255,255,0.2))] dark:bg-[linear-gradient(90deg,rgba(255,255,255,0.08),transparent_35%,rgba(255,255,255,0.12))]" />
+          <div className="mt-5">
+            <div className="relative pt-7">
+              <div className="relative h-8 overflow-hidden rounded-full border border-black/10 bg-[linear-gradient(180deg,rgba(17,24,39,0.08),rgba(17,24,39,0.02))] shadow-[inset_0_1px_1px_rgba(255,255,255,0.6)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))]">
+                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.45),transparent_30%,rgba(255,255,255,0.18))] dark:bg-[linear-gradient(90deg,rgba(255,255,255,0.08),transparent_35%,rgba(255,255,255,0.12))]" />
                 <div
-                  className="absolute inset-y-0 left-0 rounded-full bg-[linear-gradient(90deg,#f59e0b,#f97316)] transition-transform duration-700 ease-[var(--ease-out-expo)]"
+                  className="absolute inset-y-0 left-0 bg-[linear-gradient(90deg,#f59e0b,#f97316_70%,#fb923c)] transition-all duration-700 ease-[var(--ease-out-expo)]"
                   style={{ width: `${baseShare * 100}%` }}
                 />
-                {positiveProfit > 0 ? (
+                {profitShare > 0 ? (
                   <div
-                    className="absolute inset-y-0 rounded-full bg-[linear-gradient(90deg,#10b981,#14b8a6)] transition-all duration-700 ease-[var(--ease-out-expo)]"
+                    className="absolute inset-y-0 bg-[linear-gradient(90deg,#10b981,#14b8a6_72%,#2dd4bf)] transition-all duration-700 ease-[var(--ease-out-expo)]"
                     style={{
                       left: `${baseShare * 100}%`,
                       width: `${profitShare * 100}%`,
                     }}
                   />
                 ) : null}
+                {drawdownShare > 0 ? (
+                  <div
+                    className="absolute inset-y-0 bg-[repeating-linear-gradient(135deg,rgba(239,68,68,0.26)_0,rgba(239,68,68,0.26)_8px,rgba(239,68,68,0.1)_8px,rgba(239,68,68,0.1)_16px)]"
+                    style={{
+                      left: `${totalShare * 100}%`,
+                      width: `${drawdownShare * 100}%`,
+                    }}
+                  />
+                ) : null}
+
+                {progress.milestones.map((milestone) => (
+                  <div
+                    key={milestone.amount}
+                    className="absolute inset-y-0"
+                    style={{ left: `${milestone.progress}%` }}
+                  >
+                    <div className="absolute inset-y-0 w-px bg-white/70 dark:bg-white/25" />
+                    <div
+                      className={cn(
+                        "absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border shadow-sm",
+                        milestone.isReached
+                          ? "h-3.5 w-3.5 border-white/80 bg-white"
+                          : "h-3 w-3 border-white/70 bg-black/15 dark:border-white/35 dark:bg-white/15"
+                      )}
+                    />
+                  </div>
+                ))}
+
                 <div
-                  className="absolute inset-y-0 rounded-full border-r border-white/80 bg-white/20"
-                  style={{ left: `${Math.max(totalShare * 100 - 0.2, 0)}%` }}
+                  className="absolute top-1/2 z-10 h-10 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground/80 shadow-[0_0_0_4px_rgba(255,255,255,0.7)] dark:shadow-[0_0_0_4px_rgba(9,9,11,0.75)]"
+                  style={{ left: `${totalShare * 100}%` }}
                 />
               </div>
 
-              <div className="relative mt-5 h-14">
-                <div className="absolute inset-x-0 top-2 h-px bg-black/10 dark:bg-white/10" />
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-7">
                 {progress.milestones.map((milestone, index) => (
                   <div
                     key={milestone.amount}
                     className={cn(
-                      "absolute top-0 flex flex-col items-center gap-2",
-                      index === progress.milestones.length - 1 ? "-translate-x-full" : "-translate-x-1/2"
+                      "absolute top-0",
+                      index === 0 ? "translate-x-0" : index === progress.milestones.length - 1 ? "-translate-x-full" : "-translate-x-1/2"
                     )}
                     style={{ left: `${milestone.progress}%` }}
                   >
                     <div
                       className={cn(
-                        "flex h-5 w-5 items-center justify-center rounded-full border text-[10px] shadow-sm transition-colors",
+                        "whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-semibold tracking-[0.12em]",
                         milestone.isReached
-                          ? "border-amber-500 bg-amber-500 text-white"
-                          : "border-black/15 bg-white text-muted-foreground dark:border-white/15 dark:bg-zinc-900"
-                      )}
-                    >
-                      {milestone.isReached ? <Trophy className="h-3 w-3" /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
-                    </div>
-                    <div
-                      className={cn(
-                        "rounded-full px-2 py-1 text-[11px] font-semibold tracking-[0.08em]",
-                        milestone.isReached
-                          ? "bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                          ? "bg-amber-500/12 text-amber-700 dark:text-amber-300"
                           : "text-muted-foreground"
                       )}
                     >
@@ -294,46 +301,28 @@ export function CapitalProgressCard({ progress }: { progress: CapitalProgressDat
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-            <div className="rounded-[calc(var(--radius)+0.5rem)] border border-black/10 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                <Target className="h-3.5 w-3.5" />
-                Next checkpoint
-              </div>
-              <div className="mt-3 text-2xl font-semibold tracking-[-0.04em]">
-                {nextMilestone ? compactMoney(nextMilestone.amount, progress.currencyCode) : "Target hit"}
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {nextMilestone
-                  ? `${formatAmount(Math.max(0, nextMilestone.amount - progress.totalAmount), progress.currencyCode, {
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 0,
-                    })} left for the next burst.`
-                  : "All milestone thresholds are cleared."}
-              </p>
+          <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+            <div className="inline-flex items-center gap-2 font-medium text-amber-700 dark:text-amber-300">
+              <Coins className="h-4 w-4" />
+              Base {formatAmount(progress.manualContributionAmount, progress.currencyCode, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </div>
-
-            <div className="rounded-[calc(var(--radius)+0.5rem)] border border-black/10 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Milestones cleared</div>
-              <div className="mt-3 text-2xl font-semibold tracking-[-0.04em]">
-                {completedMilestones}/{progress.milestones.length}
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                The ladder is broken into smaller wins so the next move always feels visible.
-              </p>
+            <div
+              className={cn(
+                "inline-flex items-center gap-2 font-medium",
+                progress.marketProfitAmount >= 0 ? "text-emerald-700 dark:text-emerald-300" : "text-red-600 dark:text-red-300"
+              )}
+            >
+              {progress.marketProfitAmount >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+              Market {formatAmount(progress.marketProfitAmount, progress.currencyCode, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </div>
-
-            <div className="rounded-[calc(var(--radius)+0.5rem)] border border-black/10 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Why this split matters</div>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                When the green layer starts stretching faster than the amber base, the market is compounding harder than salary top-ups.
-              </p>
-              <Button asChild variant="link" className="mt-3 h-auto p-0 text-sm text-foreground">
-                <Link href="/settings#capital-progress-settings">
-                  Update contributions
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
+            <div className="text-muted-foreground">
+              Positions {formatAmount(progress.livePositionsAmount, progress.currencyCode, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            </div>
+            <div className="text-muted-foreground">
+              Cash {formatAmount(progress.cashAmount, progress.currencyCode, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            </div>
+            <div className="ml-auto text-sm text-muted-foreground">
+              {formatAmount(progress.remainingAmount, progress.currencyCode, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} left
             </div>
           </div>
         </div>

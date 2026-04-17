@@ -4,6 +4,7 @@ import { trades, tradeLotMatches, platforms, buckets, goals, symbols, capitalPro
 import { and, eq } from 'drizzle-orm';
 import { format, startOfWeek } from 'date-fns';
 import { getExchangeRates, convertFromUSD, convertToUSD } from '@/lib/exchange-rates';
+import { getLiveQuotes } from '@/lib/live-quotes';
 
 /** Generate every YYYY-MM-DD string between two dates (inclusive). */
 function fillDailyKeys(from: string, to: string): string[] {
@@ -160,6 +161,13 @@ export const performanceRouter = router({
     const platformCostMap = new Map<string, number>();
     const bucketCostMap = new Map<string, number>();
     const sectorCostMap = new Map<string, number>();
+    const openPositionSummaries: Array<{
+      symbolId: string;
+      ticker: string;
+      openQty: number;
+      openCostUSD: number;
+      fallbackCurrency: string;
+    }> = [];
 
     Array.from(positionsMap.values()).forEach(p => {
       const openQty = p.bought - p.sold;
@@ -173,8 +181,20 @@ export const performanceRouter = router({
         bucketCostMap.set(p.bucketId || "uncategorized", (bucketCostMap.get(p.bucketId || "uncategorized") || 0) + openCostUSD);
         const sector = symbolMap.get(p.symbolId)?.sector || "Unclassified";
         sectorCostMap.set(sector, (sectorCostMap.get(sector) || 0) + openCostUSD);
+        const ticker = symbolMap.get(p.symbolId)?.ticker;
+        if (ticker) {
+          openPositionSummaries.push({
+            symbolId: p.symbolId,
+            ticker,
+            openQty,
+            openCostUSD,
+            fallbackCurrency: symbolMap.get(p.symbolId)?.currencyCode || getPlatformCurrency(p.platformId),
+          });
+        }
       }
     });
+
+    const liveQuotes = await getLiveQuotes(openPositionSummaries.map((position) => position.ticker));
 
     const investedPerPlatform = Array.from(platformCostMap.entries()).map(([id, amount]) => ({
       name: platformMap.get(id)?.name || 'Unknown',
@@ -300,12 +320,25 @@ export const performanceRouter = router({
         }
       : DEFAULT_CAPITAL_PROGRESS_SETTINGS;
 
-    const marketProfitAmount = convertFromUSD(
-      totalRealizedPnl,
+    const livePositionsValueUSD = openPositionSummaries.reduce((sum, position) => {
+      const quote = liveQuotes[position.ticker];
+      if (!quote?.price) {
+        return sum + position.openCostUSD;
+      }
+
+      return sum + convertToUSD(position.openQty * quote.price, quote.currency || position.fallbackCurrency, rates);
+    }, 0);
+    const totalCashUSD = allPlatforms.reduce(
+      (sum, platform) => sum + convertToUSD(Number(platform.cashBalance), platform.currencyCode, rates),
+      0
+    );
+    const totalEquityAmount = convertFromUSD(
+      livePositionsValueUSD + totalCashUSD,
       capitalProgressConfig.currencyCode,
       rates
     );
-    const totalAmount = capitalProgressConfig.manualContributionAmount + marketProfitAmount;
+    const marketProfitAmount = totalEquityAmount - capitalProgressConfig.manualContributionAmount;
+    const totalAmount = totalEquityAmount;
     const milestones = buildCapitalMilestones(capitalProgressConfig.targetAmount).map((milestone) => ({
       ...milestone,
       isReached: totalAmount >= milestone.amount,
@@ -333,6 +366,8 @@ export const performanceRouter = router({
         targetAmount: capitalProgressConfig.targetAmount,
         manualContributionAmount: capitalProgressConfig.manualContributionAmount,
         marketProfitAmount,
+        livePositionsAmount: convertFromUSD(livePositionsValueUSD, capitalProgressConfig.currencyCode, rates),
+        cashAmount: convertFromUSD(totalCashUSD, capitalProgressConfig.currencyCode, rates),
         totalAmount,
         remainingAmount: Math.max(0, capitalProgressConfig.targetAmount - totalAmount),
         progressPercent: clamp((totalAmount / capitalProgressConfig.targetAmount) * 100, 0, 100),

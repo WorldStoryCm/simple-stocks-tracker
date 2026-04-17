@@ -258,7 +258,7 @@ export function SettingsPage() {
         <CardHeader>
           <CardTitle>Capital Goal Progress</CardTitle>
           <CardDescription>
-            Configure the stacked dashboard bar for your path to the first 100k. The base layer is your manual contributions, the market layer is realized profit.
+            Configure the stacked dashboard bar for your path to the first 100k. The base layer is net money added from outside, the market layer is current growth from live positions plus cash.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -339,9 +339,9 @@ export function SettingsPage() {
                       minimumFractionDigits: 0,
                       maximumFractionDigits: 0,
                     })}{" "}
-                    + market P/L
+                    + market growth
                   </div>
-                  <p className="mt-1 text-sm text-muted-foreground">The green segment uses your realized trading profit and is converted into the same currency before stacking.</p>
+                  <p className="mt-1 text-sm text-muted-foreground">The green segment uses current equity minus your external contributions, so profits still sitting in positions are included.</p>
                 </div>
               </div>
 
