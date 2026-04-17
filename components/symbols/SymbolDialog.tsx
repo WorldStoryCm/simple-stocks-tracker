@@ -28,6 +28,8 @@ const formSchema = z.object({
   displayName: z.string().optional(),
   exchange: z.string().optional(),
   currencyCode: z.string().optional(),
+  sector: z.string().optional(),
+  industry: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -49,6 +51,8 @@ export function SymbolDialog({ open, onOpenChange, symbol }: Props) {
       displayName: "",
       exchange: "",
       currencyCode: "USD",
+      sector: "",
+      industry: "",
       notes: "",
     },
   });
@@ -61,6 +65,8 @@ export function SymbolDialog({ open, onOpenChange, symbol }: Props) {
           displayName: symbol.displayName || "",
           exchange: symbol.exchange || "",
           currencyCode: symbol.currencyCode || "USD",
+          sector: symbol.sector || "",
+          industry: symbol.industry || "",
           notes: symbol.notes || "",
         });
       } else {
@@ -69,6 +75,8 @@ export function SymbolDialog({ open, onOpenChange, symbol }: Props) {
           displayName: "",
           exchange: "",
           currencyCode: "USD",
+          sector: "",
+          industry: "",
           notes: "",
         });
       }
@@ -157,7 +165,7 @@ export function SymbolDialog({ open, onOpenChange, symbol }: Props) {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="currencyCode"
@@ -166,6 +174,36 @@ export function SymbolDialog({ open, onOpenChange, symbol }: Props) {
                     <FormLabel>Currency</FormLabel>
                     <FormControl>
                       <Input placeholder="USD" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="sector"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Sector</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Technology, Defense..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="industry"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Industry</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Semiconductors..." {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

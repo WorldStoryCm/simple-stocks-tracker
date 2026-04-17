@@ -10,7 +10,121 @@ import { TradeDialog } from "@/components/trades/TradeDialog";
 import { ViewPositionDialog } from "@/components/positions/ViewPositionDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/Popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
+import { Treemap, ResponsiveContainer, Tooltip as RechartsTooltip } from "recharts";
 import { formatAmount, formatPrice, currencySymbol } from "@/lib/currency";
+
+// Map PnL% to a color along a red→neutral→green gradient.
+// Intensity saturates at ±20% so extreme values don't dominate.
+function pnlColor(pnlPct: number): string {
+  const clamped = Math.max(-20, Math.min(20, pnlPct));
+  const t = Math.abs(clamped) / 20; // 0..1 intensity
+  if (clamped >= 0) {
+    // green: hsl(142, 70%, L) — L goes 40→22 as intensity grows
+    const l = 40 - t * 18;
+    return `hsl(142 70% ${l}%)`;
+  }
+  // red: hsl(0, 72%, L)
+  const l = 45 - t * 20;
+  return `hsl(0 72% ${l}%)`;
+}
+
+function HeatmapContent(props: any) {
+  const { x, y, width, height, name, pnlPct, depth } = props;
+  if (width <= 0 || height <= 0) return null;
+  // Recharts renders the root container (depth 0) through this same component.
+  // The root has no custom data fields — skip its rect so only the leaf tiles paint.
+  if (depth === 0) return null;
+  const hasPct = typeof pnlPct === "number" && Number.isFinite(pnlPct);
+  const fill = pnlColor(hasPct ? pnlPct : 0);
+  const showLabel = width > 50 && height > 30;
+  const showPct = hasPct && width > 70 && height > 45;
+  return (
+    <g>
+      <rect x={x} y={y} width={width} height={height} fill={fill} stroke="hsl(var(--background))" strokeWidth={2} style={{ cursor: "pointer" }} />
+      {showLabel && (
+        <text x={x + width / 2} y={y + height / 2 - (showPct ? 8 : 0)} textAnchor="middle" fill="#fff" fontSize={Math.min(16, Math.max(11, width / 8))} fontWeight={700}>
+          {name}
+        </text>
+      )}
+      {showPct && (
+        <text x={x + width / 2} y={y + height / 2 + 10} textAnchor="middle" fill="#fff" fontSize={11} opacity={0.9}>
+          {pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(1)}%
+        </text>
+      )}
+    </g>
+  );
+}
+
+function HeatmapView({ positions, quotes, isLoading, onSelect }: { positions: any[]; quotes: any; isLoading: boolean; onSelect: (p: any) => void }) {
+  const data = useMemo(() => {
+    return positions
+      .map((pos) => {
+        const quote = quotes?.[pos.symbol.ticker];
+        const marketPrice = quote?.price || Number(pos.avgCost);
+        const currentVal = Number(pos.openQty) * marketPrice;
+        const invested = Number(pos.investedAmount);
+        const pnl = currentVal - invested;
+        const pnlPct = invested > 0 ? (pnl / invested) * 100 : 0;
+        return { name: pos.symbol.ticker, size: currentVal, pnl, pnlPct, invested, pos };
+      })
+      .filter((d) => d.size > 0);
+  }, [positions, quotes]);
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[500px] items-center justify-center rounded-md border bg-card">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (data.length === 0) {
+    return (
+      <div className="flex h-[500px] items-center justify-center rounded-md border bg-card text-muted-foreground text-sm">
+        No open positions to visualize.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-md border bg-card p-2">
+      <div className="h-[500px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <Treemap
+            data={data}
+            dataKey="size"
+            nameKey="name"
+            stroke="hsl(var(--background))"
+            content={<HeatmapContent />}
+            onClick={(node: any) => node?.pos && onSelect(node.pos)}
+            isAnimationActive={false}
+          >
+            <RechartsTooltip
+              content={({ active, payload }: any) => {
+                if (!active || !payload?.length) return null;
+                const d = payload[0].payload;
+                return (
+                  <div className="rounded-md border bg-popover px-3 py-2 text-xs shadow-md">
+                    <div className="font-bold">{d.name}</div>
+                    <div className="text-muted-foreground">Value: ${d.size.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                    <div className="text-muted-foreground">Invested: ${d.invested.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                    <div className={d.pnl >= 0 ? "text-green-500 font-semibold" : "text-red-500 font-semibold"}>
+                      P/L: {d.pnl >= 0 ? "+" : ""}${d.pnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({d.pnlPct >= 0 ? "+" : ""}{d.pnlPct.toFixed(2)}%)
+                    </div>
+                  </div>
+                );
+              }}
+            />
+          </Treemap>
+        </ResponsiveContainer>
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground px-2">
+        Tile size = current market value. Color = unrealized P/L % (saturates at ±20%). Click a tile to view details.
+      </p>
+    </div>
+  );
+}
 
 export function PositionsPage() {
   const { data: positions, isLoading } = trpc.positions.list.useQuery();
@@ -29,6 +143,7 @@ export function PositionsPage() {
   const [symbolFilter, setSymbolFilter] = useState("all");
   const [platformFilter, setPlatformFilter] = useState("all");
   const [bucketFilter, setBucketFilter] = useState("all");
+  const [groupBy, setGroupBy] = useState<"lot"|"ticker">("lot");
   const [sortField, setSortField] = useState<"symbol"|"platform"|"bucket"|"qty"|"cost"|"invested"|"price"|"value">("symbol");
   const [sortDir, setSortDir] = useState<"asc"|"desc">("asc");
   const [page, setPage] = useState(1);
@@ -115,9 +230,77 @@ export function PositionsPage() {
     return arr;
   }, [openPositions, symbolFilter, platformFilter, bucketFilter, sortField, sortDir, quotes]);
 
+  // When grouping by ticker, collapse lots across platforms/buckets into one aggregated row.
+  const displayPositions = useMemo(() => {
+    if (groupBy === "lot") return filteredPositions;
+
+    const groups = new Map<string, any[]>();
+    for (const p of filteredPositions) {
+      const key = p.symbol.id;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(p);
+    }
+
+    const aggregated = Array.from(groups.values()).map((lots) => {
+      const totalQty = lots.reduce((s, l) => s + Number(l.openQty), 0);
+      const totalInvested = lots.reduce((s, l) => s + Number(l.investedAmount), 0);
+      const platformNames = Array.from(new Set(lots.map((l) => l.platform.name)));
+      const bucketLabels = Array.from(new Set(lots.map((l) => l.bucket?.label).filter(Boolean)));
+      return {
+        symbol: lots[0].symbol,
+        platform: {
+          id: null,
+          name: platformNames.length === 1 ? platformNames[0] : `${platformNames.length} platforms`,
+        },
+        bucket: bucketLabels.length === 0
+          ? null
+          : { id: null, label: bucketLabels.length === 1 ? bucketLabels[0] : `${bucketLabels.length} buckets` },
+        openQty: totalQty,
+        avgCost: totalQty > 0 ? totalInvested / totalQty : 0,
+        investedAmount: totalInvested,
+        currencyCode: lots[0].currencyCode,
+        _isAggregate: true,
+        _lotCount: lots.length,
+      };
+    });
+
+    // Re-sort the aggregated rows using the current sort field.
+    aggregated.sort((a, b) => {
+      let valA: any = 0;
+      let valB: any = 0;
+      const quoteA = quotes?.[a.symbol.ticker];
+      const quoteB = quotes?.[b.symbol.ticker];
+      const marketPriceA = quoteA?.price || Number(a.avgCost);
+      const marketPriceB = quoteB?.price || Number(b.avgCost);
+
+      switch (sortField) {
+        case "symbol": valA = a.symbol.ticker; valB = b.symbol.ticker; break;
+        case "platform": valA = a.platform.name; valB = b.platform.name; break;
+        case "bucket": valA = a.bucket?.label || ""; valB = b.bucket?.label || ""; break;
+        case "qty": valA = Number(a.openQty); valB = Number(b.openQty); break;
+        case "cost": valA = Number(a.avgCost); valB = Number(b.avgCost); break;
+        case "invested": valA = Number(a.investedAmount); valB = Number(b.investedAmount); break;
+        case "price": valA = marketPriceA; valB = marketPriceB; break;
+        case "value": valA = Number(a.openQty) * marketPriceA; valB = Number(b.openQty) * marketPriceB; break;
+      }
+      if (valA < valB) return sortDir === "asc" ? -1 : 1;
+      if (valA > valB) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    return aggregated;
+  }, [filteredPositions, groupBy, sortField, sortDir, quotes]);
+
   const limit = 40;
-  const totalPages = Math.ceil(filteredPositions.length / limit) || 1;
-  const paginatedPositions = filteredPositions.slice((page - 1) * limit, page * limit);
+  const totalPages = Math.ceil(displayPositions.length / limit) || 1;
+  const paginatedPositions = displayPositions.slice((page - 1) * limit, page * limit);
+
+  // Drill into the underlying lots of an aggregated ticker row.
+  const handleAggregateDrill = (pos: any) => {
+    setSymbolFilter(pos.symbol.id);
+    setGroupBy("lot");
+    setPage(1);
+  };
 
   return (
     <div className="flex flex-col gap-6 animate-fade-in">
@@ -183,9 +366,26 @@ export function PositionsPage() {
               ))}
             </SelectContent>
           </Select>
+
+          <Select value={groupBy} onValueChange={(v: "lot"|"ticker") => { setGroupBy(v); setPage(1); }}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="lot">Group: Lot</SelectItem>
+              <SelectItem value="ticker">Group: Ticker</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
+      <Tabs defaultValue="table" className="w-full">
+        <TabsList>
+          <TabsTrigger value="table">Table</TabsTrigger>
+          <TabsTrigger value="heatmap">Heatmap</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="table">
       <div className="rounded-md border bg-card overflow-x-auto">
         <Table>
           <TableHeader>
@@ -208,7 +408,7 @@ export function PositionsPage() {
                   <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
                 </TableCell>
               </TableRow>
-            ) : filteredPositions.length === 0 ? (
+            ) : displayPositions.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
                   No open positions found. Buy some stocks to see them here.
@@ -220,14 +420,18 @@ export function PositionsPage() {
                 const marketPrice = quote?.price || Number(pos.avgCost);
                 const currentVal = Number(pos.openQty) * marketPrice;
                 const investedAmount = Number(pos.investedAmount);
-                const pnl = currentVal - investedAmount;
-                const pnlPercent = investedAmount > 0 ? (pnl / investedAmount) * 100 : 0;
+                const isAgg = pos._isAggregate;
 
                 return (
                   <TableRow key={idx}>
-                    <TableCell className="font-bold">{pos.symbol.ticker}</TableCell>
-                    <TableCell>{pos.platform.name}</TableCell>
-                    <TableCell>{pos.bucket?.label || <span className="text-muted-foreground italic">None</span>}</TableCell>
+                    <TableCell className="font-bold">
+                      {pos.symbol.ticker}
+                      {isAgg && <span className="ml-2 text-xs font-normal text-muted-foreground">({pos._lotCount} lots)</span>}
+                    </TableCell>
+                    <TableCell className={isAgg && pos.platform.name.includes("platforms") ? "text-muted-foreground italic" : ""}>{pos.platform.name}</TableCell>
+                    <TableCell>{pos.bucket?.label ? (
+                      <span className={isAgg && pos.bucket.label.includes("buckets") ? "text-muted-foreground italic" : ""}>{pos.bucket.label}</span>
+                    ) : <span className="text-muted-foreground italic">None</span>}</TableCell>
                     <TableCell className="text-right tabular-nums font-medium">{Number(pos.openQty).toFixed(4)}</TableCell>
                     <TableCell className="text-right tabular-nums">{formatPrice(Number(pos.avgCost), pos.currencyCode || 'USD')}</TableCell>
                     <TableCell className="text-right tabular-nums">{formatAmount(investedAmount, pos.currencyCode || 'USD')}</TableCell>
@@ -246,15 +450,23 @@ export function PositionsPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleViewPosition(pos)}>
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleQuickAction(pos, 'buy')}>
-                            Buy More
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleQuickAction(pos, 'sell')}>
-                            Sell Position
-                          </DropdownMenuItem>
+                          {isAgg ? (
+                            <DropdownMenuItem onClick={() => handleAggregateDrill(pos)}>
+                              View Lots
+                            </DropdownMenuItem>
+                          ) : (
+                            <>
+                              <DropdownMenuItem onClick={() => handleViewPosition(pos)}>
+                                View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleQuickAction(pos, 'buy')}>
+                                Buy More
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleQuickAction(pos, 'sell')}>
+                                Sell Position
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -268,13 +480,19 @@ export function PositionsPage() {
 
       <div className="flex items-center justify-between py-2">
         <div className="text-sm text-muted-foreground">
-          Showing page {page} of {totalPages} ({filteredPositions.length} total)
+          Showing page {page} of {totalPages} ({displayPositions.length} {groupBy === "ticker" ? "tickers" : "lots"})
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1 || isLoading}>Previous</Button>
           <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages || isLoading}>Next</Button>
         </div>
       </div>
+        </TabsContent>
+
+        <TabsContent value="heatmap">
+          <HeatmapView positions={displayPositions} quotes={quotes} isLoading={isLoading} onSelect={(p) => p._isAggregate ? handleAggregateDrill(p) : handleViewPosition(p)} />
+        </TabsContent>
+      </Tabs>
 
       <TradeDialog
         open={isTradeDialogOpen}

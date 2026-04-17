@@ -1,6 +1,6 @@
 import { router, protectedProcedure } from '../trpc';
 import { db } from '@/db/drizzle';
-import { trades, tradeLotMatches, platforms, buckets, goals } from '@/db/schema';
+import { trades, tradeLotMatches, platforms, buckets, goals, symbols } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { format, startOfWeek } from 'date-fns';
 import { getExchangeRates, convertToUSD } from '@/lib/exchange-rates';
@@ -47,14 +47,16 @@ export const performanceRouter = router({
     const userId = ctx.session.user.id;
     
     const rates = await getExchangeRates();
-    const [allPlatforms, activeGoals] = await Promise.all([
+    const [allPlatforms, activeGoals, allSymbols] = await Promise.all([
       db.query.platforms.findMany({ where: eq(platforms.userId, userId) }),
       db.query.goals.findMany({ where: and(eq(goals.userId, userId), eq(goals.isActive, true)) }),
+      db.query.symbols.findMany({ where: eq(symbols.userId, userId) }),
     ]);
     const allBuckets = await db.query.buckets.findMany({ where: eq(buckets.userId, userId) });
-    
+
     const platformMap = new Map(allPlatforms.map(p => [p.id, p]));
     const bucketMap = new Map(allBuckets.map(b => [b.id, b]));
+    const symbolMap = new Map(allSymbols.map(s => [s.id, s]));
     
     const getPlatformCurrency = (pId: string | null | undefined) => {
       if (!pId) return "USD";
@@ -112,18 +114,18 @@ export const performanceRouter = router({
       }
     });
 
-    const positionsMap = new Map<string, { platformId: string; bucketId: string | null; bought: number; sold: number; costUSD: number }>();
+    const positionsMap = new Map<string, { platformId: string; bucketId: string | null; symbolId: string; bought: number; sold: number; costUSD: number }>();
 
     allTrades.forEach(t => {
       if (t.tradeType === 'buy') {
         const key = `${t.platformId}_${t.symbolId}_${t.bucketId}`;
-        const p = positionsMap.get(key) || { platformId: t.platformId, bucketId: t.bucketId, bought: 0, sold: 0, costUSD: 0 };
+        const p = positionsMap.get(key) || { platformId: t.platformId, bucketId: t.bucketId, symbolId: t.symbolId, bought: 0, sold: 0, costUSD: 0 };
         p.bought += Number(t.quantity);
-        
+
         const buyCost = Number(t.quantity) * Number(t.price) + Number(t.fee);
         const buyCostUSD = convertToUSD(buyCost, getPlatformCurrency(t.platformId), rates);
         p.costUSD += buyCostUSD;
-        
+
         positionsMap.set(key, p);
       }
     });
@@ -139,17 +141,20 @@ export const performanceRouter = router({
 
     const platformCostMap = new Map<string, number>();
     const bucketCostMap = new Map<string, number>();
+    const sectorCostMap = new Map<string, number>();
 
     Array.from(positionsMap.values()).forEach(p => {
       const openQty = p.bought - p.sold;
       const openRatio = p.bought > 0 ? openQty / p.bought : 0;
       const openCostUSD = p.costUSD * openRatio;
-      
+
       totalInvested += openCostUSD;
-      
+
       if (openCostUSD > 0) {
         platformCostMap.set(p.platformId, (platformCostMap.get(p.platformId) || 0) + openCostUSD);
         bucketCostMap.set(p.bucketId || "uncategorized", (bucketCostMap.get(p.bucketId || "uncategorized") || 0) + openCostUSD);
+        const sector = symbolMap.get(p.symbolId)?.sector || "Unclassified";
+        sectorCostMap.set(sector, (sectorCostMap.get(sector) || 0) + openCostUSD);
       }
     });
 
@@ -162,6 +167,10 @@ export const performanceRouter = router({
       name: id === "uncategorized" ? "Uncategorized" : (bucketMap.get(id)?.label || 'Unknown'),
       value: amount
     }));
+
+    const investedPerSector = Array.from(sectorCostMap.entries())
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
 
     const winRate = allMatches.length > 0 ? (winningTrades / allMatches.length) * 100 : 0;
 
@@ -270,6 +279,7 @@ export const performanceRouter = router({
       totalRealizedPnl,
       investedPerPlatform,
       investedPerBucket,
+      investedPerSector,
       winRate,
       totalMatches: allMatches.length,
       dailyStats,

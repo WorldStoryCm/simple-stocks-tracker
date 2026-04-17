@@ -22,7 +22,8 @@ import {
 } from "@/components/Form";
 import { Input } from "@/components/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select";
-import { Calculator, ChevronsUpDown, Search, Check } from "lucide-react";
+import { Calculator, ChevronsUpDown, Search, Check, Wallet } from "lucide-react";
+import { formatAmount } from "@/lib/currency";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/Popover";
 import toast from "react-hot-toast";
 
@@ -198,7 +199,9 @@ export function TradeDialog({ open, onOpenChange, trade }: { open: boolean, onOp
   const watchPlatformId = form.watch("platformId");
   const watchSymbol = form.watch("symbolId");
 
-  const selectedPlatformCurrency = platforms?.find((p: any) => p.id === watchPlatformId)?.currencyCode || null;
+  const selectedPlatform = platforms?.find((p: any) => p.id === watchPlatformId) ?? null;
+  const selectedPlatformCurrency = selectedPlatform?.currencyCode ?? null;
+  const selectedPlatformCash = selectedPlatform ? Number(selectedPlatform.cashBalance ?? 0) : null;
 
   const { data: openQty } = trpc.trades.getOpenQuantity.useQuery(
     { platformId: watchPlatformId, symbolId: watchSymbol },
@@ -243,9 +246,32 @@ export function TradeDialog({ open, onOpenChange, trade }: { open: boolean, onOp
                   <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Select broker" /></SelectTrigger></FormControl>
                     <SelectContent>
-                      {platforms?.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                      {platforms?.map((p: any) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          <span className="flex items-center justify-between gap-3 w-full">
+                            <span>{p.name}</span>
+                            <span className={`text-xs tabular-nums ${Number(p.cashBalance) > 0 ? "text-green-500" : "text-muted-foreground"}`}>
+                              {formatAmount(Number(p.cashBalance ?? 0), p.currencyCode)}
+                            </span>
+                          </span>
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+                  {/* Cash balance hint shown after a broker is selected */}
+                  {selectedPlatform && (
+                    <div className={`flex items-center gap-1.5 text-xs mt-1 px-1 ${
+                      selectedPlatformCash! > 0 ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
+                    }`}>
+                      <Wallet className="h-3 w-3 shrink-0" />
+                      <span>
+                        Available cash:{" "}
+                        <span className="font-semibold tabular-nums">
+                          {formatAmount(selectedPlatformCash!, selectedPlatformCurrency!)}
+                        </span>
+                      </span>
+                    </div>
+                  )}
                   <FormMessage />
                 </FormItem>
               )} />

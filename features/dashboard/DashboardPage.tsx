@@ -3,7 +3,7 @@
 import { useSession } from "@/lib/auth-client";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
-import { Loader2, Target, TrendingUp, TrendingDown } from "lucide-react";
+import { Loader2, Target, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from "recharts";
 import { Progress } from "@/components/progress";
@@ -63,6 +63,108 @@ function GoalProgressCard({ goal }: { goal: { goalType: string; target: number; 
           }
         </p>
       </CardContent>
+    </Card>
+  );
+}
+
+const SECTOR_CONCENTRATION_THRESHOLD = 0.4; // 40% triggers the warning
+
+// Curated palette chosen for readability on both light and dark backgrounds.
+// Distinct enough that 8+ sectors are still easy to tell apart.
+const SECTOR_COLORS = [
+  '#3b82f6', // blue-500
+  '#10b981', // emerald-500
+  '#f59e0b', // amber-500
+  '#8b5cf6', // violet-500
+  '#ec4899', // pink-500
+  '#14b8a6', // teal-500
+  '#f97316', // orange-500
+  '#6366f1', // indigo-500
+  '#84cc16', // lime-500
+  '#06b6d4', // cyan-500
+  '#a855f7', // purple-500
+  '#ef4444', // red-500
+];
+const UNCLASSIFIED_COLOR = '#94a3b8'; // slate-400 — soft, clearly neutral, not "heavy"
+
+function SectorBreakdownCard({ data, totalInvested }: { data?: { name: string; value: number }[]; totalInvested: number }) {
+  const hasData = data && data.length > 0 && totalInvested > 0;
+  const allUnclassified = hasData && data!.every(d => d.name === "Unclassified");
+  const topSlice = hasData ? data[0] : null;
+  const topShare = topSlice && totalInvested > 0 ? topSlice.value / totalInvested : 0;
+  const overConcentrated = !allUnclassified && topShare >= SECTOR_CONCENTRATION_THRESHOLD;
+  const hasUnclassified = hasData && !allUnclassified && data!.some(d => d.name === "Unclassified");
+
+  // Assign colors skipping the Unclassified slot so classified sectors keep their
+  // palette positions stable.
+  let paletteIdx = 0;
+  const coloredData = hasData ? data!.map((entry) => {
+    if (entry.name === "Unclassified") {
+      return { ...entry, _fill: UNCLASSIFIED_COLOR };
+    }
+    const fill = SECTOR_COLORS[paletteIdx % SECTOR_COLORS.length];
+    paletteIdx++;
+    return { ...entry, _fill: fill };
+  }) : [];
+
+  const showEmptyState = !hasData || allUnclassified;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm font-medium text-muted-foreground">Capital by Sector</CardTitle>
+          {overConcentrated && (
+            <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-semibold text-red-500">
+              <AlertTriangle className="h-3 w-3" /> {(topShare * 100).toFixed(0)}% in {topSlice!.name}
+            </span>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="h-[300px]">
+        {showEmptyState ? (
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-center px-4">
+            <div className="text-sm text-muted-foreground">
+              {allUnclassified ? "No sector metadata yet." : "No active investments."}
+            </div>
+            {allUnclassified && (
+              <div className="text-xs text-muted-foreground">
+                Open <span className="font-medium text-foreground">Symbols → Refresh metadata</span> to pull sectors from Yahoo.
+              </div>
+            )}
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={coloredData}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={85}
+                label={(props: any) => `${((props.value / totalInvested) * 100).toFixed(0)}%`}
+              >
+                {coloredData.map((entry: any, index: number) => (
+                  <Cell key={`cell-${index}`} fill={entry._fill} />
+                ))}
+              </Pie>
+              <RechartsTooltip
+                formatter={(val: any, _name: any, entry: any) => {
+                  const pct = totalInvested > 0 ? (Number(val) / totalInvested) * 100 : 0;
+                  return [`$${Number(val).toLocaleString(undefined, { minimumFractionDigits: 2 })} (${pct.toFixed(1)}%)`, entry?.payload?.name];
+                }}
+              />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        )}
+      </CardContent>
+      {hasUnclassified && (
+        <div className="px-6 pb-4 -mt-2 text-xs text-muted-foreground">
+          Some symbols lack sector metadata. Refresh from /symbols.
+        </div>
+      )}
     </Card>
   );
 }
@@ -170,7 +272,7 @@ export function DashboardPage() {
           )}
 
           {/* Pie charts */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Capital by Platform</CardTitle>
@@ -208,6 +310,8 @@ export function DashboardPage() {
                 ) : <div className="flex h-full items-center justify-center text-muted-foreground text-sm">No active investments</div>}
               </CardContent>
             </Card>
+
+            <SectorBreakdownCard data={perf?.investedPerSector} totalInvested={perf?.totalInvested || 0} />
           </div>
 
           {/* Performance Logs */}
