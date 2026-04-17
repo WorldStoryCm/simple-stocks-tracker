@@ -56,10 +56,16 @@ type SegmentShapeProps = {
 };
 
 const CONFETTI_COLORS = ["#60a5fa", "#818cf8", "#34d399", "#2dd4bf", "#f9a8d4"];
-const SEGMENT_JOIN_OVERLAP = 1.5;
+const SEGMENT_JOIN_OVERLAP = 6;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
+}
+
+function createSvgId(...parts: Array<string | number>) {
+  return parts
+    .map((part) => String(part).replace(/[^a-zA-Z0-9_-]/g, "-"))
+    .join("-");
 }
 
 function compactMoney(amount: number, currencyCode: string) {
@@ -315,6 +321,51 @@ export function CapitalProgressCard({ progress }: { progress: CapitalProgressDat
   const marketGradientId = `${gradientSeed}-capital-progress-market`;
   const baseShadowId = `${gradientSeed}-capital-progress-base-shadow`;
   const marketShadowId = `${gradientSeed}-capital-progress-market-shadow`;
+  const filledOverlayClipId = `${gradientSeed}-capital-progress-filled-overlay-clip`;
+  const filledOverlaySheenId = `${gradientSeed}-capital-progress-filled-overlay-sheen`;
+
+  const renderSegmentSurface = ({
+    x,
+    y,
+    height,
+    path,
+    fill,
+    shadowId,
+    surfaceKey,
+  }: {
+    x: number;
+    y: number;
+    height: number;
+    path: string;
+    fill?: string;
+    shadowId: string;
+    surfaceKey: string;
+  }) => {
+    const sheenId = createSvgId(surfaceKey, "sheen");
+
+    return (
+      <g>
+        <defs>
+          <linearGradient
+            id={sheenId}
+            x1={x}
+            y1={y}
+            x2={x}
+            y2={y + height}
+            gradientUnits="userSpaceOnUse"
+          >
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.42" />
+            <stop offset="34%" stopColor="#ffffff" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        <path d={path} fill={fill} filter={`url(#${shadowId})`} />
+        <path d={path} fill={`url(#${sheenId})`} />
+        <path d={path} fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="1" />
+      </g>
+    );
+  };
 
   const renderBaseShape = ({
     x = 0,
@@ -340,7 +391,15 @@ export function CapitalProgressCard({ progress }: { progress: CapitalProgressDat
       }
     );
 
-    return <path d={path} fill={fill} filter={`url(#${baseShadowId})`} />;
+    return renderSegmentSurface({
+      x,
+      y,
+      height,
+      path,
+      fill,
+      shadowId: baseShadowId,
+      surfaceKey: createSvgId(gradientSeed, "base", x, y, width, height),
+    });
   };
 
   const renderMarketShape = ({
@@ -361,12 +420,20 @@ export function CapitalProgressCard({ progress }: { progress: CapitalProgressDat
       width + (hasBaseSegment ? SEGMENT_JOIN_OVERLAP : 0),
       height,
       {
-        roundLeft: !hasBaseSegment,
+        roundLeft: true,
         roundRight: true,
       }
     );
 
-    return <path d={path} fill={fill} filter={`url(#${marketShadowId})`} />;
+    return renderSegmentSurface({
+      x: x - (hasBaseSegment ? SEGMENT_JOIN_OVERLAP : 0),
+      y,
+      height,
+      path,
+      fill,
+      shadowId: marketShadowId,
+      surfaceKey: createSvgId(gradientSeed, "market", x, y, width, height),
+    });
   };
 
   return (
@@ -444,8 +511,8 @@ export function CapitalProgressCard({ progress }: { progress: CapitalProgressDat
                 </div>
               ))}
 
-              <div className="relative h-[52px] overflow-hidden rounded-full border border-slate-200/80 bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(241,245,249,0.98))] shadow-[inset_0_1px_0_rgba(255,255,255,0.98),inset_0_-10px_18px_rgba(148,163,184,0.12)]">
-                <div className="pointer-events-none absolute inset-0 opacity-60 [background-image:repeating-linear-gradient(135deg,rgba(148,163,184,0.08)_0,rgba(148,163,184,0.08)_10px,transparent_10px,transparent_22px)]" />
+              <div className="relative h-[34px] overflow-hidden rounded-full border border-slate-200/80 bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(241,245,249,0.98))] shadow-[inset_0_1px_0_rgba(255,255,255,0.98),inset_0_-10px_18px_rgba(148,163,184,0.12)]">
+                <div className="pointer-events-none absolute inset-0 opacity-55 [background-image:repeating-linear-gradient(90deg,rgba(148,163,184,0.11)_0,rgba(148,163,184,0.11)_1px,transparent_1px,transparent_14px)]" />
                 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.92),transparent_60%)]" />
 
                 <ResponsiveContainer width="100%" height="100%">
@@ -519,24 +586,109 @@ export function CapitalProgressCard({ progress }: { progress: CapitalProgressDat
                   </BarChart>
                 </ResponsiveContainer>
 
+                {baseWidthPercent + marketWidthPercent > 0 ? (
+                  <svg
+                    className="pointer-events-none absolute inset-0 z-[5]"
+                    viewBox="0 0 100 100"
+                    preserveAspectRatio="none"
+                    aria-hidden="true"
+                  >
+                    <defs>
+                      <clipPath id={filledOverlayClipId}>
+                        <rect
+                          x="0"
+                          y="0"
+                          width={clamp(baseWidthPercent + marketWidthPercent, 0, 100)}
+                          height="100"
+                          rx="50"
+                          ry="50"
+                        />
+                      </clipPath>
+                    </defs>
+
+                    <g clipPath={`url(#${filledOverlayClipId})`} opacity="0.7">
+                      {Array.from({ length: 12 }, (_, index) => {
+                        const x = 4 + index * 4;
+                        return (
+                          <line
+                            key={`tick-${x}`}
+                            x1={x}
+                            y1="28"
+                            x2={x}
+                            y2="72"
+                            stroke="rgba(255,255,255,0.72)"
+                            strokeWidth="0.8"
+                            strokeLinecap="round"
+                          />
+                        );
+                      })}
+
+                      {Array.from({ length: 5 }, (_, index) => {
+                        const x = 49 + index * 5;
+                        return (
+                          <path
+                            key={`slash-${x}`}
+                            d={`M ${x} 30 L ${x + 2.8} 50 L ${x} 70`}
+                            fill="none"
+                            stroke="rgba(255,255,255,0.7)"
+                            strokeWidth="0.9"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        );
+                      })}
+
+                      {Array.from({ length: 5 }, (_, index) => {
+                        const x = 74 + index * 5;
+                        return (
+                          <path
+                            key={`chevron-${x}`}
+                            d={`M ${x} 30 L ${x + 3.4} 50 L ${x} 70`}
+                            fill="none"
+                            stroke="rgba(255,255,255,0.84)"
+                            strokeWidth="1"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        );
+                      })}
+
+                      <rect
+                        x="0"
+                        y="0"
+                        width="100"
+                        height="46"
+                        fill={`url(#${filledOverlaySheenId})`}
+                      />
+                    </g>
+
+                    <defs>
+                      <linearGradient id={filledOverlaySheenId} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#ffffff" stopOpacity="0.24" />
+                        <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                ) : null}
+
                 {progress.milestones.map((milestone) => (
                   <div
                     key={milestone.amount}
                     className="pointer-events-none absolute inset-y-0 z-10"
                     style={{ left: `${milestone.progress}%` }}
                   >
-                    <div
-                      className={cn(
-                        "absolute left-1/2 top-1/2 h-[74%] w-px -translate-x-1/2 -translate-y-1/2 transition-all duration-500",
+                      <div
+                        className={cn(
+                          "absolute left-1/2 top-1/2 h-[74%] w-px -translate-x-1/2 -translate-y-1/2 transition-all duration-500",
                         milestone.isReached ? "bg-emerald-400/60" : "bg-slate-300/95"
                       )}
                     />
-                    <div
-                      className={cn(
-                        "absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] transition-all duration-500",
-                        milestone.isReached
-                          ? "border-white bg-emerald-400 shadow-[0_0_0_4px_rgba(167,243,208,0.55)]"
-                          : "border-white bg-slate-300"
+                      <div
+                        className={cn(
+                          "absolute left-1/2 top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] transition-all duration-500",
+                          milestone.isReached
+                            ? "border-white bg-emerald-400 shadow-[0_0_0_4px_rgba(167,243,208,0.55)]"
+                            : "border-white bg-slate-300"
                       )}
                     />
                   </div>
@@ -560,7 +712,7 @@ export function CapitalProgressCard({ progress }: { progress: CapitalProgressDat
                     className="pointer-events-none absolute inset-y-0 z-30"
                     style={{ left: `${currentMarkerPercent}%` }}
                   >
-                    <div className="absolute left-1/2 top-1/2 h-7 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/95 shadow-[0_8px_20px_rgba(15,23,42,0.18)]" />
+                    <div className="absolute left-1/2 top-1/2 h-5 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/95 shadow-[0_8px_20px_rgba(15,23,42,0.18)]" />
                   </div>
                 ) : null}
 
