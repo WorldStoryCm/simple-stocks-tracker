@@ -29,6 +29,13 @@
       "when": 1776374473520,
       "tag": "0003_sad_hobgoblin",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1776455891093,
+      "tag": "0004_flat_cassandra_nova",
+      "breakpoints": true
     }
   ]
 }

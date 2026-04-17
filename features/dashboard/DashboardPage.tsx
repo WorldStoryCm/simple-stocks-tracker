@@ -7,6 +7,7 @@ import { Loader2, Target, TrendingUp, TrendingDown, AlertTriangle } from "lucide
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from "recharts";
 import { Progress } from "@/components/progress";
+import { CapitalProgressCard } from "@/features/dashboard/CapitalProgressCard";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#a28bfe', '#ff7675', '#fdcb6e', '#e17055', '#d63031', '#e84393'];
 
@@ -234,6 +235,8 @@ export function DashboardPage() {
         <div className="flex justify-center p-8"><Loader2 className="animate-spin text-muted-foreground w-8 h-8" /></div>
       ) : (
         <>
+          {perf?.capitalProgress ? <CapitalProgressCard progress={perf.capitalProgress} /> : null}
+
           {/* Top stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card>

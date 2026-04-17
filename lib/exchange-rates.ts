@@ -19,7 +19,10 @@ export async function getExchangeRates(): Promise<Record<string, number>> {
   try {
     const pairs = SUPPORTED_CURRENCIES.map(c => `${c}USD=X`);
     const quotes = await yahooFinance.quote(pairs);
-    const quotesArray = (Array.isArray(quotes) ? quotes : [quotes]) as any[];
+    const quotesArray = (Array.isArray(quotes) ? quotes : [quotes]) as Array<{
+      symbol?: string;
+      regularMarketPrice?: number | null;
+    }>;
 
     const newRates: Record<string, number> = { "USD": 1 };
     
@@ -57,4 +60,17 @@ export function convertToUSD(amount: number, fromCurrency: string, rates: Record
   if (!multiplier) return amount; // Fallback strictly if rate completely missing
   
   return amount * multiplier;
+}
+
+/**
+ * Converts a USD-denominated amount into the target currency.
+ * Usage: convertFromUSD(108.5, "EUR", rates) -> ~100
+ */
+export function convertFromUSD(amount: number, toCurrency: string, rates: Record<string, number>): number {
+  if (toCurrency === "USD" || !toCurrency) return amount;
+
+  const multiplier = rates[toCurrency];
+  if (!multiplier) return amount;
+
+  return amount / multiplier;
 }

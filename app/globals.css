@@ -231,6 +231,45 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   animation: slide-up var(--duration-slow) var(--ease-out-expo) both;
 }
 
+@keyframes milestone-confetti {
+  0% {
+    opacity: 0;
+    transform: translate3d(-50%, 0, 0) scale(0.65) rotate(0deg);
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(calc(-50% + var(--confetti-x, 0px)), var(--confetti-y, 90px), 0)
+      scale(1) rotate(var(--confetti-rotate, 120deg));
+  }
+}
+
+.animate-milestone-confetti {
+  animation: milestone-confetti var(--confetti-duration, 1200ms) var(--ease-out-expo)
+    var(--confetti-delay, 0ms) forwards;
+}
+
+@keyframes milestone-badge {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+  18% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-18px) scale(1.02);
+  }
+}
+
+.animate-milestone-badge {
+  animation: milestone-badge 1700ms var(--ease-out-expo) forwards;
+}
+
 /* ── Reduced motion ──────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *,

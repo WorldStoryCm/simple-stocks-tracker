@@ -1,9 +1,9 @@
 import { router, protectedProcedure } from '../trpc';
 import { db } from '@/db/drizzle';
-import { trades, tradeLotMatches, platforms, buckets, goals, symbols } from '@/db/schema';
+import { trades, tradeLotMatches, platforms, buckets, goals, symbols, capitalProgressSettings } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { format, startOfWeek } from 'date-fns';
-import { getExchangeRates, convertToUSD } from '@/lib/exchange-rates';
+import { getExchangeRates, convertFromUSD, convertToUSD } from '@/lib/exchange-rates';
 
 /** Generate every YYYY-MM-DD string between two dates (inclusive). */
 function fillDailyKeys(from: string, to: string): string[] {
@@ -42,15 +42,33 @@ function fillMonthlyKeys(from: string, to: string): string[] {
   return keys;
 }
 
+const DEFAULT_CAPITAL_PROGRESS_SETTINGS = {
+  currencyCode: "EUR",
+  targetAmount: 100000,
+  manualContributionAmount: 0,
+};
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function buildCapitalMilestones(targetAmount: number) {
+  return [0.85, 0.9, 0.95, 1].map((ratio) => ({
+    amount: Math.round(targetAmount * ratio),
+    ratio,
+  }));
+}
+
 export const performanceRouter = router({
   stats: protectedProcedure.query(async ({ ctx }) => {
     const userId = ctx.session.user.id;
     
     const rates = await getExchangeRates();
-    const [allPlatforms, activeGoals, allSymbols] = await Promise.all([
+    const [allPlatforms, activeGoals, allSymbols, progressSettings] = await Promise.all([
       db.query.platforms.findMany({ where: eq(platforms.userId, userId) }),
       db.query.goals.findMany({ where: and(eq(goals.userId, userId), eq(goals.isActive, true)) }),
       db.query.symbols.findMany({ where: eq(symbols.userId, userId) }),
+      db.query.capitalProgressSettings.findFirst({ where: eq(capitalProgressSettings.userId, userId) }),
     ]);
     const allBuckets = await db.query.buckets.findMany({ where: eq(buckets.userId, userId) });
 
@@ -274,6 +292,26 @@ export const performanceRouter = router({
       };
     });
 
+    const capitalProgressConfig = progressSettings
+      ? {
+          currencyCode: progressSettings.currencyCode,
+          targetAmount: Number(progressSettings.targetAmount),
+          manualContributionAmount: Number(progressSettings.manualContributionAmount),
+        }
+      : DEFAULT_CAPITAL_PROGRESS_SETTINGS;
+
+    const marketProfitAmount = convertFromUSD(
+      totalRealizedPnl,
+      capitalProgressConfig.currencyCode,
+      rates
+    );
+    const totalAmount = capitalProgressConfig.manualContributionAmount + marketProfitAmount;
+    const milestones = buildCapitalMilestones(capitalProgressConfig.targetAmount).map((milestone) => ({
+      ...milestone,
+      isReached: totalAmount >= milestone.amount,
+      progress: clamp((milestone.amount / capitalProgressConfig.targetAmount) * 100, 0, 100),
+    }));
+
     return {
       totalInvested,
       totalRealizedPnl,
@@ -290,6 +328,16 @@ export const performanceRouter = router({
       currentYearPnl,
       goalProgress,
       portfolioStats,
+      capitalProgress: {
+        currencyCode: capitalProgressConfig.currencyCode,
+        targetAmount: capitalProgressConfig.targetAmount,
+        manualContributionAmount: capitalProgressConfig.manualContributionAmount,
+        marketProfitAmount,
+        totalAmount,
+        remainingAmount: Math.max(0, capitalProgressConfig.targetAmount - totalAmount),
+        progressPercent: clamp((totalAmount / capitalProgressConfig.targetAmount) * 100, 0, 100),
+        milestones,
+      },
     };
   })
 });

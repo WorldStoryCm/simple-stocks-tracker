@@ -115,6 +115,22 @@ export const goals = pgTable(
   }
 );
 
+export const capitalProgressSettings = pgTable(
+  "capital_progress_settings",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    currencyCode: text("currency_code").notNull().default("EUR"),
+    targetAmount: decimal("target_amount", { precision: 14, scale: 2 }).notNull().default("100000"),
+    manualContributionAmount: decimal("manual_contribution_amount", { precision: 14, scale: 2 }).notNull().default("0"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
+  },
+  (table) => [
+    unique("capital_progress_settings_user_id_unique").on(table.userId),
+  ]
+);
+
 export const watchlistItems = pgTable(
   "watchlist_items",
   {

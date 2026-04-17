@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { inferRouterOutputs } from "@trpc/server";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/card";
@@ -8,9 +9,20 @@ import { Input } from "@/components/input";
 import { Switch } from "@/components/switch";
 import { Label } from "@/components/label";
 import { Loader2, Target, Pencil, Trash2, Check, X } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select";
 import toast from "react-hot-toast";
+import { CURRENCY_OPTIONS } from "@/lib/constants";
+import { currencySymbol, formatAmount } from "@/lib/currency";
+import type { AppRouter } from "@/app/server/routers/_app";
 
-const GOAL_LABELS: Record<string, { label: string; description: string; example: string }> = {
+type RouterOutputs = inferRouterOutputs<AppRouter>;
+type Goal = RouterOutputs["goals"]["list"][number];
+type Bucket = RouterOutputs["buckets"]["list"][number];
+type GoalType = "monthly_profit" | "yearly_profit";
+
+const GOAL_TYPES: GoalType[] = ["monthly_profit", "yearly_profit"];
+
+const GOAL_LABELS: Record<GoalType, { label: string; description: string; example: string }> = {
   monthly_profit: {
     label: "Monthly Profit Target",
     description: "Target realized P/L per calendar month",
@@ -31,10 +43,10 @@ function GoalRow({
   isSaving,
   isDeleting,
 }: {
-  goalType: string;
-  existing: { amount: string } | undefined;
-  onSave: (goalType: string, amount: string) => void;
-  onDelete: (goalType: string) => void;
+  goalType: GoalType;
+  existing: Goal | undefined;
+  onSave: (goalType: GoalType, amount: string) => void;
+  onDelete: (goalType: GoalType) => void;
   isSaving: boolean;
   isDeleting: boolean;
 }) {
@@ -42,8 +54,12 @@ function GoalRow({
   const [value, setValue] = useState(existing ? Number(existing.amount).toFixed(2) : "");
 
   useEffect(() => {
-    setValue(existing ? Number(existing.amount).toFixed(2) : "");
-    setEditing(false);
+    const timeoutId = window.setTimeout(() => {
+      setValue(existing ? Number(existing.amount).toFixed(2) : "");
+      setEditing(false);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [existing]);
 
   const meta = GOAL_LABELS[goalType];
@@ -129,9 +145,13 @@ export function SettingsPage() {
   const [editLabel, setEditLabel] = useState("");
   const [editBudget, setEditBudget] = useState("");
   const [editActive, setEditActive] = useState(true);
+  const [progressCurrency, setProgressCurrency] = useState<(typeof CURRENCY_OPTIONS)[number]["value"]>("EUR");
+  const [progressTargetAmount, setProgressTargetAmount] = useState("");
+  const [manualContributionAmount, setManualContributionAmount] = useState("");
 
   const { data: buckets, isLoading } = trpc.buckets.list.useQuery();
   const { data: goalsList, isLoading: goalsLoading } = trpc.goals.list.useQuery();
+  const { data: capitalProgressSettings, isLoading: capitalProgressLoading } = trpc.capitalProgress.get.useQuery();
   const utils = trpc.useUtils();
 
   const initMutation = trpc.buckets.initializeDefaults.useMutation({
@@ -170,7 +190,28 @@ export function SettingsPage() {
     onError: (err) => toast.error(err.message || "Failed to remove goal"),
   });
 
-  const handleEdit = (b: any) => {
+  const saveCapitalProgressMutation = trpc.capitalProgress.upsert.useMutation({
+    onSuccess: () => {
+      utils.capitalProgress.get.invalidate();
+      utils.performance.stats.invalidate();
+      toast.success("Capital progress settings saved");
+    },
+    onError: (err) => toast.error(err.message || "Failed to save capital progress settings"),
+  });
+
+  useEffect(() => {
+    if (!capitalProgressSettings) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setProgressCurrency(capitalProgressSettings.currencyCode as (typeof CURRENCY_OPTIONS)[number]["value"]);
+      setProgressTargetAmount(Number(capitalProgressSettings.targetAmount).toFixed(2));
+      setManualContributionAmount(Number(capitalProgressSettings.manualContributionAmount).toFixed(2));
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [capitalProgressSettings]);
+
+  const handleEdit = (b: Bucket) => {
     setEditingId(b.id);
     setEditLabel(b.label);
     setEditBudget(b.budgetAmount);
@@ -181,7 +222,30 @@ export function SettingsPage() {
     updateMutation.mutate({ id, label: editLabel, budgetAmount: editBudget, isActive: editActive });
   };
 
-  const goalsMap = new Map(goalsList?.map((g: any) => [g.goalType, g]) ?? []);
+  const handleSaveCapitalProgress = () => {
+    const targetAmount = Number(progressTargetAmount);
+    const manualAmount = Number(manualContributionAmount);
+
+    if (!Number.isFinite(targetAmount) || targetAmount <= 0) {
+      toast.error("Enter a target amount greater than 0");
+      return;
+    }
+
+    if (!Number.isFinite(manualAmount) || manualAmount < 0) {
+      toast.error("Manual contributions must be 0 or greater");
+      return;
+    }
+
+    saveCapitalProgressMutation.mutate({
+      currencyCode: progressCurrency,
+      targetAmount: targetAmount.toFixed(2),
+      manualContributionAmount: manualAmount.toFixed(2),
+    });
+  };
+
+  const goalsMap = new Map<GoalType, Goal>(
+    (goalsList ?? []).map((goal) => [goal.goalType as GoalType, goal])
+  );
 
   return (
     <div className="flex flex-col gap-6 max-w-4xl mx-auto">
@@ -189,6 +253,111 @@ export function SettingsPage() {
         <h1 className="text-3xl font-bold">Settings</h1>
         <p className="text-muted-foreground mt-1">Configure your trading buckets, limits, and profit goals.</p>
       </div>
+
+      <Card id="capital-progress-settings">
+        <CardHeader>
+          <CardTitle>Capital Goal Progress</CardTitle>
+          <CardDescription>
+            Configure the stacked dashboard bar for your path to the first 100k. The base layer is your manual contributions, the market layer is realized profit.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {capitalProgressLoading ? (
+            <div className="py-6 flex justify-center">
+              <Loader2 className="animate-spin h-5 w-5 text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="grid gap-5">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="grid gap-2">
+                  <Label htmlFor="progress-currency">Progress Currency</Label>
+                  <Select value={progressCurrency} onValueChange={(value) => setProgressCurrency(value as (typeof CURRENCY_OPTIONS)[number]["value"])}>
+                    <SelectTrigger id="progress-currency" className="h-10">
+                      <SelectValue placeholder="Select currency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CURRENCY_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="progress-target">Target Amount</Label>
+                  <Input
+                    id="progress-target"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={progressTargetAmount}
+                    onChange={(e) => setProgressTargetAmount(e.target.value)}
+                    startAddon={currencySymbol(progressCurrency)}
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="manual-contributions">Manual Contributions</Label>
+                  <Input
+                    id="manual-contributions"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={manualContributionAmount}
+                    onChange={(e) => setManualContributionAmount(e.target.value)}
+                    startAddon={currencySymbol(progressCurrency)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div className="rounded-lg border bg-card p-4 shadow-sm">
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Base layer</div>
+                  <div className="mt-2 text-2xl font-bold">
+                    {formatAmount(Number(manualContributionAmount || 0), progressCurrency, {
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 0,
+                    })}
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">Salary top-ups and manual injections you want counted toward the first 100k.</p>
+                </div>
+
+                <div className="rounded-lg border bg-card p-4 shadow-sm">
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Checkpoint ladder</div>
+                  <div className="mt-2 text-2xl font-bold">
+                    85 / 90 / 95 / 100
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">Milestones are derived from your target, so a 100k goal becomes 85k, 90k, 95k, and the finish line.</p>
+                </div>
+
+                <div className="rounded-lg border bg-card p-4 shadow-sm">
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Dashboard total</div>
+                  <div className="mt-2 text-2xl font-bold">
+                    {formatAmount(Number(manualContributionAmount || 0), progressCurrency, {
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 0,
+                    })}{" "}
+                    + market P/L
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">The green segment uses your realized trading profit and is converted into the same currency before stacking.</p>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 border-t pt-4 md:flex-row md:items-center md:justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Current setup: target {formatAmount(Number(progressTargetAmount || 0), progressCurrency, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}.
+                </p>
+                <Button onClick={handleSaveCapitalProgress} disabled={saveCapitalProgressMutation.isPending}>
+                  {saveCapitalProgressMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Save capital progress
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Profit Goals */}
       <Card>
@@ -201,13 +370,13 @@ export function SettingsPage() {
             <div className="py-6 flex justify-center"><Loader2 className="animate-spin h-5 w-5 text-muted-foreground" /></div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {["monthly_profit", "yearly_profit"].map((type) => (
+              {GOAL_TYPES.map((type) => (
                 <GoalRow
                   key={type}
                   goalType={type}
-                  existing={goalsMap.get(type) as any}
-                  onSave={(gt, amount) => upsertGoalMutation.mutate({ goalType: gt as any, amount })}
-                  onDelete={(gt) => deleteGoalMutation.mutate({ goalType: gt as any })}
+                  existing={goalsMap.get(type)}
+                  onSave={(gt, amount) => upsertGoalMutation.mutate({ goalType: gt, amount })}
+                  onDelete={(gt) => deleteGoalMutation.mutate({ goalType: gt })}
                   isSaving={upsertGoalMutation.isPending}
                   isDeleting={deleteGoalMutation.isPending}
                 />
