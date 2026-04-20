@@ -172,6 +172,64 @@ export const watchlistItemTags = pgTable(
   ]
 );
 
+export const shadowCases = pgTable(
+  "shadow_cases",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    platformId: text("platform_id").references(() => platforms.id, { onDelete: "set null" }),
+    bucket: text("bucket"),
+    symbol: text("symbol").notNull(),
+    direction: text("direction", { enum: ["up", "down", "watch"] }).notNull(),
+    thesis: text("thesis").notNull(),
+    confidence: text("confidence"),
+    timeHorizon: text("time_horizon"),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    entryPrice: decimal("entry_price", { precision: 16, scale: 4 }).notNull(),
+    status: text("status", { enum: ["open", "review_ready", "closed", "archived"] }).notNull().default("open"),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    exitPrice: decimal("exit_price", { precision: 16, scale: 4 }),
+    priceChangeAbs: decimal("price_change_abs", { precision: 16, scale: 4 }),
+    priceChangePct: decimal("price_change_pct", { precision: 8, scale: 4 }),
+    outcome: text("outcome", { enum: ["correct", "wrong", "mixed", "invalidated", "unreviewed"] }),
+    resultSummary: text("result_summary"),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
+  },
+  (table) => [
+    index("shadow_cases_user_id_idx").on(table.userId),
+    index("shadow_cases_user_status_idx").on(table.userId, table.status),
+  ]
+);
+
+export const shadowNotes = pgTable(
+  "shadow_notes",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    shadowCaseId: text("shadow_case_id").notNull().references(() => shadowCases.id, { onDelete: "cascade" }),
+    noteType: text("note_type", { enum: ["thesis_note", "observation_note", "catalyst_note", "review_note", "lesson_note"] }).notNull().default("observation_note"),
+    title: text("title"),
+    body: text("body").notNull(),
+    isPinned: boolean("is_pinned").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
+  },
+  (table) => [
+    index("shadow_notes_case_id_idx").on(table.shadowCaseId),
+  ]
+);
+
+export const shadowCasesRelations = relations(shadowCases, ({ one, many }) => ({
+  user: one(user, { fields: [shadowCases.userId], references: [user.id] }),
+  platform: one(platforms, { fields: [shadowCases.platformId], references: [platforms.id] }),
+  notes: many(shadowNotes),
+}));
+
+export const shadowNotesRelations = relations(shadowNotes, ({ one }) => ({
+  shadowCase: one(shadowCases, { fields: [shadowNotes.shadowCaseId], references: [shadowCases.id] }),
+}));
+
 export const tradesRelations = relations(trades, ({ one }) => ({
   user: one(user, { fields: [trades.userId], references: [user.id] }),
   platform: one(platforms, { fields: [trades.platformId], references: [platforms.id] }),
