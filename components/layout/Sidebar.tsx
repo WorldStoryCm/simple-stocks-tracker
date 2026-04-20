@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ArrowRightLeft, PieChart, Briefcase, Eye, Settings, LineChart } from "lucide-react";
+import { LayoutDashboard, ArrowRightLeft, PieChart, Briefcase, Eye, Settings, LineChart, FlaskConical } from "lucide-react";
 import { cn } from "@/components/component.utils";
 import { useSession, signOut } from "@/lib/auth-client";
 import { Button } from "@/components/button";
@@ -18,6 +18,7 @@ const navigation = [
   { name: "Platforms", href: "/platforms", icon: Briefcase },
   { name: "Symbols", href: "/symbols", icon: PieChart },  // Reusing icon for simplicity
   { name: "Watchlist", href: "/watchlist", icon: Eye },
+  { name: "Shadow", href: "/shadow", icon: FlaskConical },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
