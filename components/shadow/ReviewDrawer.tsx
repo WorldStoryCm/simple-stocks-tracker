@@ -134,7 +134,7 @@ export function ReviewDrawer({ case_, open, onOpenChange }: ReviewDrawerProps) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-xl w-full flex flex-col gap-0 p-0">
+      <SheetContent style={{ maxWidth: 720, width: '100%' }} className="flex flex-col gap-0 p-0">
         <SheetHeader className="px-5 py-4 border-b">
           <div className="flex items-center gap-3">
             <span className="text-lg font-bold tracking-tight">{case_.symbol}</span>

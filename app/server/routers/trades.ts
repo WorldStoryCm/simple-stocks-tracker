@@ -122,7 +122,8 @@ export const tradesRouter = router({
       const platform = await db.query.platforms.findFirst({
         where: and(eq(platforms.id, platformId), eq(platforms.userId, userId)),
       });
-      const currencyCode = platform?.currencyCode || 'USD';
+      if (!platform) throw new TRPCError({ code: 'FORBIDDEN', message: 'Platform not found' });
+      const currencyCode = platform.currencyCode;
 
       return await db.transaction(async (tx) => {
         // 1. Insert the trade
@@ -145,7 +146,7 @@ export const tradesRouter = router({
         // 2. Update platform cash balance
         // Buy: deduct cost from cash (if insufficient, auto-fund the gap so balance stays >= 0)
         // Sell: credit net proceeds to cash
-        const currentBalance = Number(platform?.cashBalance ?? 0);
+        const currentBalance = Number(platform.cashBalance);
         const cost = Number(quantity) * Number(price) + Number(fee);
         const proceeds = Number(quantity) * Number(price) - Number(fee);
         const newBalance = tradeType === 'buy'
@@ -154,7 +155,7 @@ export const tradesRouter = router({
 
         await tx.update(platforms)
           .set({ cashBalance: newBalance.toFixed(2) })
-          .where(eq(platforms.id, platformId));
+          .where(and(eq(platforms.id, platformId), eq(platforms.userId, userId)));
 
         // 3. If Buy, we are done. If Sell, we must match FIFO.
         if (tradeType === 'sell') {
