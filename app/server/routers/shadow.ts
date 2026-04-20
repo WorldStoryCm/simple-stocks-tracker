@@ -219,11 +219,6 @@ export const shadowRouter = router({
       const userId = ctx.session.user.id;
       const limit = input?.limit ?? 20;
 
-      const userCaseIds = db
-        .select({ id: shadowCases.id })
-        .from(shadowCases)
-        .where(eq(shadowCases.userId, userId));
-
       const notes = await db
         .select({
           id: shadowNotes.id,
