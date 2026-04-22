@@ -26,21 +26,21 @@ export function SymbolsPage() {
   const [editingSymbol, setEditingSymbol] = useState<any>(null);
   const [rsiFilter, setRsiFilter] = useState<RsiFilter>("all");
 
-  const tickers = useMemo(
-    () => symbols?.map((s: any) => s.ticker) ?? [],
+  const tickerEntries = useMemo(
+    () => symbols?.map((s: any) => ({ ticker: s.ticker, rsiTicker: s.rsiTicker ?? null })) ?? [],
     [symbols],
   );
 
   const { data: rsiData } = trpc.rsi.getMany.useQuery(
-    { tickers },
-    { enabled: tickers.length > 0 },
+    { tickers: tickerEntries },
+    { enabled: tickerEntries.length > 0 },
   );
 
   const rsiMap = useMemo(() => {
-    const map: Record<string, { rsi: number | null; error?: "not_found" | "fetch_failed" | "insufficient_data" }> = {};
+    const map: Record<string, { rsi: number | null; error?: "not_found" | "fetch_failed" | "insufficient_data"; via?: string }> = {};
     if (rsiData) {
       for (const [ticker, r] of Object.entries(rsiData)) {
-        if (r) map[ticker] = { rsi: r.rsi, error: r.error };
+        if (r) map[ticker] = { rsi: r.rsi, error: r.error, via: (r as any).via };
       }
     }
     return map;
@@ -65,6 +65,8 @@ export function SymbolsPage() {
     setEditingSymbol(null);
     setIsDialogOpen(true);
   };
+
+  const tickers = useMemo(() => tickerEntries.map((e) => e.ticker), [tickerEntries]);
 
   const sorted = useMemo(
     () => symbols?.slice().sort((a: any, b: any) => a.ticker.localeCompare(b.ticker)) ?? [],
@@ -157,7 +159,7 @@ export function SymbolsPage() {
                   <TableCell>{sym.exchange || "-"}</TableCell>
                   <TableCell>{sym.sector || <span className="text-muted-foreground italic">Unclassified</span>}</TableCell>
                   <TableCell>
-                    <RsiBadge rsi={rsiMap[sym.ticker]?.rsi ?? null} error={rsiMap[sym.ticker]?.error ?? null} inline />
+                    <RsiBadge rsi={rsiMap[sym.ticker]?.rsi ?? null} error={rsiMap[sym.ticker]?.error ?? null} via={rsiMap[sym.ticker]?.via} inline />
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>

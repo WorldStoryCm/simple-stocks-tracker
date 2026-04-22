@@ -1,0 +1,1 @@
+ALTER TABLE "symbols" ADD COLUMN "rsi_ticker" text;

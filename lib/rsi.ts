@@ -29,6 +29,8 @@ export interface RsiResult {
   state: RsiState | null;
   syncedAt: Date | null;
   error?: RsiError;
+  /** Set when RSI was fetched via an alias ticker rather than the primary ticker */
+  via?: string;
 }
 
 const RSI_ERROR_LABELS: Record<RsiError, string> = {
@@ -216,15 +218,35 @@ export async function getRsi(
   return { ticker, rsi, state: classifyRsi(rsi), syncedAt: new Date() };
 }
 
+export interface TickerEntry {
+  ticker: string;
+  rsiTicker?: string | null;
+}
+
 /** Fetches RSI for multiple tickers. Always returns an entry per ticker — failed lookups carry an `error`. */
 export async function getRsiForTickers(
   userId: string,
-  tickers: string[]
+  entries: TickerEntry[]
 ): Promise<Record<string, RsiResult>> {
-  const results = await Promise.all(tickers.map((t) => getRsi(userId, t)));
-  const map: Record<string, RsiResult> = {};
+  const results = await Promise.all(
+    entries.map(async ({ ticker, rsiTicker }) => {
+      const result = await getRsi(userId, ticker);
+      if (result.error === "not_found" && rsiTicker) {
+        const aliasResult = await getRsi(userId, rsiTicker);
+        if (!aliasResult.error) {
+          return {
+            ...aliasResult,
+            ticker,
+            via: rsiTicker,
+          };
+        }
+      }
+      return result;
+    })
+  );
+  const map: Record<string, RsiResult & { via?: string }> = {};
   results.forEach((r, i) => {
-    map[tickers[i]] = r;
+    map[entries[i].ticker] = r;
   });
   return map;
 }

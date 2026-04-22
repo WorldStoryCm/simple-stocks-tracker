@@ -217,7 +217,7 @@ export function CasesTable({ onAddNote }: CasesTableProps) {
   );
 
   const { data: rsiData } = trpc.rsi.getMany.useQuery(
-    { tickers: openSymbols },
+    { tickers: openSymbols.map((t: string) => ({ ticker: t, rsiTicker: null })) },
     { enabled: openSymbols.length > 0, refetchInterval: 5 * 60_000 }
   );
 

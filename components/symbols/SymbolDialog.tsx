@@ -24,12 +24,13 @@ import { Input } from "@/components/input";
 import toast from "react-hot-toast";
 
 const formSchema = z.object({
-  ticker: z.string().min(1, "Ticker is required").max(10).toUpperCase(),
+  ticker: z.string().min(1, "Ticker is required").max(50).toUpperCase(),
   displayName: z.string().optional(),
   exchange: z.string().optional(),
   currencyCode: z.string().optional(),
   sector: z.string().optional(),
   industry: z.string().optional(),
+  rsiTicker: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -53,6 +54,7 @@ export function SymbolDialog({ open, onOpenChange, symbol }: Props) {
       currencyCode: "USD",
       sector: "",
       industry: "",
+      rsiTicker: "",
       notes: "",
     },
   });
@@ -67,6 +69,7 @@ export function SymbolDialog({ open, onOpenChange, symbol }: Props) {
           currencyCode: symbol.currencyCode || "USD",
           sector: symbol.sector || "",
           industry: symbol.industry || "",
+          rsiTicker: symbol.rsiTicker || "",
           notes: symbol.notes || "",
         });
       } else {
@@ -77,6 +80,7 @@ export function SymbolDialog({ open, onOpenChange, symbol }: Props) {
           currencyCode: "USD",
           sector: "",
           industry: "",
+          rsiTicker: "",
           notes: "",
         });
       }
@@ -210,6 +214,23 @@ export function SymbolDialog({ open, onOpenChange, symbol }: Props) {
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="rsiTicker"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>RSI Ticker (alias)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g. BP.L for a European symbol" {...field} />
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    If Yahoo Finance can't find RSI for this ticker, it will try this alias instead.
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <DialogFooter className="pt-4">
               <Button type="submit" disabled={isPending}>

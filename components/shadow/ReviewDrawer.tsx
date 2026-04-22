@@ -88,7 +88,7 @@ export function ReviewDrawer({ case_, open, onOpenChange }: ReviewDrawerProps) {
   );
 
   const { data: rsiData } = trpc.rsi.getMany.useQuery(
-    { tickers: case_?.symbol ? [case_.symbol] : [] },
+    { tickers: case_?.symbol ? [{ ticker: case_.symbol, rsiTicker: null }] : [] },
     { enabled: !!case_?.symbol && open, refetchInterval: 5 * 60_000 }
   );
   const currentRsiEntry = case_?.symbol ? rsiData?.[case_.symbol] ?? null : null;

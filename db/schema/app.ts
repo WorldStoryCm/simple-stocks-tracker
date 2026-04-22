@@ -32,6 +32,7 @@ export const symbols = pgTable(
     sector: text("sector"),
     industry: text("industry"),
     metadataSyncedAt: timestamp("metadata_synced_at", { withTimezone: true }),
+    rsiTicker: text("rsi_ticker"),
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),

@@ -41,13 +41,13 @@ const STATE_STYLES: Record<RsiState, string> = {
 export type RsiErrorKind = "not_found" | "fetch_failed" | "insufficient_data";
 
 const ERROR_LABELS: Record<RsiErrorKind, string> = {
-  not_found: "Ticker mismatch",
+  not_found: "No RSI data",
   fetch_failed: "Data unavailable",
   insufficient_data: "Not enough history",
 };
 
 const ERROR_TOOLTIPS: Record<RsiErrorKind, string> = {
-  not_found: "Symbol not recognised by the data source (possible ticker/CIK mismatch)",
+  not_found: "Yahoo Finance doesn't recognise this ticker. Set an RSI Ticker alias in Edit Symbol to fix this.",
   fetch_failed: "Could not reach the indicator data source — try again shortly",
   insufficient_data: "Fewer than 15 daily closes available for this symbol",
 };
@@ -58,10 +58,12 @@ interface RsiBadgeProps {
   inline?: boolean;
   /** Optional error state — renders a neutral "mismatch" pill instead of the value */
   error?: RsiErrorKind | null;
+  /** When set, RSI was fetched using this alias ticker — surfaced as a tooltip hint */
+  via?: string | null;
   className?: string;
 }
 
-export function RsiBadge({ rsi, inline = false, error, className }: RsiBadgeProps) {
+export function RsiBadge({ rsi, inline = false, error, via, className }: RsiBadgeProps) {
   if (error) {
     return (
       <span
@@ -86,10 +88,12 @@ export function RsiBadge({ rsi, inline = false, error, className }: RsiBadgeProp
   const state = getRsiState(rsi);
   const label = RSI_STATE_LABELS[state];
   const styles = STATE_STYLES[state];
+  const viaTitle = via ? `RSI fetched via alias ${via}` : undefined;
 
   if (inline) {
     return (
       <span
+        title={viaTitle}
         className={cn(
           "inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-xs font-medium tabular-nums",
           styles,
@@ -98,12 +102,14 @@ export function RsiBadge({ rsi, inline = false, error, className }: RsiBadgeProp
       >
         <span>{rsi.toFixed(1)}</span>
         <span className="opacity-70">{label}</span>
+        {via && <span className="opacity-50 font-normal">({via})</span>}
       </span>
     );
   }
 
   return (
     <span
+      title={viaTitle}
       className={cn(
         "inline-flex flex-col items-start rounded border px-2 py-1 text-xs",
         styles,
@@ -111,7 +117,7 @@ export function RsiBadge({ rsi, inline = false, error, className }: RsiBadgeProp
       )}
     >
       <span className="font-semibold tabular-nums leading-none">{rsi.toFixed(1)}</span>
-      <span className="mt-0.5 leading-none opacity-70">{label}</span>
+      <span className="mt-0.5 leading-none opacity-70">{via ? `${label} (${via})` : label}</span>
     </span>
   );
 }

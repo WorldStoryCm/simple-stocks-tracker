@@ -132,25 +132,35 @@ export function PositionsPage() {
 
   const openPositions = positions?.filter((p: any) => p.openQty > 0) || [];
 
-  const tickers = useMemo(() => {
-    return Array.from(new Set(openPositions.map((p: any) => p.symbol.ticker)));
+  const tickerEntries = useMemo(() => {
+    const seen = new Set<string>();
+    const entries: { ticker: string; rsiTicker: string | null }[] = [];
+    for (const p of openPositions) {
+      if (!seen.has(p.symbol.ticker)) {
+        seen.add(p.symbol.ticker);
+        entries.push({ ticker: p.symbol.ticker, rsiTicker: p.symbol.rsiTicker ?? null });
+      }
+    }
+    return entries;
   }, [openPositions]);
+
+  const tickers = useMemo(() => tickerEntries.map((e) => e.ticker), [tickerEntries]);
 
   const { data: quotes } = trpc.quotes.getMany.useQuery({ tickers }, {
     enabled: tickers.length > 0,
-    refetchInterval: 60000 // Refetch every 1 minute
+    refetchInterval: 60000,
   });
 
   const { data: rsiData } = trpc.rsi.getMany.useQuery(
-    { tickers: tickers as string[] },
-    { enabled: tickers.length > 0 },
+    { tickers: tickerEntries },
+    { enabled: tickerEntries.length > 0 },
   );
 
   const rsiMap = useMemo(() => {
-    const map: Record<string, { rsi: number | null; error?: "not_found" | "fetch_failed" | "insufficient_data" }> = {};
+    const map: Record<string, { rsi: number | null; error?: "not_found" | "fetch_failed" | "insufficient_data"; via?: string }> = {};
     if (rsiData) {
       for (const [ticker, r] of Object.entries(rsiData)) {
-        if (r) map[ticker] = { rsi: r.rsi, error: r.error };
+        if (r) map[ticker] = { rsi: r.rsi, error: r.error, via: (r as any).via };
       }
     }
     return map;
@@ -481,7 +491,7 @@ export function PositionsPage() {
                           : 0;
                         return (
                           <div className="flex items-center gap-1.5">
-                            <RsiBadge rsi={entry.rsi} inline />
+                            <RsiBadge rsi={entry.rsi} via={entry.via} inline />
                             <span className="text-[10px] text-muted-foreground">
                               {positionRsiLabel(entry.rsi, pnlPct)}
                             </span>

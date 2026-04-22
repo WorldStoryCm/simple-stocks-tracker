@@ -2,13 +2,20 @@ import { z } from "zod";
 import { router, protectedProcedure } from "../trpc";
 import { getRsiForTickers, getLastSyncedAt } from "@/lib/rsi";
 
+const tickerEntrySchema = z.object({
+  ticker: z.string().min(1),
+  rsiTicker: z.string().min(1).nullable().optional(),
+});
+
 export const rsiRouter = router({
   /**
    * Returns RSI values for a list of tickers.
    * Results are cached in the DB; stale entries are refreshed automatically.
+   * Each entry may include an optional rsiTicker alias used as fallback when
+   * the primary ticker is not found by the data source.
    */
   getMany: protectedProcedure
-    .input(z.object({ tickers: z.array(z.string().min(1)).min(1).max(50) }))
+    .input(z.object({ tickers: z.array(tickerEntrySchema).min(1).max(50) }))
     .query(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
       const results = await getRsiForTickers(userId, input.tickers);

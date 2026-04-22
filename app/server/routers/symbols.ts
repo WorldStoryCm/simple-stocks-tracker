@@ -37,6 +37,7 @@ export const symbolsRouter = router({
       currencyCode: z.string().optional(),
       sector: z.string().optional(),
       industry: z.string().optional(),
+      rsiTicker: z.string().optional(),
       notes: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
@@ -62,6 +63,7 @@ export const symbolsRouter = router({
         sector,
         industry,
         metadataSyncedAt: (userSector || userIndustry || fromYahoo) ? new Date() : null,
+        rsiTicker: input.rsiTicker?.trim().toUpperCase() || null,
         notes: input.notes,
       }).returning();
       return symbol;
@@ -95,10 +97,10 @@ export const symbolsRouter = router({
       currencyCode: z.string().optional(),
       sector: z.string().optional(),
       industry: z.string().optional(),
+      rsiTicker: z.string().optional(),
       notes: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      // Empty strings from the form → null in the DB, so "Unclassified" fallback behaves right.
       const [symbol] = await db.update(symbols)
         .set({
           ticker: input.ticker,
@@ -107,6 +109,7 @@ export const symbolsRouter = router({
           currencyCode: input.currencyCode,
           sector: input.sector?.trim() ? input.sector.trim() : null,
           industry: input.industry?.trim() ? input.industry.trim() : null,
+          rsiTicker: input.rsiTicker?.trim().toUpperCase() || null,
           notes: input.notes,
         })
         .where(and(eq(symbols.id, input.id), eq(symbols.userId, ctx.session.user.id)))
