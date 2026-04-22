@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 import { Button } from "@/components/button";
 import { Card, CardContent, CardHeader } from "@/components/card";
 import { DirectionBadge, StatusBadge, OutcomeBadge, MoveBadge } from "./ShadowBadges";
+import { RsiBadge } from "@/components/rsi/RsiBadge";
 import { ReviewDrawer } from "./ReviewDrawer";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/dropdown-menu";
 import { Loader2, MoreHorizontal, ClipboardCheck, Archive, StickyNote } from "lucide-react";
@@ -21,6 +22,7 @@ type ShadowCase = {
   timeHorizon: string | null;
   startedAt: Date;
   entryPrice: string;
+  entryRsi: string | null;
   exitPrice: string | null;
   priceChangeAbs: string | null;
   priceChangePct: string | null;
@@ -46,11 +48,13 @@ const horizonLabel: Record<string, string> = {
 function CaseRow({
   c,
   quote,
+  currentRsi,
   onSelect,
   onAction,
 }: {
   c: ShadowCase;
   quote?: { price: number; changePercent: number } | null;
+  currentRsi?: number | null;
   onSelect: () => void;
   onAction: (action: string, c: ShadowCase) => void;
 }) {
@@ -89,6 +93,21 @@ function CaseRow({
         {currentPct != null ? (
           <MoveBadge pct={currentPct} direction={c.direction} />
         ) : "—"}
+      </td>
+      <td className="px-3 py-2.5">
+        {c.entryRsi != null ? (
+          <div className="flex items-center gap-1.5 text-xs">
+            <RsiBadge rsi={parseFloat(c.entryRsi)} inline />
+            {!isClosed && currentRsi != null && (
+              <>
+                <span className="text-muted-foreground">→</span>
+                <RsiBadge rsi={currentRsi} inline />
+              </>
+            )}
+          </div>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        )}
       </td>
       <td className="px-3 py-2.5 text-xs text-muted-foreground tabular-nums">
         {daysOpen}d
@@ -135,11 +154,13 @@ function CaseRow({
 function CasesTabContent({
   cases,
   quotes,
+  rsiMap,
   onSelect,
   onAction,
 }: {
   cases: ShadowCase[];
   quotes: Record<string, { price: number; changePercent: number }> | undefined;
+  rsiMap: Record<string, number> | undefined;
   onSelect: (c: ShadowCase) => void;
   onAction: (action: string, c: ShadowCase) => void;
 }) {
@@ -155,7 +176,7 @@ function CasesTabContent({
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b">
-            {["Symbol / Thesis", "Direction", "Entry", "Current", "Move", "Days", "Horizon", "Status", ""].map(h => (
+            {["Symbol / Thesis", "Direction", "Entry", "Current", "Move", "RSI", "Days", "Horizon", "Status", ""].map(h => (
               <th key={h} className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{h}</th>
             ))}
           </tr>
@@ -166,6 +187,7 @@ function CasesTabContent({
               key={c.id}
               c={c}
               quote={quotes?.[c.symbol]}
+              currentRsi={rsiMap?.[c.symbol] ?? null}
               onSelect={() => onSelect(c)}
               onAction={onAction}
             />
@@ -193,6 +215,21 @@ export function CasesTable({ onAddNote }: CasesTableProps) {
     { tickers: openSymbols },
     { enabled: openSymbols.length > 0, refetchInterval: 60000 }
   );
+
+  const { data: rsiData } = trpc.rsi.getMany.useQuery(
+    { tickers: openSymbols },
+    { enabled: openSymbols.length > 0, refetchInterval: 5 * 60_000 }
+  );
+
+  const rsiMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    if (rsiData) {
+      for (const [ticker, r] of Object.entries(rsiData)) {
+        if (r && r.rsi != null) map[ticker] = r.rsi;
+      }
+    }
+    return map;
+  }, [rsiData]);
 
   const archiveMutation = trpc.shadow.updateStatus.useMutation({
     onSuccess: () => {
@@ -258,13 +295,13 @@ export function CasesTable({ onAddNote }: CasesTableProps) {
           ) : (
             <>
               {activeTab === "open" && (
-                <CasesTabContent cases={openCases} quotes={quotes} onSelect={handleSelect} onAction={handleAction} />
+                <CasesTabContent cases={openCases} quotes={quotes} rsiMap={rsiMap} onSelect={handleSelect} onAction={handleAction} />
               )}
               {activeTab === "closed" && (
-                <CasesTabContent cases={closedCases} quotes={undefined} onSelect={handleSelect} onAction={handleAction} />
+                <CasesTabContent cases={closedCases} quotes={undefined} rsiMap={undefined} onSelect={handleSelect} onAction={handleAction} />
               )}
               {activeTab === "archived" && (
-                <CasesTabContent cases={archivedCases} quotes={undefined} onSelect={handleSelect} onAction={handleAction} />
+                <CasesTabContent cases={archivedCases} quotes={undefined} rsiMap={undefined} onSelect={handleSelect} onAction={handleAction} />
               )}
             </>
           )}

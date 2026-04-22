@@ -3,6 +3,7 @@ import { db } from '@/db/drizzle';
 import { shadowCases, shadowNotes } from '@/db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { z } from 'zod';
+import { getRsi } from '@/lib/rsi';
 
 const directionEnum = z.enum(["up", "down", "watch"]);
 const statusEnum = z.enum(["open", "review_ready", "closed", "archived"]);
@@ -50,8 +51,19 @@ export const shadowRouter = router({
       bucket: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+
+      // Freeze RSI at entry — best-effort, don't block case creation on it
+      let entryRsi: string | undefined;
+      try {
+        const snap = await getRsi(userId, input.symbol);
+        if (snap.rsi != null) entryRsi = snap.rsi.toFixed(2);
+      } catch {
+        // ignore — entry_rsi stays null
+      }
+
       const [row] = await db.insert(shadowCases).values({
-        userId: ctx.session.user.id,
+        userId,
         symbol: input.symbol,
         direction: input.direction,
         thesis: input.thesis,
@@ -59,6 +71,7 @@ export const shadowRouter = router({
         timeHorizon: input.timeHorizon,
         startedAt: new Date(input.startedAt),
         entryPrice: input.entryPrice,
+        entryRsi,
         platformId: input.platformId,
         bucket: input.bucket,
         status: "open",

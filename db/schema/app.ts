@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, decimal, index, unique, date } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, decimal, index, unique, date, integer } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { user } from "./auth";
 
@@ -186,6 +186,7 @@ export const shadowCases = pgTable(
     timeHorizon: text("time_horizon"),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
     entryPrice: decimal("entry_price", { precision: 16, scale: 4 }).notNull(),
+    entryRsi: decimal("entry_rsi", { precision: 6, scale: 2 }),
     status: text("status", { enum: ["open", "review_ready", "closed", "archived"] }).notNull().default("open"),
     endedAt: timestamp("ended_at", { withTimezone: true }),
     exitPrice: decimal("exit_price", { precision: 16, scale: 4 }),
@@ -217,6 +218,23 @@ export const shadowNotes = pgTable(
   },
   (table) => [
     index("shadow_notes_case_id_idx").on(table.shadowCaseId),
+  ]
+);
+
+export const indicatorSnapshots = pgTable(
+  "indicator_snapshots",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    ticker: text("ticker").notNull(),
+    period: integer("period").notNull().default(14),
+    rsi: decimal("rsi", { precision: 6, scale: 2 }).notNull(),
+    syncedAt: timestamp("synced_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("indicator_snapshots_user_ticker_idx").on(table.userId, table.ticker),
+    unique("indicator_snapshots_user_ticker_period_unique").on(table.userId, table.ticker, table.period),
   ]
 );
 

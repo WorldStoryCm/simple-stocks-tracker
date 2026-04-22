@@ -10,6 +10,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/shee
 import { Menu } from "lucide-react";
 import { SidebarNav } from "./Sidebar";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
+import { SyncStatus } from "@/components/rsi/SyncStatus";
 
 export function Header() {
   const { data: session } = useSession();
@@ -37,6 +38,7 @@ export function Header() {
         </Sheet>
       </div>
       <div className="flex items-center gap-2 md:gap-4">
+        <SyncStatus />
         <ThemeToggle />
         {session?.user ? (
           <DropdownMenu>

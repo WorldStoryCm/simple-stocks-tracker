@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Loader2, MoreHorizontal, ArrowUpDown, ArrowDown, ArrowUp, Search } from "lucide-react";
 import { Button } from "@/components/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/dropdown-menu";
+import { RsiBadge, getRsiState } from "@/components/rsi/RsiBadge";
 import { TradeDialog } from "@/components/trades/TradeDialog";
 import { ViewPositionDialog } from "@/components/positions/ViewPositionDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/Popover";
@@ -139,6 +140,32 @@ export function PositionsPage() {
     enabled: tickers.length > 0,
     refetchInterval: 60000 // Refetch every 1 minute
   });
+
+  const { data: rsiData } = trpc.rsi.getMany.useQuery(
+    { tickers: tickers as string[] },
+    { enabled: tickers.length > 0 },
+  );
+
+  const rsiMap = useMemo(() => {
+    const map: Record<string, { rsi: number | null; error?: "not_found" | "fetch_failed" | "insufficient_data" }> = {};
+    if (rsiData) {
+      for (const [ticker, r] of Object.entries(rsiData)) {
+        if (r) map[ticker] = { rsi: r.rsi, error: r.error };
+      }
+    }
+    return map;
+  }, [rsiData]);
+
+  // Contextual label: how RSI interprets an *open* position.
+  // Up + high RSI = stretched, down + low RSI = oversold risk, etc.
+  const positionRsiLabel = (rsi: number, pnlPct: number): string => {
+    const state = getRsiState(rsi);
+    if (state === "overbought") return pnlPct >= 0 ? "Stretched" : "Momentum Fading";
+    if (state === "near-overbought") return pnlPct >= 0 ? "Momentum Strong" : "Fading";
+    if (state === "oversold") return pnlPct < 0 ? "Oversold Risk" : "Reversal?";
+    if (state === "near-oversold") return pnlPct < 0 ? "Near Oversold" : "Cooling";
+    return "Neutral";
+  };
 
   const [symbolFilter, setSymbolFilter] = useState("all");
   const [platformFilter, setPlatformFilter] = useState("all");
@@ -397,6 +424,7 @@ export function PositionsPage() {
               <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => toggleSort("cost")}>Avg Cost <SortIcon field="cost" /></TableHead>
               <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => toggleSort("invested")}>Invested <SortIcon field="invested" /></TableHead>
               <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => toggleSort("price")}>Live Price <SortIcon field="price" /></TableHead>
+              <TableHead>RSI-14</TableHead>
               <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => toggleSort("value")}>Total Value <SortIcon field="value" /></TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
@@ -440,6 +468,26 @@ export function PositionsPage() {
                       {quote && <span className={`ml-1 text-xs ${quote.changePercent >= 0 ? "text-green-500" : "text-red-500"}`}>
                         ({quote.changePercent >= 0 ? '+' : ''}{quote.changePercent.toFixed(2)}%)
                       </span>}
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const entry = rsiMap[pos.symbol.ticker];
+                        if (!entry) return <span className="text-xs text-muted-foreground">—</span>;
+                        if (entry.rsi == null) {
+                          return <RsiBadge rsi={null} error={entry.error ?? null} inline />;
+                        }
+                        const pnlPct = investedAmount > 0
+                          ? ((currentVal - investedAmount) / investedAmount) * 100
+                          : 0;
+                        return (
+                          <div className="flex items-center gap-1.5">
+                            <RsiBadge rsi={entry.rsi} inline />
+                            <span className="text-[10px] text-muted-foreground">
+                              {positionRsiLabel(entry.rsi, pnlPct)}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className={`text-right font-medium ${currentVal < investedAmount ? "text-red-500 dark:text-red-400" : ""}`}>{formatAmount(currentVal, quote?.currency || pos.currencyCode || 'USD')}</TableCell>
                     <TableCell>

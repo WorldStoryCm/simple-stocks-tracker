@@ -14,6 +14,7 @@ import { Textarea } from "@/components/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select";
 import { Badge } from "@/components/badge";
 import { DirectionBadge, OutcomeBadge, MoveBadge } from "./ShadowBadges";
+import { RsiBadge } from "@/components/rsi/RsiBadge";
 import { Loader2, Plus, Pin } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { cn } from "@/components/component.utils";
@@ -28,6 +29,7 @@ type ShadowCase = {
   timeHorizon: string | null;
   startedAt: Date;
   entryPrice: string;
+  entryRsi: string | null;
   exitPrice: string | null;
   priceChangeAbs: string | null;
   priceChangePct: string | null;
@@ -84,6 +86,14 @@ export function ReviewDrawer({ case_, open, onOpenChange }: ReviewDrawerProps) {
     { caseId: case_?.id ?? "" },
     { enabled: !!case_?.id && open }
   );
+
+  const { data: rsiData } = trpc.rsi.getMany.useQuery(
+    { tickers: case_?.symbol ? [case_.symbol] : [] },
+    { enabled: !!case_?.symbol && open, refetchInterval: 5 * 60_000 }
+  );
+  const currentRsiEntry = case_?.symbol ? rsiData?.[case_.symbol] ?? null : null;
+  const currentRsi = currentRsiEntry?.rsi ?? null;
+  const currentRsiError = currentRsiEntry?.error ?? null;
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<ReviewValues>({
     resolver: zodResolver(reviewSchema),
@@ -191,6 +201,26 @@ export function ReviewDrawer({ case_, open, onOpenChange }: ReviewDrawerProps) {
                   <p className="font-semibold">{case_.confidence ? `${case_.confidence}/5` : "—"}</p>
                 </div>
               </div>
+
+              <div className="bg-muted/30 rounded-md p-3">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Indicators</p>
+                <div className="flex items-center gap-4 text-sm">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Entry RSI</p>
+                    {case_.entryRsi != null ? (
+                      <RsiBadge rsi={parseFloat(case_.entryRsi)} />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </div>
+                  {!isClosed && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Current RSI</p>
+                      <RsiBadge rsi={currentRsi} error={currentRsiError} />
+                    </div>
+                  )}
+                </div>
+              </div>
               <div className="flex gap-2 pt-2">
                 {case_.status === "open" && (
                   <Button
@@ -236,6 +266,18 @@ export function ReviewDrawer({ case_, open, onOpenChange }: ReviewDrawerProps) {
                     <div className="bg-muted/30 rounded-md p-3">
                       <p className="text-xs text-muted-foreground mb-0.5">Outcome</p>
                       <OutcomeBadge outcome={case_.outcome} />
+                    </div>
+                    <div className="bg-muted/30 rounded-md p-3">
+                      <p className="text-xs text-muted-foreground mb-1">Entry RSI</p>
+                      {case_.entryRsi != null ? (
+                        <RsiBadge rsi={parseFloat(case_.entryRsi)} inline />
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </div>
+                    <div className="bg-muted/30 rounded-md p-3">
+                      <p className="text-xs text-muted-foreground mb-1">Current RSI</p>
+                      <RsiBadge rsi={currentRsi} error={currentRsiError} inline />
                     </div>
                   </div>
                   {case_.resultSummary && (
