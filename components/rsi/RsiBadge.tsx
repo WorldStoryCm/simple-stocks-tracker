@@ -5,7 +5,7 @@
  */
 
 import { cn } from "@/components/component.utils";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, TrendingDown, TrendingUp, Minus } from "lucide-react";
 
 export type RsiState =
   | "oversold"
@@ -60,10 +60,36 @@ interface RsiBadgeProps {
   error?: RsiErrorKind | null;
   /** When set, RSI was fetched using this alias ticker — surfaced as a tooltip hint */
   via?: string | null;
+  /** Up to 3 most-recent daily RSI values (oldest → newest). Drives the trend arrow. */
+  history?: number[];
   className?: string;
 }
 
-export function RsiBadge({ rsi, inline = false, error, via, className }: RsiBadgeProps) {
+/** Direction of travel inferred from the history series (needs ≥2 points). */
+function trendDirection(history?: number[]): "up" | "down" | "flat" | null {
+  if (!history || history.length < 2) return null;
+  const first = history[0];
+  const last = history[history.length - 1];
+  const delta = last - first;
+  // Half a point is within rounding noise for daily RSI-14
+  if (Math.abs(delta) < 0.5) return "flat";
+  return delta > 0 ? "up" : "down";
+}
+
+function TrendArrow({ history }: { history?: number[] }) {
+  const dir = trendDirection(history);
+  if (!dir) return null;
+  const title = history!.map((v) => v.toFixed(1)).join(" → ");
+  const Icon = dir === "up" ? TrendingUp : dir === "down" ? TrendingDown : Minus;
+  const color = dir === "up" ? "text-emerald-600" : dir === "down" ? "text-rose-600" : "opacity-60";
+  return (
+    <span title={title} className="inline-flex">
+      <Icon className={cn("h-3 w-3", color)} />
+    </span>
+  );
+}
+
+export function RsiBadge({ rsi, inline = false, error, via, history, className }: RsiBadgeProps) {
   if (error) {
     return (
       <span
@@ -101,6 +127,7 @@ export function RsiBadge({ rsi, inline = false, error, via, className }: RsiBadg
         )}
       >
         <span>{rsi.toFixed(1)}</span>
+        <TrendArrow history={history} />
         <span className="opacity-70">{label}</span>
         {via && <span className="opacity-50 font-normal">({via})</span>}
       </span>
@@ -116,7 +143,10 @@ export function RsiBadge({ rsi, inline = false, error, via, className }: RsiBadg
         className,
       )}
     >
-      <span className="font-semibold tabular-nums leading-none">{rsi.toFixed(1)}</span>
+      <span className="flex items-center gap-1 font-semibold tabular-nums leading-none">
+        {rsi.toFixed(1)}
+        <TrendArrow history={history} />
+      </span>
       <span className="mt-0.5 leading-none opacity-70">{via ? `${label} (${via})` : label}</span>
     </span>
   );

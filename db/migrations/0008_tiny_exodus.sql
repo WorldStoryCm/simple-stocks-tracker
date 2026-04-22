@@ -1,0 +1,1 @@
+ALTER TABLE "indicator_snapshots" ADD COLUMN "history" text;

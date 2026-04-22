@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "../trpc";
-import { getRsiForTickers, getLastSyncedAt } from "@/lib/rsi";
+import { getRsiForTickers, getLastSyncedAt, runBacktest } from "@/lib/rsi";
 
 const tickerEntrySchema = z.object({
   ticker: z.string().min(1),
@@ -31,4 +31,17 @@ export const rsiRouter = router({
     const syncedAt = await getLastSyncedAt(userId);
     return { syncedAt: syncedAt?.toISOString() ?? null };
   }),
+
+  /**
+   * Runs an RSI-below-35 crossing backtest for a single ticker over ~400 daily closes.
+   * Uses the rsiTicker alias as a fallback if the primary ticker isn't recognised.
+   */
+  backtest: protectedProcedure
+    .input(z.object({
+      ticker: z.string().min(1),
+      rsiTicker: z.string().min(1).nullable().optional(),
+    }))
+    .query(async ({ input }) => {
+      return runBacktest(input.ticker, input.rsiTicker ?? null);
+    }),
 });

@@ -230,6 +230,9 @@ export const indicatorSnapshots = pgTable(
     ticker: text("ticker").notNull(),
     period: integer("period").notNull().default(14),
     rsi: decimal("rsi", { precision: 6, scale: 2 }).notNull(),
+    // JSON-encoded array of up to 3 most-recent daily RSI values (oldest → newest).
+    // Lets the UI show a trend (e.g. 39 → 37 → 36) without a second fetch.
+    history: text("history"),
     syncedAt: timestamp("synced_at", { withTimezone: true }).defaultNow().notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },

@@ -28,10 +28,14 @@ export interface RsiResult {
   rsi: number | null;
   state: RsiState | null;
   syncedAt: Date | null;
+  /** Up to 3 most-recent daily RSI values (oldest → newest); includes `rsi` as final entry. */
+  history: number[];
   error?: RsiError;
   /** Set when RSI was fetched via an alias ticker rather than the primary ticker */
   via?: string;
 }
+
+const HISTORY_POINTS = 3;
 
 const RSI_ERROR_LABELS: Record<RsiError, string> = {
   not_found: "Ticker not found",
@@ -71,9 +75,9 @@ type FetchOutcome =
   | { ok: true; closes: number[] }
   | { ok: false; error: RsiError };
 
-async function fetchDailyCloses(ticker: string): Promise<FetchOutcome> {
+async function fetchDailyCloses(ticker: string, days = 60): Promise<FetchOutcome> {
   const endTs = Math.floor(Date.now() / 1000);
-  const startTs = endTs - 60 * 24 * 3600; // 60 days of history
+  const startTs = endTs - days * 24 * 3600;
   const url =
     `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}` +
     `?interval=1d&period1=${startTs}&period2=${endTs}`;
@@ -102,8 +106,9 @@ async function fetchDailyCloses(ticker: string): Promise<FetchOutcome> {
 // RSI-14 calculation (Wilder smoothing)
 // ---------------------------------------------------------------------------
 
-function calcRsi(closes: number[], period = PERIOD): number | null {
-  if (closes.length < period + 1) return null;
+/** Returns the full RSI series computed from `closes` (one value per close after the first `period+1`). */
+export function calcRsiSeries(closes: number[], period = PERIOD): number[] {
+  if (closes.length < period + 1) return [];
 
   let gains = 0;
   let losses = 0;
@@ -117,17 +122,24 @@ function calcRsi(closes: number[], period = PERIOD): number | null {
   let avgGain = gains / period;
   let avgLoss = losses / period;
 
+  const rsiAt = (): number => {
+    if (avgLoss === 0) return 100;
+    const rs = avgGain / avgLoss;
+    return parseFloat((100 - 100 / (1 + rs)).toFixed(2));
+  };
+
+  const series: number[] = [rsiAt()];
+
   for (let i = period + 1; i < closes.length; i++) {
     const diff = closes[i] - closes[i - 1];
     const gain = diff >= 0 ? diff : 0;
     const loss = diff < 0 ? -diff : 0;
     avgGain = (avgGain * (period - 1) + gain) / period;
     avgLoss = (avgLoss * (period - 1) + loss) / period;
+    series.push(rsiAt());
   }
 
-  if (avgLoss === 0) return 100;
-  const rs = avgGain / avgLoss;
-  return parseFloat((100 - 100 / (1 + rs)).toFixed(2));
+  return series;
 }
 
 // ---------------------------------------------------------------------------
@@ -153,11 +165,24 @@ function isStale(syncedAt: Date): boolean {
   return Date.now() - syncedAt.getTime() > STALE_MINUTES * 60 * 1000;
 }
 
+function parseHistory(raw: string | null | undefined): number[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((n): n is number => typeof n === "number" && !isNaN(n));
+  } catch {
+    return [];
+  }
+}
+
 async function upsertSnapshot(
   userId: string,
   ticker: string,
-  rsi: number
+  rsi: number,
+  history: number[]
 ): Promise<void> {
+  const historyJson = JSON.stringify(history);
   await db
     .insert(indicatorSnapshots)
     .values({
@@ -165,6 +190,7 @@ async function upsertSnapshot(
       ticker,
       period: PERIOD,
       rsi: rsi.toString(),
+      history: historyJson,
       syncedAt: new Date(),
     })
     .onConflictDoUpdate({
@@ -175,6 +201,7 @@ async function upsertSnapshot(
       ],
       set: {
         rsi: rsi.toString(),
+        history: historyJson,
         syncedAt: new Date(),
       },
     });
@@ -192,7 +219,8 @@ export async function getRsi(
   const cached = await getCached(userId, ticker);
   if (cached && !isStale(cached.syncedAt)) {
     const rsi = parseFloat(cached.rsi);
-    return { ticker, rsi, state: classifyRsi(rsi), syncedAt: cached.syncedAt };
+    const history = parseHistory(cached.history);
+    return { ticker, rsi, state: classifyRsi(rsi), syncedAt: cached.syncedAt, history };
   }
 
   const fetched = await fetchDailyCloses(ticker);
@@ -200,22 +228,26 @@ export async function getRsi(
     // Fall back to stale cache if we have one — still surface error hint via console for observability
     if (cached) {
       const rsi = parseFloat(cached.rsi);
-      return { ticker, rsi, state: classifyRsi(rsi), syncedAt: cached.syncedAt };
+      const history = parseHistory(cached.history);
+      return { ticker, rsi, state: classifyRsi(rsi), syncedAt: cached.syncedAt, history };
     }
-    return { ticker, rsi: null, state: null, syncedAt: null, error: fetched.error };
+    return { ticker, rsi: null, state: null, syncedAt: null, history: [], error: fetched.error };
   }
 
-  const rsi = calcRsi(fetched.closes);
-  if (rsi == null) {
+  const series = calcRsiSeries(fetched.closes);
+  if (series.length === 0) {
     if (cached) {
       const cachedRsi = parseFloat(cached.rsi);
-      return { ticker, rsi: cachedRsi, state: classifyRsi(cachedRsi), syncedAt: cached.syncedAt };
+      const history = parseHistory(cached.history);
+      return { ticker, rsi: cachedRsi, state: classifyRsi(cachedRsi), syncedAt: cached.syncedAt, history };
     }
-    return { ticker, rsi: null, state: null, syncedAt: null, error: "insufficient_data" };
+    return { ticker, rsi: null, state: null, syncedAt: null, history: [], error: "insufficient_data" };
   }
 
-  await upsertSnapshot(userId, ticker, rsi);
-  return { ticker, rsi, state: classifyRsi(rsi), syncedAt: new Date() };
+  const rsi = series[series.length - 1];
+  const history = series.slice(-HISTORY_POINTS);
+  await upsertSnapshot(userId, ticker, rsi, history);
+  return { ticker, rsi, state: classifyRsi(rsi), syncedAt: new Date(), history };
 }
 
 export interface TickerEntry {
@@ -249,6 +281,138 @@ export async function getRsiForTickers(
     map[entries[i].ticker] = r;
   });
   return map;
+}
+
+// ---------------------------------------------------------------------------
+// Backtest — "how does RSI < 35 typically play out for this ticker?"
+// ---------------------------------------------------------------------------
+
+export const BACKTEST_HORIZONS = [5, 10, 20] as const;
+export type BacktestHorizon = (typeof BACKTEST_HORIZONS)[number];
+const BACKTEST_DAYS = 400;
+const OVERSOLD_THRESHOLD = 35;
+
+export interface BacktestHorizonStats {
+  horizonDays: BacktestHorizon;
+  count: number;
+  avgReturnPct: number | null;
+  medianReturnPct: number | null;
+  winRatePct: number | null;
+}
+
+export interface BacktestResult {
+  ticker: string;
+  via?: string;
+  threshold: number;
+  signalCount: number;
+  daysAnalyzed: number;
+  horizons: BacktestHorizonStats[];
+  error?: RsiError;
+}
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+}
+
+function computeStats(closes: number[]): Omit<BacktestResult, "ticker" | "via" | "error"> {
+  const series = calcRsiSeries(closes);
+  // Crossings: prior RSI ≥ threshold, current RSI < threshold. First series point has no prior, so skip it.
+  // series[i] maps to closes[i + PERIOD]; forward return at horizon h uses closes[i + PERIOD + h].
+  const signalIdxs: number[] = [];
+  for (let i = 1; i < series.length; i++) {
+    if (series[i - 1] >= OVERSOLD_THRESHOLD && series[i] < OVERSOLD_THRESHOLD) {
+      signalIdxs.push(i);
+    }
+  }
+
+  const horizons: BacktestHorizonStats[] = BACKTEST_HORIZONS.map((h) => {
+    const returns: number[] = [];
+    for (const idx of signalIdxs) {
+      const base = idx + PERIOD;
+      const future = base + h;
+      if (future >= closes.length) continue;
+      const basePrice = closes[base];
+      const futurePrice = closes[future];
+      if (!basePrice) continue;
+      returns.push(((futurePrice - basePrice) / basePrice) * 100);
+    }
+    if (returns.length === 0) {
+      return { horizonDays: h, count: 0, avgReturnPct: null, medianReturnPct: null, winRatePct: null };
+    }
+    const avg = returns.reduce((s, r) => s + r, 0) / returns.length;
+    const wins = returns.filter((r) => r > 0).length;
+    return {
+      horizonDays: h,
+      count: returns.length,
+      avgReturnPct: parseFloat(avg.toFixed(2)),
+      medianReturnPct: parseFloat(median(returns).toFixed(2)),
+      winRatePct: parseFloat(((wins / returns.length) * 100).toFixed(1)),
+    };
+  });
+
+  return {
+    threshold: OVERSOLD_THRESHOLD,
+    signalCount: signalIdxs.length,
+    daysAnalyzed: closes.length,
+    horizons,
+  };
+}
+
+/**
+ * Runs an RSI-below-35 crossing backtest on ~400 days of daily closes.
+ * Always resolves — errors are carried on the result. Uses alias fallback like getRsi.
+ */
+export async function runBacktest(ticker: string, rsiTicker?: string | null): Promise<BacktestResult> {
+  let fetched = await fetchDailyCloses(ticker, BACKTEST_DAYS);
+  let via: string | undefined;
+
+  if (fetched.ok === false && fetched.error === "not_found" && rsiTicker) {
+    const aliasFetched = await fetchDailyCloses(rsiTicker, BACKTEST_DAYS);
+    if (aliasFetched.ok) {
+      fetched = aliasFetched;
+      via = rsiTicker;
+    }
+  }
+
+  if (!fetched.ok) {
+    return {
+      ticker,
+      via,
+      threshold: OVERSOLD_THRESHOLD,
+      signalCount: 0,
+      daysAnalyzed: 0,
+      horizons: BACKTEST_HORIZONS.map((h) => ({
+        horizonDays: h,
+        count: 0,
+        avgReturnPct: null,
+        medianReturnPct: null,
+        winRatePct: null,
+      })),
+      error: fetched.error,
+    };
+  }
+
+  if (fetched.closes.length < PERIOD + 2) {
+    return {
+      ticker,
+      via,
+      threshold: OVERSOLD_THRESHOLD,
+      signalCount: 0,
+      daysAnalyzed: fetched.closes.length,
+      horizons: BACKTEST_HORIZONS.map((h) => ({
+        horizonDays: h,
+        count: 0,
+        avgReturnPct: null,
+        medianReturnPct: null,
+        winRatePct: null,
+      })),
+      error: "insufficient_data",
+    };
+  }
+
+  return { ticker, via, ...computeStats(fetched.closes) };
 }
 
 /** Returns the last syncedAt across all snapshots for a user (for header status). */

@@ -57,6 +57,13 @@
       "when": 1776857019523,
       "tag": "0007_misty_golden_guardian",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1776867590276,
+      "tag": "0008_tiny_exodus",
+      "breakpoints": true
     }
   ]
 }

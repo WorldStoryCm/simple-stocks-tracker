@@ -7,6 +7,7 @@ import { Loader2, MoreHorizontal, ArrowUpDown, ArrowDown, ArrowUp, Search } from
 import { Button } from "@/components/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/dropdown-menu";
 import { RsiBadge, getRsiState } from "@/components/rsi/RsiBadge";
+import { RsiBacktestDialog } from "@/components/rsi/RsiBacktestDialog";
 import { TradeDialog } from "@/components/trades/TradeDialog";
 import { ViewPositionDialog } from "@/components/positions/ViewPositionDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/Popover";
@@ -157,10 +158,10 @@ export function PositionsPage() {
   );
 
   const rsiMap = useMemo(() => {
-    const map: Record<string, { rsi: number | null; error?: "not_found" | "fetch_failed" | "insufficient_data"; via?: string }> = {};
+    const map: Record<string, { rsi: number | null; error?: "not_found" | "fetch_failed" | "insufficient_data"; via?: string; history?: number[] }> = {};
     if (rsiData) {
       for (const [ticker, r] of Object.entries(rsiData)) {
-        if (r) map[ticker] = { rsi: r.rsi, error: r.error, via: (r as any).via };
+        if (r) map[ticker] = { rsi: r.rsi, error: r.error, via: (r as any).via, history: (r as any).history ?? [] };
       }
     }
     return map;
@@ -197,6 +198,8 @@ export function PositionsPage() {
 
   const [viewPosition, setViewPosition] = useState<any>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+
+  const [backtestTicker, setBacktestTicker] = useState<{ ticker: string; rsiTicker: string | null } | null>(null);
 
   const handleQuickAction = (pos: any, type: "buy" | "sell") => {
     setPrefilledTrade({
@@ -491,7 +494,7 @@ export function PositionsPage() {
                           : 0;
                         return (
                           <div className="flex items-center gap-1.5">
-                            <RsiBadge rsi={entry.rsi} via={entry.via} inline />
+                            <RsiBadge rsi={entry.rsi} via={entry.via} history={entry.history} inline />
                             <span className="text-[10px] text-muted-foreground">
                               {positionRsiLabel(entry.rsi, pnlPct)}
                             </span>
@@ -522,6 +525,9 @@ export function PositionsPage() {
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleQuickAction(pos, 'sell')}>
                                 Sell Position
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setBacktestTicker({ ticker: pos.symbol.ticker, rsiTicker: pos.symbol.rsiTicker ?? null })}>
+                                Backtest RSI &lt; 35
                               </DropdownMenuItem>
                             </>
                           )}
@@ -563,6 +569,13 @@ export function PositionsPage() {
         onOpenChange={setIsViewDialogOpen}
         pos={viewPosition}
         quote={viewPosition ? quotes?.[viewPosition.symbol?.ticker] : undefined}
+      />
+
+      <RsiBacktestDialog
+        open={backtestTicker !== null}
+        onOpenChange={(o) => { if (!o) setBacktestTicker(null); }}
+        ticker={backtestTicker?.ticker ?? null}
+        rsiTicker={backtestTicker?.rsiTicker ?? null}
       />
     </div>
   );
