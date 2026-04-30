@@ -1,450 +1,471 @@
-# Stock Tracking App — Product Specification
+# Stock Tracker — Master Product Specification
 
 ## 1. Goal
-Build a simple stock tracking app for personal investing/trading across multiple platforms.
 
-The app must let a user:
-- record multiple buy transactions for the same stock
-- record multiple sell transactions for the same stock
-- track realized profit/loss per closed position or partial close
-- track day, week, and month performance
-- separate capital into buckets such as short-term, mid-term, and long-term
-- define profit goals such as `$100 profit per week`
-- manage multiple brokers/platforms such as Revolut and N26
-- maintain a watchlist
-
-This is **not** a broker integration product in v1. It is a manual tracking and reporting app.
+A personal manual stock journal and performance tracker for people who actively buy and sell across multiple platforms and want clear profit/loss visibility without broker sync complexity.
 
 ---
 
 ## 2. Product Scope
 
-### In scope for v1
-- authentication with social login
-- single-user personal portfolio tracking
-- CRUD for platforms
-- CRUD for stocks / symbols
-- CRUD for buy transactions
-- CRUD for sell transactions
-- manual assignment of trade horizon/bucket
-- realized P/L tracking
-- unrealized P/L support via manual current price entry or optional manual stock snapshot entry
-- dashboard with cumulative stats by day/week/month
-- weekly profit goal tracking
-- watchlist
-- table views and summary views
+### In scope
+- Authentication with social login
+- Single-user personal portfolio tracking
+- CRUD for platforms, stocks, trades
+- FIFO realized P/L tracking
+- Unrealized P/L via manual price entry or snapshots
+- Dashboard with cumulative stats by day/week/month
+- Weekly profit goal tracking
+- Watchlist
+- RSI indicator integration across Symbols, Positions, and Shadow Trading
+- Shadow Trading — simulated idea tracker and review journal
+- Shadow Theses — higher-level narrative containers for shadow cases
+- Catalyst Calendar — event and review reminder calendar for Shadow Trading
 
-### Out of scope for v1
-- automatic broker sync
-- direct market data integration
-- tax reporting by country
-- dividends/options/forex/crypto support
-- multi-user collaboration
-- advanced charting
-- import from broker statements
-- margin/short borrowing mechanics
-
----
-
-## 3. Core User Stories
-
-### Trading records
-- As a user, I want to create a platform like `Revolut` or `N26` so I can separate my trades by broker.
-- As a user, I want to create or select a stock symbol like `RCAT`, `FTAI`, `HUM`, `ASPI` when recording trades.
-- As a user, I want to record multiple buys for the same stock over time.
-- As a user, I want to record one or more sells for the same stock over time.
-- As a user, I want the system to calculate realized profit/loss when I sell.
-- As a user, I want partial sells to work correctly.
-
-### Portfolio buckets
-- As a user, I want to categorize trades or positions into:
-  - short-term
-  - mid-term
-  - long-term
-- As a user, I want to define capital budgets for each bucket, for example:
-  - short-term: `$5,000`
-  - mid-term: `$10,000`
-  - long-term: `$20,000`
-- As a user, I want to see how much of each bucket is currently used.
-
-### Goal tracking
-- As a user, I want to set a weekly profit goal such as `$100`.
-- As a user, I want to see if I hit or missed the goal for each week.
-- As a user, I want cumulative profit totals for day, week, month, and all-time.
-
-### Watchlist
-- As a user, I want to maintain a watchlist of symbols I am monitoring.
-- As a user, I want to add notes and a target thesis for watchlist entries.
+### Out of scope
+- Automatic broker sync
+- Direct live market data integration (RSI is manually synced)
+- Tax reporting by country
+- Dividends, options, forex, crypto
+- Multi-user collaboration
+- Advanced charting
+- CSV or broker statement import
+- Margin/short borrowing mechanics
 
 ---
 
-## 4. Key Concepts
+## 3. Technical Stack
 
-### Platform
-A trading provider or account source, for example `Revolut`, `N26`, or other manual broker accounts.
+**Frontend:** Next.js (app router), React, TypeScript, Tailwind, shadcn/ui, TanStack Table, Recharts
 
-### Stock
-A tradable symbol or asset being tracked, for example `RCAT` or `FTAI`.
-
-### Trade bucket
-A user-defined investment horizon bucket:
-- short-term
-- mid-term
-- long-term
-
-### Buy transaction
-A transaction that increases position quantity.
-
-### Sell transaction
-A transaction that decreases position quantity and may realize P/L.
-
-### Position
-A position is the current open holding for a symbol within a platform and bucket.
-
-### Closed lot / realized position
-A fully or partially sold portion of previously bought quantity that creates realized P/L.
+**Backend:** Next.js server actions or tRPC/API routes, Better Auth, Drizzle ORM, PostgreSQL, Zod, date-fns
 
 ---
 
-## 5. Profit/Loss Logic
+## 4. Authentication
 
-### Required accounting method
-Use **FIFO** in v1.
+Use **Better Auth** with social login (Google; Apple optional).
 
-Reason:
-- simpler to understand
-- easier to explain in UI
-- deterministic for partial sells
-- matches many user expectations for manual tracking
-
-### Realized P/L formula
-For each sold quantity:
-
-`realized_pnl = sell_proceeds - matched_buy_cost - fees`
-
-Where:
-- `sell_proceeds = sell_qty * sell_price`
-- `matched_buy_cost = sum of FIFO-matched buy lots`
-- `fees` = sell fee + proportional matched buy fees if tracked
-
-### Unrealized P/L formula
-For open quantity:
-
-`unrealized_pnl = market_value - open_cost_basis`
-
-In v1, market value can be based on a manually entered current price or latest manual snapshot.
-
-### Position metrics required
-For each open position show:
-- total bought quantity
-- total sold quantity
-- open quantity
-- average open cost
-- invested amount
-- realized P/L
-- unrealized P/L
-- total P/L
+- All data isolated by `userId`
+- One portfolio per user in v1
 
 ---
 
-## 6. Main Screens
+## 5. Core Concepts
 
-## 6.1 Dashboard
-Purpose: quick overview.
-
-Widgets:
-- total invested by platform
-- total portfolio value by platform
-- realized P/L today
-- realized P/L this week
-- realized P/L this month
-- realized P/L all-time
-- open positions count
-- weekly goal progress
-- bucket usage: short / mid / long
-- recent trades
-
-### Dashboard filters
-- platform
-- bucket
-- date range
-- symbol
+| Concept | Description |
+|---|---|
+| Platform | A broker/account source (e.g. Revolut, N26) |
+| Symbol | A tradable ticker being tracked |
+| Bucket | Investment horizon: `short_term`, `mid_term`, `long_term` |
+| Trade | A buy or sell record in the raw ledger |
+| Position | Current open holding scoped by user + platform + symbol + bucket |
+| Realized P/L | Profit/loss from FIFO-matched closed lots |
+| Unrealized P/L | Open cost basis vs. current manual price |
 
 ---
 
-## 6.2 Trades Table
-Purpose: manual trade recording and audit trail.
+## 6. P/L Logic
 
-Columns:
-- date
-- platform
-- symbol
-- action (`buy` / `sell`)
-- quantity
-- price
-- gross amount
-- fee
-- bucket
-- notes
-- realized P/L for sell rows
+### Accounting method
+**FIFO** in v1 — deterministic for partial sells, easy to explain in UI.
 
-Actions:
-- add trade
-- edit trade
-- delete trade
-- duplicate trade
-- filter and sort
+### Realized P/L
+```
+realized_pnl = sell_proceeds - matched_buy_cost - fees
+sell_proceeds = sell_qty * sell_price
+matched_buy_cost = sum of FIFO-matched buy lots
+```
+
+### Unrealized P/L
+```
+unrealized_pnl = market_value - open_cost_basis
+market_value = open_qty * current_price (manual entry or latest snapshot)
+```
+
+### Position metrics (per open position)
+total bought qty · total sold qty · open qty · avg open cost · invested amount · realized P/L · unrealized P/L · total P/L
 
 ---
 
-## 6.3 Positions View
-Purpose: current holdings.
+## 7. Data Rules
 
-Columns:
-- platform
-- symbol
-- bucket
-- open quantity
-- avg cost
-- invested amount
-- current price
-- market value
-- realized P/L
-- unrealized P/L
-- total P/L
-- last trade date
+- Sell quantity cannot exceed available open quantity for that symbol/platform/bucket
+- A trade belongs to exactly one user, platform, symbol, and bucket
+- All calculations must be reproducible from raw trades
+- Editing or deleting a historical trade triggers recalculation from that date forward for the same user/platform/symbol/bucket scope
+- Recalculate only the affected subset, not the full ledger
 
 ---
 
-## 6.4 Performance View
-Purpose: stats over time.
+## 8. Database Schema
 
-Views:
-- daily
-- weekly
-- monthly
-- yearly
+### users
+Managed by Better Auth. All app tables reference `user_id`.
 
-Metrics per period:
-- total buys
-- total sells
-- realized profit
-- realized loss
-- net realized P/L
-- cumulative P/L
-- goal target
-- goal progress %
+### platforms
+```
+id, user_id, name, currency_code, is_active, notes, created_at, updated_at
+unique (user_id, name)
+```
 
----
+### symbols
+```
+id, user_id, ticker, display_name?, exchange?, currency_code?, notes?, created_at, updated_at
+unique (user_id, ticker)
+```
 
-## 6.5 Platforms View
-Purpose: manage trading accounts.
+### buckets
+```
+id, user_id, key, label, budget_amount, sort_order, is_active, created_at, updated_at
+unique (user_id, key)
+defaults: short_term, mid_term, long_term
+```
 
-Data:
-- platform name
-- broker type (manual text)
-- currency
-- active/inactive
-- notes
+### trades
+```
+id, user_id, platform_id, symbol_id, bucket_id, trade_type (buy|sell),
+trade_date, quantity, price, fee (default 0), currency_code, notes?,
+created_at, updated_at
+indexes: (user_id, trade_date desc), (user_id, platform_id, symbol_id, bucket_id, trade_date)
+```
 
-Show per platform:
-- invested total
-- current total value
-- realized P/L
-- unrealized P/L
+### trade_lot_matches
+```
+id, user_id, sell_trade_id, buy_trade_id, matched_quantity, buy_price, sell_price,
+matched_cost, matched_proceeds, realized_pnl, created_at
+```
+Stores FIFO matches for auditability and incremental recalculation.
 
----
+### position_snapshots (performance cache)
+```
+id, user_id, platform_id, symbol_id, bucket_id, open_quantity, avg_open_cost,
+invested_amount, realized_pnl, updated_at
+```
+Derived from trades + lot matches. Fully rebuildable.
 
-## 6.6 Watchlist View
-Purpose: symbols to monitor before trading.
+### price_snapshots (v1.1)
+```
+id, user_id, symbol_id, price_date, price, source (manual), created_at
+```
 
-Fields:
-- symbol
-- company name optional
-- platform optional
-- thesis / note
-- target buy price optional
-- target sell price optional
-- status (`watching`, `ready`, `bought`, `archived`)
-- tags
+### goals
+```
+id, user_id, goal_type (weekly_profit), amount, is_active, starts_at?, ends_at?, created_at, updated_at
+```
 
----
+### watchlist_items
+```
+id, user_id, platform_id?, symbol_id, thesis?, target_buy_price?, target_sell_price?,
+status (watching|ready|bought|archived), notes?, created_at, updated_at
+```
 
-## 7. Example Workflows
+### watchlist_tags / watchlist_item_tags
+```
+watchlist_tags: id, user_id, name, created_at; unique (user_id, name)
+watchlist_item_tags: watchlist_item_id, watchlist_tag_id; unique pair
+```
 
-### Workflow A — Buy stock
-1. User opens Trades page.
-2. User clicks `Add trade`.
-3. User selects platform.
-4. User selects or creates symbol.
-5. User chooses `Buy`.
-6. User enters date, quantity, price, fee, bucket.
-7. System saves trade.
-8. Position recalculates.
+### rsi_snapshots
+```
+id, user_id, symbol_id, rsi_14, rsi_state (oversold|near_oversold|neutral|near_overbought|overbought),
+captured_at, source (manual|sync), created_at
+```
+Single shared table powering RSI display across Symbols, Positions, and Shadow Trading.
 
-### Workflow B — Sell stock partially
-1. User opens Trades page.
-2. User adds a `Sell` trade.
-3. User enters quantity lower than current open quantity.
-4. System matches FIFO lots.
-5. System calculates realized P/L.
-6. System updates remaining open quantity.
+### shadow_cases
+```
+id, user_id, platform_id?, symbol, bucket?, direction (up|down|watch),
+thesis, confidence (1-5), time_horizon, started_at, entry_price,
+status (open|review_ready|closed|archived), ended_at?, exit_price?,
+price_change_abs?, price_change_pct?,
+outcome (correct|wrong|mixed|invalidated|unreviewed),
+result_summary?, thesis_id?, archived_at?, created_at, updated_at
+```
 
-### Workflow C — Weekly goal tracking
-1. User sets a weekly realized profit goal, e.g. `$100`.
-2. At any time dashboard shows:
-   - current week realized P/L
-   - target value
-   - delta to target
-   - hit/missed status
+### shadow_snapshots
+```
+id, shadow_case_id, snapshot_type (start|end|manual), captured_at, price,
+day_change_pct?, market_meta_json?, news_meta_json?, raw_context_json?, created_at
+```
 
-### Workflow D — Platform summary
-1. User opens Platforms page.
-2. User sees totals like invested vs total value per platform.
-3. User can drill into trades and positions for that platform.
+### shadow_notes
+```
+id, shadow_case_id,
+note_type (thesis_note|observation_note|catalyst_note|review_note|lesson_note),
+title?, body, is_pinned, created_at, updated_at
+```
 
----
+### shadow_tags / shadow_case_tags
+```
+shadow_tags: id, user_id, name, color?, created_at
+shadow_case_tags: shadow_case_id, shadow_tag_id
+```
 
-## 8. Data Rules / Invariants
+### shadow_events (audit trail)
+```
+id, shadow_case_id, event_type, payload_json, created_at
+event_types: case_created, thesis_updated, note_added, case_reviewed, case_closed, outcome_changed
+```
 
-### Core invariants
-- sell quantity must never exceed available open quantity for that symbol/platform/bucket scope
-- a trade belongs to exactly one user
-- a trade belongs to exactly one platform
-- a trade belongs to exactly one symbol
-- all calculations must be reproducible from raw trades
-- deleting or editing a historical trade must trigger recalculation of affected positions and realized P/L
-- bucket totals must reflect open capital allocation
+### shadow_theses
+```
+id, user_id, title, slug?, status (draft|live|weakening|stale|invalidated|archived),
+conviction (1-5), time_horizon, summary, thesis_body, why_now?,
+invalidation_conditions?, watch_signals?, started_at?, last_reviewed_at?,
+archived_at?, created_at, updated_at
+```
 
-### Design choice for position scope
-Open positions should be grouped by:
-- user
-- platform
-- symbol
-- bucket
+### shadow_thesis_symbols
+```
+id, shadow_thesis_id, symbol, created_at
+```
 
-That prevents mixing short-term and long-term capital for the same symbol unless the user intentionally records them in the same bucket.
+### shadow_thesis_updates
+```
+id, shadow_thesis_id,
+update_type (new_evidence|conviction_change|status_change|review|lesson|warning),
+title?, body, conviction_before?, conviction_after?, status_before?, status_after?, created_at
+```
 
----
-
-## 9. Reporting Requirements
-
-### Time aggregation
-Need aggregated stats by:
-- day
-- week
-- month
-- year
-- custom date range
-
-### Required reports
-- realized P/L by day/week/month
-- cumulative realized P/L by month
-- platform performance summary
-- bucket performance summary
-- symbol performance summary
-- best and worst trades
-- open exposure by bucket
-
-### Excel-like views to support
-The app should support tables similar to the user's existing spreadsheet:
-- symbol rows with buy/sell/profit grouped by date or month
-- platform summary with invested/total/profit snapshots
-
-Do not try to exactly clone Excel in v1. Provide cleaner app-native reports first.
-
----
-
-## 10. Authentication
-
-Use **Better Auth** with social login.
-
-Recommended providers for v1:
-- Google
-- Apple optional
-
-Requirements:
-- user can sign in with social login
-- user data is isolated by `userId`
-- app supports one personal portfolio per user in v1
+### shadow_calendar_events
+```
+id, user_id, title,
+event_type (earnings|macro|product_event|guidance|investor_day|lockup|fda|news|review_case|review_thesis|custom),
+event_date, event_time?, timezone?,
+status (upcoming|done|cancelled|missed),
+importance (low|medium|high|critical)?,
+symbol?, thesis_id?, shadow_case_id?,
+source_type (manual|imported|derived_from_case|derived_from_thesis),
+description?, outcome_note?, created_at, updated_at
+```
 
 ---
 
-## 11. Technical Stack
+## 9. UI Views
 
-### Frontend
-- Next.js
-- React
-- TypeScript
-- Tailwind
-- shadcn/ui
+### Dashboard (`/`)
+- Portfolio summary cards by platform
+- Realized P/L cards: today / week / month / all-time
+- Weekly goal progress card
+- Platform summary table
+- Bucket budget usage: short / mid / long
+- Recent trades
+- Top gainers / losers by realized P/L
+- Filters: platform, bucket, date range, symbol
+- **Global header:** `Last sync was <datetime>` with small sync icon (Synced / Refreshing / Delayed)
 
-### Backend
-- Next.js server actions or tRPC/API routes
-- Better Auth
-- Drizzle ORM
-- PostgreSQL
+### Trades (`/trades`)
+- Top filters: date range, platform, symbol, bucket, action type
+- Table columns: date, platform, symbol, action (buy/sell), qty, price, gross amount, fee, bucket, notes, realized P/L (sell rows)
+- Actions: add / edit (drawer or modal) / delete / duplicate
 
-### Optional libraries
-- TanStack Table for dense tables
-- Recharts for basic charts
-- Zod for validation
-- date-fns for grouping by day/week/month
+### Positions (`/positions`)
+- Filters row
+- Grouped table by platform
+- Columns: platform, symbol, bucket, open qty, avg cost, invested, current price, market value, realized P/L, unrealized P/L, total P/L, last trade date, **RSI badge**
+
+### Performance (`/performance`)
+- Tabs: Daily / Weekly / Monthly / Yearly
+- Metrics per period: total buys, total sells, realized profit, realized loss, net P/L, cumulative P/L, goal target, goal progress %
+- Optional cumulative P/L chart
+
+### Platforms (`/platforms`)
+- List with per-platform totals: invested / current value / realized P/L / unrealized P/L
+- Create / edit / archive platform
+
+### Watchlist (`/watchlist`)
+- Table or cards: symbol, company name, platform, thesis/note, target buy price, target sell price, status, tags
+- Status filter
+- Add / edit item dialog
+
+### Symbols (`/symbols`)
+- Table columns: Symbol, Price, Daily %, RSI (badge with state label), Trend, Volume, Watchlist status, Actions
+- RSI filter chips: `RSI < 30` · `RSI > 70` · `Neutral RSI`
+- Symbol detail drawer: RSI 14, updated timestamp, sync metadata
 
 ---
 
-## 12. Non-Functional Requirements
+## 10. RSI Integration
 
-### Performance
-- tables must remain usable with at least 10,000 trade rows for a single user
-- dashboard summaries should feel fast
-- expensive recalculations should be incremental or done server-side when possible
+### Architecture
+One RSI sync pipeline writes to `rsi_snapshots`. One shared RSI badge component used across Symbols, Positions, and Shadow Trading with consistent terminology and visual style.
 
-### Accuracy
-- profit/loss calculations must be deterministic
-- rounding should use consistent currency precision rules
+### RSI states
+| Range | State |
+|---|---|
+| < 30 | Oversold |
+| 30–40 | Near Oversold |
+| 40–60 | Neutral |
+| 60–70 | Near Overbought |
+| > 70 | Overbought |
 
-### Security
-- all data access scoped by authenticated user id
-- server-side validation required
+### RSI badge design
+Numeric value + tiny state label + subtle color treatment. No large heatmap blocks.
 
-### Auditability
-- user must be able to inspect raw trades behind every calculation
+### Per-area usage
+- **Symbols:** primary home of RSI; filter chips; detail drawer shows RSI history and sync timestamp
+- **Positions:** RSI as decision context (labels: Stretched, Neutral, Oversold Risk, Momentum Strong)
+- **Shadow Trading:** RSI recorded in start/end snapshot; shown in case review and lesson notes (Entry RSI, Current RSI)
+
+### Global header sync status
+Always visible, non-intrusive: `Last sync was Apr 21, 23:48` · small icon · state label
 
 ---
 
-## 13. Suggested v1 Priorities
+## 11. Shadow Trading (`/shadow`)
+
+### Purpose
+Capture a directional idea on a symbol, freeze the starting context, observe what happened, and conduct structured post-analysis. The core value is **decision review**, not fake execution.
+
+### KPI row
+Open Cases · Reviewed Cases · Accuracy Rate · Avg Move vs Thesis · Biggest Miss · Best Call
+
+### Shadow Case
+Core entity representing one tracked idea from entry to review.
+
+**Minimum required fields:** symbol, direction (up/down/watch), started_at, entry_price, thesis
+
+**Optional at creation:** platform, bucket, confidence (1-5), time_horizon, tags
+
+**Status flow:** `open` → `review_ready` → `closed` → `archived`
+
+**Outcome values:** `correct` · `wrong` · `mixed` · `invalidated` · `unreviewed`
+
+### Start Snapshot
+Frozen context captured at case creation — prevents hindsight pollution:
+- symbol, price, datetime
+- optional: daily % move, market session state, catalyst type (earnings/news/technical/macro/other), RSI at entry
+
+### Review Flow
+1. Create case with thesis, direction, entry price
+2. Observe while case stays open
+3. Click "Review Now" — system shows end price, move %, direction match
+4. User writes structured explanation: what happened, why, what invalidated thesis, lessons learned
+5. Filter and inspect patterns over time (wrong calls, high confidence misses, etc.)
+
+### Case detail sections
+- **Thesis:** original thesis, direction, confidence, horizon, created timestamp
+- **Market Result:** entry vs end price, move abs/%, direction match
+- **Why:** what happened · why it happened · what invalidated thesis · what was missed · what to watch next
+- **Catalysts:** manual links
+- **Notes timeline:** chronological typed notes per case
+
+### Useful filters
+symbol · direction · outcome · platform · bucket · tag · horizon · confidence range · started/reviewed date range
+
+---
+
+## 12. Shadow Theses (`/shadow/theses`, `/shadow/theses/[id]`)
+
+### Purpose
+Higher-level narrative containers that group multiple shadow cases under one durable market idea. Answers: "What bigger idea was I trading around?" and "Is this thesis still valid?"
+
+Examples: AI infrastructure capex cycle · Oil recovery after oversold panic · Rate cut expectations lifting speculative names
+
+### Status flow
+`draft` → `live` → `weakening` → `stale` → `invalidated` → `archived`
+
+### Relationship
+One thesis → many shadow cases (MVP). A shadow case has one optional `thesis_id`.
+
+### Thesis detail page sections
+- **Header:** title, status badge, conviction, horizon, dates
+- **Core Narrative:** summary, thesis body, why now, invalidation conditions, watch signals
+- **Linked Cases:** table — symbol, direction, outcome, move %, status, quick link
+- **Update Timeline:** chronological conviction changes, new evidence, warnings, lessons
+- **Learnings:** what worked, what failed, what to repeat, what to stop
+
+### Derived metrics (computed on read)
+linked cases count · open/reviewed count · accuracy % · avg move · thesis age · days since last review
+
+---
+
+## 13. Catalyst Calendar (`/shadow/calendar`)
+
+### Purpose
+Track upcoming events that may move shadow cases and schedule review reminders. Not a generic task calendar — only events relevant to Shadow Trading.
+
+Good event types: earnings · CPI · FOMC · jobs report · product launch · investor day · FDA decision · lockup expiry · thesis review reminder · manually added catalyst
+
+### Event type enum
+`earnings` · `macro` · `product_event` · `guidance` · `investor_day` · `lockup` · `fda` · `news` · `review_case` · `review_thesis` · `custom`
+
+### Calendar views
+- **Agenda** (recommended MVP default) — date-grouped list, easiest to scan and filter
+- **Week** — good for catalyst-heavy periods
+- **Month** — overview grid with compact event pills
+
+### Useful filters
+event type · symbol · linked thesis · linked case · importance · upcoming/past
+
+### Useful derived sections
+- Upcoming this week
+- Overdue reviews
+- Recently passed catalysts
+- Events without outcome note
+
+### Main workflows
+1. **Add manual catalyst** — title, date, type, importance, optional symbol/case/thesis
+2. **Add review reminder from case** — pre-fills `review_case` type, linked case id, symbol
+3. **Add thesis review reminder** — from thesis page, creates `review_thesis` event
+4. **Record outcome** — after event passes, user adds outcome note and catalyst verdict
+5. **Filter week cluster** — high importance + earnings + linked to open cases
+
+### Data rules
+- Event deletion must not delete linked case or thesis
+- Calendar bugs must not affect real trade or shadow case storage
+- Events creatable without a symbol; review events should link to a case or thesis
+
+---
+
+## 14. Workflows
+
+### First-time setup
+1. Sign in with social login
+2. System creates default buckets: Short term, Mid term, Long term
+3. User adds platforms and sets bucket budgets
+4. User sets weekly profit goal
+
+### Add buy trade
+Trades → Add trade → select platform → select/create symbol → Buy → date, qty, price, fee, bucket → Save → positions recalculate
+
+### Add sell trade
+Trades → Add trade → platform + symbol → Sell → qty, price, fee, bucket → system validates available open qty → Save → FIFO matches created → realized P/L recalculated
+
+### Edit historical trade
+Edit → system marks dependent calculations dirty → rebuilds lot matches for that user/platform/symbol/bucket scope from that date forward → refreshes summaries → UI warns P/L may change
+
+### Review weekly goal
+Dashboard shows: current week realized P/L vs target, delta to target, hit/missed status
+
+### Shadow case lifecycle
+New Case → Start Tracking (freeze snapshot) → observe → Review Now → structured outcome explanation → archive
+
+### Shadow thesis lifecycle
+New Thesis → link cases (existing or newly created) → add updates over time → mark invalidated with reason → review linked case performance
+
+### Catalyst calendar
+Add Event → fill title, date, type, importance, optional symbol/case/thesis → appears in agenda view → after date passes, add outcome note
+
+---
+
+## 15. Non-Functional Requirements
+
+| Area | Requirement |
+|---|---|
+| Performance | Tables usable with 10,000+ trade rows; dashboard summaries feel fast; recalculations incremental |
+| Accuracy | P/L calculations deterministic; consistent currency rounding |
+| Security | All data access scoped by authenticated user id; server-side validation on all mutations |
+| Auditability | User can inspect raw trades and FIFO lot matches behind every P/L figure |
+| Currency | One currency per platform in v1; no FX conversion |
+
+---
+
+## 16. v1 Priorities
 
 ### Must-have
-- auth
-- platform CRUD
-- stock CRUD
-- trade CRUD
-- FIFO realized P/L
-- positions view
-- dashboard
-- weekly goal tracking
-- watchlist basic CRUD
+auth · platform CRUD · symbol CRUD · trade CRUD · FIFO realized P/L · positions view · dashboard · weekly goal tracking · watchlist · RSI sync pipeline + shared badge component · shadow case create/review/notes/filters · shadow theses list + detail · catalyst calendar (agenda view)
 
 ### Nice-to-have
-- manual current price snapshots
-- charts
-- tags
-- notes on trades
-- CSV import
-
----
-
-## 14. Open Questions
-- Should current prices be fully manual in v1, or should there be optional market data later?
-- Should goals be only weekly, or also monthly/yearly?
-- Should symbols be global across platforms, or duplicated per market/currency?
-- Should fees be required or optional?
-- Should the app support multiple currencies in v1 or lock to one base currency per user?
-
----
-
-## 15. Recommended v1 Positioning
-This product should be positioned as:
-
-**A simple manual stock journal and performance tracker for people who actively buy and sell across multiple platforms and want clear profit/loss visibility without broker sync complexity.**
+manual current price snapshots · cumulative P/L chart · tags on trades · CSV import · shadow saved filter views · shadow scenario type labels

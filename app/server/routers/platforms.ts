@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc';
 import { db } from '@/db/drizzle';
-import { platforms } from '@/db/schema';
+import { platforms, trades, tradeLotMatches } from '@/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
+import { TRPCError } from '@trpc/server';
 
 export const platformsRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
@@ -39,6 +40,48 @@ export const platformsRouter = router({
       isActive: z.boolean(),
     }))
     .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+
+      if (!input.isActive) {
+        const existing = await db.query.platforms.findFirst({
+          where: and(eq(platforms.id, input.id), eq(platforms.userId, userId)),
+        });
+        if (!existing) throw new TRPCError({ code: 'NOT_FOUND', message: 'Platform not found' });
+
+        if (existing.isActive) {
+          if (Number(existing.cashBalance) > 0) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: `Withdraw the remaining ${existing.cashBalance} ${existing.currencyCode} before archiving "${existing.name}".`,
+            });
+          }
+
+          const platformTrades = await db.query.trades.findMany({
+            where: and(eq(trades.platformId, input.id), eq(trades.userId, userId)),
+            columns: { id: true, tradeType: true, quantity: true },
+          });
+          const matches = await db.query.tradeLotMatches.findMany({
+            where: eq(tradeLotMatches.userId, userId),
+            columns: { buyTradeId: true, matchedQuantity: true },
+          });
+          const platformTradeIds = new Set(platformTrades.map(t => t.id));
+          let bought = 0;
+          let sold = 0;
+          for (const t of platformTrades) {
+            if (t.tradeType === 'buy') bought += Number(t.quantity);
+          }
+          for (const m of matches) {
+            if (platformTradeIds.has(m.buyTradeId)) sold += Number(m.matchedQuantity);
+          }
+          if (bought - sold > 0.0001) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: `Close all open positions before archiving "${existing.name}".`,
+            });
+          }
+        }
+      }
+
       const [platform] = await db.update(platforms)
         .set({
           name: input.name,
@@ -46,7 +89,7 @@ export const platformsRouter = router({
           notes: input.notes,
           isActive: input.isActive,
         })
-        .where(and(eq(platforms.id, input.id), eq(platforms.userId, ctx.session.user.id)))
+        .where(and(eq(platforms.id, input.id), eq(platforms.userId, userId)))
         .returning();
       return platform;
     }),

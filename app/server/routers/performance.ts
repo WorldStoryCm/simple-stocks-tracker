@@ -74,6 +74,7 @@ export const performanceRouter = router({
     const allBuckets = await db.query.buckets.findMany({ where: eq(buckets.userId, userId) });
 
     const platformMap = new Map(allPlatforms.map(p => [p.id, p]));
+    const activePlatformIds = new Set(allPlatforms.filter(p => p.isActive).map(p => p.id));
     const bucketMap = new Map(allBuckets.map(b => [b.id, b]));
     const symbolMap = new Map(allSymbols.map(s => [s.id, s]));
     
@@ -170,6 +171,7 @@ export const performanceRouter = router({
     }> = [];
 
     Array.from(positionsMap.values()).forEach(p => {
+      if (!activePlatformIds.has(p.platformId)) return;
       const openQty = p.bought - p.sold;
       const openRatio = p.bought > 0 ? openQty / p.bought : 0;
       const openCostUSD = p.costUSD * openRatio;
@@ -329,7 +331,9 @@ export const performanceRouter = router({
       return sum + convertToUSD(position.openQty * quote.price, quote.currency || position.fallbackCurrency, rates);
     }, 0);
     const totalCashUSD = allPlatforms.reduce(
-      (sum, platform) => sum + convertToUSD(Number(platform.cashBalance), platform.currencyCode, rates),
+      (sum, platform) => platform.isActive
+        ? sum + convertToUSD(Number(platform.cashBalance), platform.currencyCode, rates)
+        : sum,
       0
     );
     const totalEquityAmount = convertFromUSD(
