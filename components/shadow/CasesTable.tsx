@@ -172,7 +172,7 @@ function CasesTabContent({
     );
   }
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto [scrollbar-gutter:stable]">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b">

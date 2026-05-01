@@ -426,7 +426,7 @@ export function PositionsPage() {
         </TabsList>
 
         <TabsContent value="table">
-      <div className="rounded-[var(--radius-lg)] border border-border bg-card overflow-x-auto">
+      <div className="rounded-[var(--radius-lg)] border border-border bg-card overflow-x-auto [scrollbar-gutter:stable]">
         <Table>
           <TableHeader className="bg-[color:var(--surface-2)]/40">
             <TableRow className="border-border">

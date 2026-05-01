@@ -124,7 +124,7 @@ export function SymbolsPage() {
         </div>
       )}
 
-      <div className="rounded-md border bg-card overflow-x-auto">
+      <div className="rounded-md border bg-card overflow-x-auto [scrollbar-gutter:stable]">
         <Table>
           <TableHeader>
             <TableRow>
