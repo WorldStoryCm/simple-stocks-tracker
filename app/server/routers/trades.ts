@@ -8,7 +8,7 @@ import { TRPCError } from '@trpc/server';
 // It's safer to just use standard float arithmetic and Number() for v1, or Big() if installed.
 // We'll use Number for simplicity but caution floating points for exact accounting.
 
-import { ilike, SQL, count, isNull, sql } from 'drizzle-orm';
+import { ilike, SQL, count, isNull, sql, inArray } from 'drizzle-orm';
 
 export const tradesRouter = router({
   list: protectedProcedure
@@ -57,9 +57,38 @@ export const tradesRouter = router({
 
       const totalCountRes = await db.select({ value: count() }).from(trades).where(whereClause);
       const totalCount = totalCountRes[0].value;
-      
+
+      // Aggregate realized P/L per sell trade from FIFO lot matches.
+      const sellIds = items.filter(t => t.tradeType === 'sell').map(t => t.id);
+      const pnlBySell = new Map<string, number>();
+      if (sellIds.length > 0) {
+        const matches = await db
+          .select({
+            sellTradeId: tradeLotMatches.sellTradeId,
+            realizedPnl: tradeLotMatches.realizedPnl,
+          })
+          .from(tradeLotMatches)
+          .where(and(
+            eq(tradeLotMatches.userId, ctx.session.user.id),
+            inArray(tradeLotMatches.sellTradeId, sellIds),
+          ));
+        for (const m of matches) {
+          pnlBySell.set(
+            m.sellTradeId,
+            (pnlBySell.get(m.sellTradeId) ?? 0) + Number(m.realizedPnl),
+          );
+        }
+      }
+
+      const itemsWithPnl = items.map(t => ({
+        ...t,
+        realizedPnl: t.tradeType === 'sell'
+          ? (pnlBySell.get(t.id) ?? 0).toFixed(2)
+          : null,
+      }));
+
       return {
-        items,
+        items: itemsWithPnl,
         totalCount,
         totalPages: Math.ceil(totalCount / limit),
         page,

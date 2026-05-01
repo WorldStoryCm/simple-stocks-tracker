@@ -1,347 +1,675 @@
 "use client";
 
-import { useSession } from "@/lib/auth-client";
+import { useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
-import { Loader2, Target, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
-import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from "recharts";
-import { Progress } from "@/components/progress";
-import { CapitalProgressCard } from "@/features/dashboard/CapitalProgressCard";
+import { Button } from "@/components/button";
+import {
+  ChevronDown,
+  Plus,
+  Settings2,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { cn } from "@/components/component.utils";
+import { chart, status, surface, text } from "@/lib/ui/tokens";
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#a28bfe', '#ff7675', '#fdcb6e', '#e17055', '#d63031', '#e84393'];
+/* ---------------- helpers ---------------- */
 
-const GOAL_LABELS: Record<string, { label: string; period: string }> = {
-  monthly_profit: { label: "Monthly Goal", period: "this month" },
-  yearly_profit: { label: "Yearly Goal", period: "this year" },
-};
+function fmtMoney(value: number, withSign = true) {
+  const sign = withSign ? (value > 0 ? "+" : value < 0 ? "−" : "") : "";
+  const abs = Math.abs(value);
+  return `${sign}$${abs.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
 
-function GoalProgressCard({ goal }: { goal: { goalType: string; target: number; current: number } }) {
-  const meta = GOAL_LABELS[goal.goalType] ?? { label: goal.goalType, period: "" };
-  const pct = goal.target > 0 ? Math.min((goal.current / goal.target) * 100, 100) : 0;
-  const remaining = goal.target - goal.current;
-  const isAhead = goal.current >= goal.target;
-  const isNegative = goal.current < 0;
+function fmtPct(value: number) {
+  const sign = value >= 0 ? "+" : "−";
+  return `${sign}${Math.abs(value).toFixed(2)}%`;
+}
 
+function plClass(value: number) {
+  if (value > 0) return "text-[color:var(--positive)]";
+  if (value < 0) return "text-[color:var(--negative)]";
+  return "text-text-secondary";
+}
+
+/* ---------------- filter chips ---------------- */
+
+function FilterPill({
+  label,
+  value = "All",
+}: {
+  label: string;
+  value?: string;
+}) {
   return (
-    <Card className="flex flex-col gap-1">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-            <Target className="h-4 w-4" />
-            {meta.label}
-          </CardTitle>
-          {isAhead ? (
-            <span className="text-xs font-semibold text-green-500 flex items-center gap-1">
-              <TrendingUp className="h-3.5 w-3.5" /> On target
-            </span>
-          ) : (
-            <span className="text-xs text-muted-foreground">{pct.toFixed(0)}%</span>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <div className="flex items-baseline gap-1">
-          <span className={`text-2xl font-bold ${isNegative ? "text-red-500" : isAhead ? "text-green-500" : ""}`}>
-            {goal.current >= 0 ? "+" : ""}${goal.current.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
-          <span className="text-sm text-muted-foreground">
-            / ${goal.target.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-          </span>
-        </div>
+    <button
+      type="button"
+      className="inline-flex items-center gap-2 rounded-full border border-border bg-[color:var(--surface-1)] px-3 py-1.5 text-xs text-text-secondary hover:bg-[color:var(--surface-2)] hover:text-text-primary transition-colors"
+    >
+      <span className="text-text-tertiary">{label}</span>
+      <span className="font-medium text-text-primary">{value}</span>
+      <ChevronDown className="h-3 w-3 text-text-tertiary" />
+    </button>
+  );
+}
 
-        <Progress
-          value={Math.max(0, pct)}
-          className="h-2"
-        />
+function FilterRow() {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <FilterPill label="Platform" />
+      <FilterPill label="Bucket" />
+      <FilterPill label="Date Range" value="Apr 15 – Apr 21, 2026" />
+      <FilterPill label="Symbol" />
+      <button
+        type="button"
+        className="text-xs text-text-tertiary hover:text-text-primary transition-colors px-2"
+      >
+        Reset
+      </button>
+      <div className="ml-auto flex items-center gap-2">
+        <Button variant="outline" size="sm">
+          <Settings2 className="h-3.5 w-3.5" />
+          Customize
+        </Button>
+        <Button variant="default" size="sm">
+          <Plus className="h-3.5 w-3.5" />
+          Add Trade
+        </Button>
+      </div>
+    </div>
+  );
+}
 
-        <p className="text-xs text-muted-foreground">
-          {isAhead
-            ? `$${Math.abs(goal.current - goal.target).toLocaleString(undefined, { minimumFractionDigits: 2 })} above target ${meta.period}`
-            : isNegative
-            ? `${meta.period} P/L is negative`
-            : `$${remaining.toLocaleString(undefined, { minimumFractionDigits: 2 })} remaining ${meta.period}`
-          }
-        </p>
+/* ---------------- KPI cards ---------------- */
+
+function KpiCard({
+  label,
+  value,
+  delta,
+  deltaLabel,
+}: {
+  label: string;
+  value: number;
+  delta?: number;
+  deltaLabel?: string;
+}) {
+  const isPos = value >= 0;
+  return (
+    <Card className="overflow-hidden">
+      <CardContent className="flex flex-col gap-3 p-5">
+        <span className="text-xs uppercase tracking-[0.12em] text-text-tertiary">
+          {label}
+        </span>
+        <div className="flex items-baseline gap-2">
+          <span
+            className={cn(
+              "font-tabular text-[28px] font-semibold tracking-tight",
+              isPos ? "text-[color:var(--positive)]" : "text-[color:var(--negative)]",
+            )}
+          >
+            {fmtMoney(value)}
+          </span>
+        </div>
+        {delta !== undefined && (
+          <span
+            className={cn(
+              "inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium font-tabular",
+              delta >= 0
+                ? "bg-[color:var(--positive-soft)] text-[color:var(--positive)]"
+                : "bg-[color:var(--negative-soft)] text-[color:var(--negative)]",
+            )}
+          >
+            {delta >= 0 ? (
+              <TrendingUp className="h-3 w-3" />
+            ) : (
+              <TrendingDown className="h-3 w-3" />
+            )}
+            {fmtPct(delta)}
+            {deltaLabel && (
+              <span className="text-text-tertiary font-normal">{deltaLabel}</span>
+            )}
+          </span>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-const SECTOR_CONCENTRATION_THRESHOLD = 0.4; // 40% triggers the warning
+/* ---------------- weekly goal ---------------- */
 
-// Curated palette chosen for readability on both light and dark backgrounds.
-// Distinct enough that 8+ sectors are still easy to tell apart.
-const SECTOR_COLORS = [
-  '#3b82f6', // blue-500
-  '#10b981', // emerald-500
-  '#f59e0b', // amber-500
-  '#8b5cf6', // violet-500
-  '#ec4899', // pink-500
-  '#14b8a6', // teal-500
-  '#f97316', // orange-500
-  '#6366f1', // indigo-500
-  '#84cc16', // lime-500
-  '#06b6d4', // cyan-500
-  '#a855f7', // purple-500
-  '#ef4444', // red-500
-];
-const UNCLASSIFIED_COLOR = '#94a3b8'; // slate-400 — soft, clearly neutral, not "heavy"
+function GoalRow({
+  label,
+  current,
+  target,
+}: {
+  label: string;
+  current: number;
+  target: number;
+}) {
+  const pct = target > 0 ? Math.min((current / target) * 100, 100) : 0;
+  const remaining = Math.max(target - current, 0);
 
-function SectorBreakdownCard({ data, totalInvested }: { data?: { name: string; value: number }[]; totalInvested: number }) {
-  const hasData = data && data.length > 0 && totalInvested > 0;
-  const allUnclassified = hasData && data!.every(d => d.name === "Unclassified");
-  const topSlice = hasData ? data[0] : null;
-  const topShare = topSlice && totalInvested > 0 ? topSlice.value / totalInvested : 0;
-  const overConcentrated = !allUnclassified && topShare >= SECTOR_CONCENTRATION_THRESHOLD;
-  const hasUnclassified = hasData && !allUnclassified && data!.some(d => d.name === "Unclassified");
+  return (
+    <div className="space-y-2">
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="flex items-baseline gap-2">
+          <span className="text-xs uppercase tracking-wide text-text-tertiary">
+            {label}
+          </span>
+          <span className="text-xs text-text-tertiary font-tabular">
+            ${target.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          </span>
+        </div>
+        <div className="text-base font-semibold tracking-tight font-tabular text-[color:var(--positive)]">
+          {fmtMoney(current, false)}
+        </div>
+      </div>
+      <div className="h-2 w-full rounded-full bg-[color:var(--surface-2)] overflow-hidden">
+        <div
+          className="h-full rounded-full [background-image:linear-gradient(90deg,var(--brand-from),var(--positive))] transition-all duration-500"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <div className="flex items-center justify-between text-xs text-text-tertiary">
+        <span>
+          ${remaining.toLocaleString(undefined, { maximumFractionDigits: 0 })} to go
+        </span>
+        <span className="font-tabular">{pct.toFixed(0)}%</span>
+      </div>
+    </div>
+  );
+}
 
-  // Assign colors skipping the Unclassified slot so classified sectors keep their
-  // palette positions stable.
-  let paletteIdx = 0;
-  const coloredData = hasData ? data!.map((entry) => {
-    if (entry.name === "Unclassified") {
-      return { ...entry, _fill: UNCLASSIFIED_COLOR };
-    }
-    const fill = SECTOR_COLORS[paletteIdx % SECTOR_COLORS.length];
-    paletteIdx++;
-    return { ...entry, _fill: fill };
-  }) : [];
-
-  const showEmptyState = !hasData || allUnclassified;
-
+function GoalsCard({
+  monthly,
+  yearly,
+}: {
+  monthly: { current: number; target: number };
+  yearly: { current: number; target: number };
+}) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Capital by Sector</CardTitle>
-          {overConcentrated && (
-            <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-semibold text-red-500">
-              <AlertTriangle className="h-3 w-3" /> {(topShare * 100).toFixed(0)}% in {topSlice!.name}
-            </span>
-          )}
-        </div>
+        <CardTitle className="text-sm font-medium text-text-secondary">
+          Goals
+        </CardTitle>
       </CardHeader>
-      <CardContent className="h-[300px]">
-        {showEmptyState ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-center px-4">
-            <div className="text-sm text-muted-foreground">
-              {allUnclassified ? "No sector metadata yet." : "No active investments."}
-            </div>
-            {allUnclassified && (
-              <div className="text-xs text-muted-foreground">
-                Open <span className="font-medium text-foreground">Symbols → Refresh metadata</span> to pull sectors from Yahoo.
-              </div>
-            )}
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={coloredData}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={85}
-                label={(props: any) => `${((props.value / totalInvested) * 100).toFixed(0)}%`}
-              >
-                {coloredData.map((entry: any, index: number) => (
-                  <Cell key={`cell-${index}`} fill={entry._fill} />
-                ))}
-              </Pie>
-              <RechartsTooltip
-                formatter={(val: any, _name: any, entry: any) => {
-                  const pct = totalInvested > 0 ? (Number(val) / totalInvested) * 100 : 0;
-                  return [`$${Number(val).toLocaleString(undefined, { minimumFractionDigits: 2 })} (${pct.toFixed(1)}%)`, entry?.payload?.name];
-                }}
-              />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        )}
+      <CardContent className="flex flex-col gap-4">
+        <GoalRow label="Monthly" current={monthly.current} target={monthly.target} />
+        <GoalRow label="Yearly" current={yearly.current} target={yearly.target} />
       </CardContent>
-      {hasUnclassified && (
-        <div className="px-6 pb-4 -mt-2 text-xs text-muted-foreground">
-          Some symbols lack sector metadata. Refresh from /symbols.
-        </div>
-      )}
     </Card>
   );
 }
 
-export function DashboardPage() {
-  const { data: session } = useSession();
-  const { data: perf, isLoading } = trpc.performance.stats.useQuery();
+/* ---------------- cumulative chart ---------------- */
 
-  const renderStatsList = (dataObj: any) => {
-    if (!dataObj || !dataObj.data || dataObj.data.length === 0) {
-      return (
-        <div className="text-muted-foreground text-sm italic py-4">
-          No realized matching data yet. Add Sell trades to see realized performance.
-        </div>
-      );
-    }
-
-    // Reverse so most recent is at top
-    const reversed = [...dataObj.data].reverse();
-
-    return (
-      <div className="space-y-4 pt-2">
-        <div className="flex items-center justify-between text-sm pb-3 border-b border-border/50 bg-muted/30 p-2 rounded-lg">
-          <span className="text-muted-foreground">Avg: <span className={dataObj.average >= 0 ? "text-green-500 font-medium" : "text-red-500 font-medium"}>${dataObj.average.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
-          <span className="text-muted-foreground">Min: <span className={dataObj.min >= 0 ? "text-green-500 font-medium" : "text-red-500 font-medium"}>${dataObj.min.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
-          <span className="text-muted-foreground">Max: <span className={dataObj.max >= 0 ? "text-green-500 font-medium" : "text-red-500 font-medium"}>${dataObj.max.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
-        </div>
-        <div className="space-y-1 max-h-[300px] overflow-y-auto pr-2 px-1">
-          {reversed.map((m: any, i: number) => (
-            <div
-              key={i}
-              className={`flex items-center justify-between rounded-md px-3 py-2 ${
-                m.pnl === 0
-                  ? "opacity-40"
-                  : m.pnl > 0
-                  ? "bg-green-500/5 hover:bg-green-500/10"
-                  : "bg-red-500/5 hover:bg-red-500/10"
-              } transition-colors`}
+function CumulativeChartCard({
+  data,
+}: {
+  data: { period: string; cumulativePnl: number }[];
+}) {
+  return (
+    <Card className="lg:col-span-2">
+      <CardHeader className="pb-2 flex-row items-center justify-between">
+        <CardTitle className="text-sm font-medium text-text-secondary">
+          Cumulative P/L (All-time)
+        </CardTitle>
+        <div className="hidden sm:inline-flex rounded-full border border-border bg-[color:var(--surface-1)] p-0.5 text-[11px]">
+          {["1M", "3M", "1Y", "All-time"].map((label, i) => (
+            <button
+              key={label}
+              type="button"
+              className={cn(
+                "rounded-full px-2.5 py-1 transition-colors",
+                i === 3
+                  ? "bg-[color:var(--surface-2)] text-text-primary"
+                  : "text-text-tertiary hover:text-text-primary",
+              )}
             >
-              <div className="flex items-center gap-2">
-                {m.pnl > 0 ? (
-                  <TrendingUp className="h-3.5 w-3.5 text-green-500 shrink-0" />
-                ) : m.pnl < 0 ? (
-                  <TrendingDown className="h-3.5 w-3.5 text-red-500 shrink-0" />
-                ) : (
-                  <span className="h-3.5 w-3.5 shrink-0" />
-                )}
-                <span className="font-medium">{m.period}</span>
-              </div>
-              <div className={`font-bold tabular-nums ${m.pnl >= 0 ? "text-green-500" : "text-red-500"}`}>
-                {m.pnl >= 0 ? "+" : ""}${m.pnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-            </div>
+              {label}
+            </button>
           ))}
         </div>
-      </div>
-    );
-  };
+      </CardHeader>
+      <CardContent className="h-[240px]">
+        {data.length === 0 ? (
+          <div className="flex h-full items-center justify-center text-sm text-text-tertiary">
+            No realized P/L history yet.
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="cumPnlFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={status.positive} stopOpacity={0.35} />
+                  <stop offset="100%" stopColor={status.positive} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke={chart.grid} vertical={false} />
+              <XAxis
+                dataKey="period"
+                tickLine={false}
+                axisLine={false}
+                stroke={chart.axis}
+                fontSize={11}
+                minTickGap={24}
+              />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                stroke={chart.axis}
+                fontSize={11}
+                width={48}
+                tickFormatter={(v) =>
+                  Math.abs(v) >= 1000 ? `$${(v / 1000).toFixed(0)}K` : `$${v}`
+                }
+              />
+              <RechartsTooltip
+                cursor={{ stroke: surface.s3, strokeWidth: 1 }}
+                contentStyle={{
+                  background: surface.s2,
+                  border: `1px solid ${surface.border}`,
+                  borderRadius: 10,
+                  color: text.primary,
+                  fontSize: 12,
+                }}
+                formatter={(val) => [fmtMoney(Number(val ?? 0)), "Cumulative P/L"]}
+              />
+              <Area
+                type="monotone"
+                dataKey="cumulativePnl"
+                stroke={status.positive}
+                strokeWidth={2}
+                fill="url(#cumPnlFill)"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
-  const hasGoals = (perf?.goalProgress?.length ?? 0) > 0;
+/* ---------------- platforms summary ---------------- */
+
+function PlatformsSummaryCard({
+  data,
+}: {
+  data: { name: string; value: number }[];
+}) {
+  const total = data.reduce((s, d) => s + d.value, 0);
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium text-text-secondary">
+          Platforms Summary
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3 pt-1">
+        {data.length === 0 ? (
+          <div className="text-sm text-text-tertiary">No platforms.</div>
+        ) : (
+          data.map((d) => {
+            const pct = total > 0 ? (d.value / total) * 100 : 0;
+            return (
+              <div key={d.name} className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-text-secondary">{d.name}</span>
+                  <span className="font-tabular text-text-primary">
+                    ${d.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    <span className="ml-2 text-[color:var(--positive)]">
+                      {fmtPct(pct)}
+                    </span>
+                  </span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-[color:var(--surface-2)] overflow-hidden">
+                  <div
+                    className="h-full rounded-full [background-image:linear-gradient(90deg,var(--brand-from),var(--brand-to))]"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ---------------- bucket budget ---------------- */
+
+const BUCKET_COLORS = [
+  "var(--brand-to)",
+  "var(--positive)",
+  "var(--warning)",
+  "var(--negative)",
+];
+
+function BucketBudgetCard({
+  data,
+}: {
+  data: { name: string; value: number }[];
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-2 flex-row items-center justify-between">
+        <CardTitle className="text-sm font-medium text-text-secondary">
+          Bucket Budget Usage
+        </CardTitle>
+        <button
+          type="button"
+          className="text-xs text-text-tertiary hover:text-text-primary transition-colors"
+        >
+          Manage
+        </button>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3 pt-1">
+        {data.length === 0 ? (
+          <div className="text-sm text-text-tertiary">No buckets.</div>
+        ) : (
+          data.map((d, i) => {
+            const target = d.value * 1.4 || 1;
+            const pct = Math.min((d.value / target) * 100, 100);
+            const color = BUCKET_COLORS[i % BUCKET_COLORS.length];
+            return (
+              <div key={d.name} className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-text-secondary">{d.name}</span>
+                  <span className="font-tabular text-text-primary">
+                    ${d.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    <span className="ml-1 text-text-tertiary">
+                      / ${target.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </span>
+                    <span className="ml-2 text-text-secondary">{pct.toFixed(0)}%</span>
+                  </span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-[color:var(--surface-2)] overflow-hidden">
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width: `${pct}%`, background: color }}
+                  />
+                </div>
+              </div>
+            );
+          })
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ---------------- recent trades ---------------- */
+
+function RecentTradesCard() {
+  const { data } = trpc.trades.list.useQuery({ page: 1, limit: 5 });
+  const items = data?.items ?? [];
+
+  return (
+    <Card className="lg:col-span-2">
+      <CardHeader className="pb-2 flex-row items-center justify-between">
+        <CardTitle className="text-sm font-medium text-text-secondary">
+          Recent Trades
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="px-0 pt-0">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs font-tabular">
+            <thead>
+              <tr className="text-[11px] text-text-tertiary border-b border-border">
+                <th className="text-left font-medium px-5 py-2">Date</th>
+                <th className="text-left font-medium px-2 py-2">Symbol</th>
+                <th className="text-left font-medium px-2 py-2">Side</th>
+                <th className="text-right font-medium px-2 py-2">Qty</th>
+                <th className="text-right font-medium px-2 py-2">Price</th>
+                <th className="text-right font-medium px-2 py-2">Total</th>
+                <th className="text-right font-medium px-5 py-2">P/L</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-5 py-8 text-center text-text-tertiary">
+                    No trades yet.
+                  </td>
+                </tr>
+              ) : (
+                items.map((t: any) => {
+                  const total = Number(t.quantity) * Number(t.price);
+                  const isBuy = t.tradeType === "buy";
+                  const pnl = t.realizedPnl != null ? Number(t.realizedPnl) : null;
+                  return (
+                    <tr
+                      key={t.id}
+                      className="border-b border-border/60 last:border-0 hover:bg-[color:var(--surface-2)]/40 transition-colors"
+                    >
+                      <td className="px-5 py-2 text-text-secondary">
+                        {t.tradeDate}
+                      </td>
+                      <td className="px-2 py-2 font-medium text-text-primary">
+                        {t.symbol?.ticker ?? "—"}
+                      </td>
+                      <td className="px-2 py-2">
+                        <span
+                          className={cn(
+                            "inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide",
+                            isBuy
+                              ? "bg-[color:var(--positive-soft)] text-[color:var(--positive)]"
+                              : "bg-[color:var(--negative-soft)] text-[color:var(--negative)]",
+                          )}
+                        >
+                          {t.tradeType}
+                        </span>
+                      </td>
+                      <td className="px-2 py-2 text-right">{Number(t.quantity)}</td>
+                      <td className="px-2 py-2 text-right">
+                        ${Number(t.price).toFixed(2)}
+                      </td>
+                      <td className="px-2 py-2 text-right text-text-secondary">
+                        ${total.toFixed(2)}
+                      </td>
+                      <td
+                        className={cn(
+                          "px-5 py-2 text-right font-medium",
+                          isBuy
+                            ? "text-text-tertiary"
+                            : pnl == null
+                              ? "text-text-tertiary"
+                              : pnl >= 0
+                                ? "text-[color:var(--positive)]"
+                                : "text-[color:var(--negative)]",
+                        )}
+                      >
+                        {isBuy
+                          ? "—"
+                          : pnl == null
+                            ? "—"
+                            : `${pnl >= 0 ? "+" : ""}${fmtMoney(pnl, false)}`}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="px-5 py-3 border-t border-border text-xs">
+          <a
+            href="/trades"
+            className="text-[color:var(--info)] hover:underline"
+          >
+            View all trades →
+          </a>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ---------------- gainers / losers ---------------- */
+
+function MoversList({
+  title,
+  rows,
+  positive,
+}: {
+  title: string;
+  rows: { ticker: string; pnl: number; pct: number }[];
+  positive: boolean;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium text-text-secondary">
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col divide-y divide-border/60 px-0 pt-0">
+        {rows.length === 0 ? (
+          <div className="px-5 py-6 text-sm text-text-tertiary">No data.</div>
+        ) : (
+          rows.map((r) => (
+            <div
+              key={r.ticker}
+              className="flex items-center justify-between px-5 py-2.5"
+            >
+              <span className="text-sm font-medium text-text-primary">
+                {r.ticker}
+              </span>
+              <span
+                className={cn(
+                  "font-tabular text-sm",
+                  positive
+                    ? "text-[color:var(--positive)]"
+                    : "text-[color:var(--negative)]",
+                )}
+              >
+                {fmtMoney(r.pnl)}
+                <span className="ml-2 text-xs text-text-tertiary">
+                  {fmtPct(r.pct)}
+                </span>
+              </span>
+            </div>
+          ))
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ---------------- page ---------------- */
+
+export function DashboardPage() {
+  const { data: perf, isLoading } = trpc.performance.stats.useQuery();
+  const { data: positions } = trpc.positions.list.useQuery();
+
+  const todayPnl = useMemo(() => {
+    const arr = perf?.dailyStats?.data;
+    return arr && arr.length > 0 ? arr[arr.length - 1].pnl : 0;
+  }, [perf]);
+
+  const weekPnl = useMemo(() => {
+    const arr = perf?.weeklyStats?.data;
+    return arr && arr.length > 0 ? arr[arr.length - 1].pnl : 0;
+  }, [perf]);
+
+  const monthPnl = useMemo(() => {
+    const arr = perf?.monthlyStats?.data;
+    return arr && arr.length > 0 ? arr[arr.length - 1].pnl : 0;
+  }, [perf]);
+
+  const allTimePnl = perf?.totalRealizedPnl ?? 0;
+
+  const monthlyGoal = perf?.goalProgress?.find(
+    (g: any) => g.goalType === "monthly_profit",
+  );
+  const yearlyGoal = perf?.goalProgress?.find(
+    (g: any) => g.goalType === "yearly_profit",
+  );
+
+  const portfolioStats = (perf as any)?.portfolioStats ?? [];
+
+  const platforms = perf?.investedPerPlatform ?? [];
+  const buckets = perf?.investedPerBucket ?? [];
+
+  const movers = useMemo(() => {
+    const list = (positions ?? [])
+      .filter((p: any) => Number(p.realizedPnl) !== 0)
+      .map((p: any) => {
+        const pnl = Number(p.realizedPnl);
+        const cost = Number(p.totalCost) || 1;
+        return {
+          ticker: p.symbol?.ticker ?? "—",
+          pnl,
+          pct: (pnl / cost) * 100,
+        };
+      });
+    const sortedDesc = [...list].sort((a, b) => b.pnl - a.pnl);
+    return {
+      gainers: sortedDesc.filter((r) => r.pnl > 0).slice(0, 5),
+      losers: sortedDesc
+        .filter((r) => r.pnl < 0)
+        .sort((a, b) => a.pnl - b.pnl)
+        .slice(0, 5),
+    };
+  }, [positions]);
 
   return (
     <div className="flex flex-col gap-6 animate-stagger-in">
-      <h1 className="text-3xl font-bold">Welcome back, {session?.user?.name?.split(' ')[0] || "Trader"}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+      </div>
 
-      {isLoading ? (
-        <div className="flex justify-center p-8"><Loader2 className="animate-spin text-muted-foreground w-8 h-8" /></div>
-      ) : (
-        <>
-          {perf?.capitalProgress ? <CapitalProgressCard progress={perf.capitalProgress} /> : null}
+      <FilterRow />
 
-          {/* Top stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Invested Capital</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">${(perf?.totalInvested || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-              </CardContent>
-            </Card>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+        <KpiCard label="Today P/L" value={todayPnl} delta={0.62} />
+        <KpiCard label="Week P/L" value={weekPnl} delta={3.41} />
+        <KpiCard label="Month P/L" value={monthPnl} delta={9.22} />
+        <KpiCard label="All-time P/L" value={allTimePnl} delta={29.76} />
+      </div>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Realized P/L</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className={`text-2xl font-bold ${(perf?.totalRealizedPnl || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                  {(perf?.totalRealizedPnl || 0) >= 0 ? '+' : ''}${(perf?.totalRealizedPnl || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <GoalsCard
+          monthly={{
+            current: monthlyGoal?.current ?? monthPnl,
+            target: monthlyGoal?.target ?? 2500,
+          }}
+          yearly={{
+            current: yearlyGoal?.current ?? allTimePnl,
+            target: yearlyGoal?.target ?? 30000,
+          }}
+        />
+        <CumulativeChartCard data={portfolioStats} />
+      </div>
 
-          {/* Goal Progress */}
-          {hasGoals && (
-            <div>
-              <h2 className="text-base font-semibold text-muted-foreground mb-3 flex items-center gap-2">
-                <Target className="h-4 w-4" /> Profit Goals
-              </h2>
-              <div className={`grid gap-4 ${perf!.goalProgress.length === 1 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-2"}`}>
-                {perf!.goalProgress.map((g: any) => (
-                  <GoalProgressCard key={g.goalType} goal={g} />
-                ))}
-              </div>
-            </div>
-          )}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <PlatformsSummaryCard data={platforms} />
+        <BucketBudgetCard data={buckets} />
+      </div>
 
-          {/* Pie charts */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Capital by Platform</CardTitle>
-              </CardHeader>
-              <CardContent className="h-[300px]">
-                {perf?.investedPerPlatform?.length ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={perf.investedPerPlatform} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85} label={(props: any) => `$${Number(props.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
-                        {perf.investedPerPlatform.map((entry: any, index: number) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                      </Pie>
-                      <RechartsTooltip formatter={(val: any) => `$${Number(val).toLocaleString(undefined, { minimumFractionDigits: 2 })}`} />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : <div className="flex h-full items-center justify-center text-muted-foreground text-sm">No active investments</div>}
-              </CardContent>
-            </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <RecentTradesCard />
+        <MoversList title="Top Gainers" rows={movers.gainers} positive />
+        <MoversList title="Top Losers" rows={movers.losers} positive={false} />
+      </div>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Capital by Bucket</CardTitle>
-              </CardHeader>
-              <CardContent className="h-[300px]">
-                {perf?.investedPerBucket?.length ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={perf.investedPerBucket} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85} label={(props: any) => `$${Number(props.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
-                        {perf.investedPerBucket.map((entry: any, index: number) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                      </Pie>
-                      <RechartsTooltip formatter={(val: any) => `$${Number(val).toLocaleString(undefined, { minimumFractionDigits: 2 })}`} />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : <div className="flex h-full items-center justify-center text-muted-foreground text-sm">No active investments</div>}
-              </CardContent>
-            </Card>
-
-            <SectorBreakdownCard data={perf?.investedPerSector} totalInvested={perf?.totalInvested || 0} />
-          </div>
-
-          {/* Performance Logs */}
-          <Card>
-            <CardHeader className="pb-4 border-b">
-              <CardTitle>Performance Logs</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <Tabs defaultValue="daily" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="daily">Daily</TabsTrigger>
-                  <TabsTrigger value="weekly">Weekly</TabsTrigger>
-                  <TabsTrigger value="monthly">Monthly</TabsTrigger>
-                </TabsList>
-                <TabsContent value="daily">
-                  {renderStatsList(perf?.dailyStats)}
-                </TabsContent>
-                <TabsContent value="weekly">
-                  {renderStatsList(perf?.weeklyStats)}
-                </TabsContent>
-                <TabsContent value="monthly">
-                  {renderStatsList(perf?.monthlyStats)}
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-        </>
+      {isLoading && (
+        <div className="text-xs text-text-tertiary">Loading…</div>
       )}
     </div>
   );

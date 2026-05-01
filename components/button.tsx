@@ -8,13 +8,13 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground border border-transparent shadow shadow-black/5 hover:bg-primary/90 hover:shadow-sm hover:-translate-y-[1px]",
-        destructive: "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
-        outline: "border border-border bg-background shadow-sm hover:border-green-500 hover:text-foreground hover:shadow-md",
-        secondary: "bg-secondary text-secondary-foreground shadow-sm border border-border hover:border-green-500 hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground font-semibold",
-        link: "text-primary underline-offset-4 hover:underline hover:text-green-500",
-        icon: "rounded-[var(--radius)] hover:bg-accent text-foreground hover:scale-110",
+        default: "text-white border border-transparent shadow-[var(--shadow-glow-brand)] [background-image:linear-gradient(135deg,var(--brand-from),var(--brand-to))] hover:brightness-110 hover:-translate-y-[1px]",
+        destructive: "bg-[color:var(--negative)] text-white shadow-sm hover:brightness-110",
+        outline: "border border-border bg-transparent text-text-primary hover:border-[color:var(--surface-3)] hover:bg-[color:var(--surface-2)]",
+        secondary: "bg-[color:var(--surface-2)] text-text-primary border border-border hover:bg-[color:var(--surface-3)]",
+        ghost: "text-text-secondary hover:bg-[color:var(--surface-2)] hover:text-text-primary",
+        link: "text-[color:var(--info)] underline-offset-4 hover:underline",
+        icon: "rounded-[var(--radius)] text-text-secondary hover:bg-[color:var(--surface-2)] hover:text-text-primary",
       },
       size: {
         default: "h-10 px-5 py-2",

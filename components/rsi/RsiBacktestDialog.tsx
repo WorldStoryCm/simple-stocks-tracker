@@ -3,7 +3,7 @@
 import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/dialog";
 import { Loader2, AlertTriangle } from "lucide-react";
-import { rsiErrorLabel } from "@/lib/rsi";
+import { rsiErrorLabel } from "@/lib/rsi-shared";
 
 interface RsiBacktestDialogProps {
   open: boolean;

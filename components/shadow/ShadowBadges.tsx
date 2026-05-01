@@ -47,7 +47,7 @@ export function MoveBadge({ pct, direction }: { pct: string | null; direction: s
   if (!pct) return <span className="text-muted-foreground text-xs">—</span>;
   const val = parseFloat(pct);
   const isUp = val >= 0;
-  const color = isUp ? "text-green-500" : "text-red-500";
+  const color = isUp ? "text-[color:var(--positive)]" : "text-[color:var(--negative)]";
   return (
     <span className={`text-xs font-semibold tabular-nums ${color}`}>
       {isUp ? "+" : ""}{val.toFixed(2)}%

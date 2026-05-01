@@ -31,11 +31,11 @@ export const RSI_STATE_LABELS: Record<RsiState, string> = {
 };
 
 const STATE_STYLES: Record<RsiState, string> = {
-  "oversold":       "bg-blue-50  text-blue-700  border-blue-200",
-  "near-oversold":  "bg-sky-50   text-sky-700   border-sky-200",
-  "neutral":        "bg-gray-50  text-gray-600  border-gray-200",
-  "near-overbought":"bg-amber-50 text-amber-700 border-amber-200",
-  "overbought":     "bg-rose-50  text-rose-700  border-rose-200",
+  "oversold":       "bg-[color:var(--rsi-oversold-soft)]       text-[color:var(--rsi-oversold)]       border-[color:var(--rsi-oversold)]/30",
+  "near-oversold":  "bg-[color:var(--rsi-near-oversold-soft)]  text-[color:var(--rsi-near-oversold)]  border-[color:var(--rsi-near-oversold)]/30",
+  "neutral":        "bg-[color:var(--surface-2)]               text-text-secondary                    border-border",
+  "near-overbought":"bg-[color:var(--rsi-near-overbought-soft)] text-[color:var(--rsi-near-overbought)] border-[color:var(--rsi-near-overbought)]/30",
+  "overbought":     "bg-[color:var(--rsi-overbought-soft)]     text-[color:var(--rsi-overbought)]     border-[color:var(--rsi-overbought)]/30",
 };
 
 export type RsiErrorKind = "not_found" | "fetch_failed" | "insufficient_data";
@@ -81,7 +81,7 @@ function TrendArrow({ history }: { history?: number[] }) {
   if (!dir) return null;
   const title = history!.map((v) => v.toFixed(1)).join(" → ");
   const Icon = dir === "up" ? TrendingUp : dir === "down" ? TrendingDown : Minus;
-  const color = dir === "up" ? "text-emerald-600" : dir === "down" ? "text-rose-600" : "opacity-60";
+  const color = dir === "up" ? "text-[color:var(--positive)]" : dir === "down" ? "text-[color:var(--negative)]" : "opacity-60";
   return (
     <span title={title} className="inline-flex">
       <Icon className={cn("h-3 w-3", color)} />
@@ -95,7 +95,7 @@ export function RsiBadge({ rsi, inline = false, error, via, history, className }
       <span
         title={ERROR_TOOLTIPS[error]}
         className={cn(
-          "inline-flex items-center gap-1 rounded border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs text-gray-500",
+          "inline-flex items-center gap-1 rounded border border-border bg-[color:var(--surface-2)] px-2 py-0.5 text-xs text-text-tertiary",
           className,
         )}
       >
@@ -107,7 +107,7 @@ export function RsiBadge({ rsi, inline = false, error, via, history, className }
 
   if (rsi == null) {
     return (
-      <span className={cn("text-xs text-gray-400", className)}>—</span>
+      <span className={cn("text-xs text-text-tertiary", className)}>—</span>
     );
   }
 

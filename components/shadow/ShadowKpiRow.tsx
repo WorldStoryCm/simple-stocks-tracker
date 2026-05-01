@@ -14,16 +14,16 @@ interface KpiCardProps {
 
 function KpiCard({ label, value, sub, icon, colorClass }: KpiCardProps) {
   return (
-    <Card className="flex-1">
+    <Card className="flex-1 min-w-0">
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-2">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide">{label}</p>
-          {icon && <span className={`${colorClass ?? "text-muted-foreground"}`}>{icon}</span>}
+          <p className="text-[10px] text-text-tertiary uppercase tracking-[0.14em]">{label}</p>
+          {icon && <span className={`${colorClass ?? "text-text-tertiary"}`}>{icon}</span>}
         </div>
-        <p className={`text-2xl font-bold tabular-nums ${colorClass ?? "text-foreground"}`}>
+        <p className={`text-xl font-semibold font-tabular ${colorClass ?? "text-text-primary"}`}>
           {value}
         </p>
-        {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
+        {sub && <p className="text-[11px] text-text-tertiary mt-0.5">{sub}</p>}
       </CardContent>
     </Card>
   );
@@ -65,7 +65,7 @@ export function ShadowKpiRow() {
         label="Awaiting Review"
         value={stats?.awaitingReview ?? 0}
         icon={<AlertTriangle className="h-4 w-4" />}
-        colorClass={(stats?.awaitingReview ?? 0) > 0 ? "text-warning" : undefined}
+        colorClass={(stats?.awaitingReview ?? 0) > 0 ? "text-[color:var(--warning)]" : undefined}
       />
       <KpiCard
         label="Accuracy"
@@ -74,7 +74,7 @@ export function ShadowKpiRow() {
         icon={<Target className="h-4 w-4" />}
         colorClass={
           stats?.accuracyRate != null
-            ? stats.accuracyRate >= 55 ? "text-green-500" : stats.accuracyRate >= 40 ? "text-warning" : "text-destructive"
+            ? stats.accuracyRate >= 55 ? "text-[color:var(--positive)]" : stats.accuracyRate >= 40 ? "text-[color:var(--warning)]" : "text-[color:var(--negative)]"
             : undefined
         }
       />
@@ -82,13 +82,13 @@ export function ShadowKpiRow() {
         label="Best Call"
         value={bestCall}
         icon={<TrendingUp className="h-4 w-4" />}
-        colorClass="text-green-500"
+        colorClass="text-[color:var(--positive)]"
       />
       <KpiCard
         label="Biggest Miss"
         value={biggestMiss}
         icon={<TrendingDown className="h-4 w-4" />}
-        colorClass={stats?.biggestMiss ? "text-red-500" : undefined}
+        colorClass={stats?.biggestMiss ? "text-[color:var(--negative)]" : undefined}
       />
     </div>
   );

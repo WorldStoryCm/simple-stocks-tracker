@@ -346,8 +346,8 @@ export function PositionsPage() {
     <div className="flex flex-col gap-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Unrealized Positions</h1>
-          <p className="text-muted-foreground mt-1">Manage all your open trading lots natively.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Positions</h1>
+          <p className="text-text-tertiary text-sm mt-1">Manage all open trading lots across platforms.</p>
         </div>
       </div>
 
@@ -426,19 +426,19 @@ export function PositionsPage() {
         </TabsList>
 
         <TabsContent value="table">
-      <div className="rounded-md border bg-card overflow-x-auto">
+      <div className="rounded-[var(--radius-lg)] border border-border bg-card overflow-x-auto">
         <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => toggleSort("symbol")}>Symbol <SortIcon field="symbol" /></TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => toggleSort("platform")}>Platform <SortIcon field="platform" /></TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => toggleSort("bucket")}>Bucket <SortIcon field="bucket" /></TableHead>
-              <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => toggleSort("qty")}>Open Qty <SortIcon field="qty" /></TableHead>
-              <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => toggleSort("cost")}>Avg Cost <SortIcon field="cost" /></TableHead>
-              <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => toggleSort("invested")}>Invested <SortIcon field="invested" /></TableHead>
-              <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => toggleSort("price")}>Live Price <SortIcon field="price" /></TableHead>
-              <TableHead>RSI-14</TableHead>
-              <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => toggleSort("value")}>Total Value <SortIcon field="value" /></TableHead>
+          <TableHeader className="bg-[color:var(--surface-2)]/40">
+            <TableRow className="border-border">
+              <TableHead className="cursor-pointer hover:bg-[color:var(--surface-2)] text-text-tertiary text-[11px] uppercase tracking-[0.1em]" onClick={() => toggleSort("symbol")}>Symbol <SortIcon field="symbol" /></TableHead>
+              <TableHead className="cursor-pointer hover:bg-[color:var(--surface-2)] text-text-tertiary text-[11px] uppercase tracking-[0.1em]" onClick={() => toggleSort("platform")}>Platform <SortIcon field="platform" /></TableHead>
+              <TableHead className="cursor-pointer hover:bg-[color:var(--surface-2)] text-text-tertiary text-[11px] uppercase tracking-[0.1em]" onClick={() => toggleSort("bucket")}>Bucket <SortIcon field="bucket" /></TableHead>
+              <TableHead className="text-right cursor-pointer hover:bg-[color:var(--surface-2)] text-text-tertiary text-[11px] uppercase tracking-[0.1em]" onClick={() => toggleSort("qty")}>Open Qty <SortIcon field="qty" /></TableHead>
+              <TableHead className="text-right cursor-pointer hover:bg-[color:var(--surface-2)] text-text-tertiary text-[11px] uppercase tracking-[0.1em]" onClick={() => toggleSort("cost")}>Avg Cost <SortIcon field="cost" /></TableHead>
+              <TableHead className="text-right cursor-pointer hover:bg-[color:var(--surface-2)] text-text-tertiary text-[11px] uppercase tracking-[0.1em]" onClick={() => toggleSort("invested")}>Invested <SortIcon field="invested" /></TableHead>
+              <TableHead className="text-right cursor-pointer hover:bg-[color:var(--surface-2)] text-text-tertiary text-[11px] uppercase tracking-[0.1em]" onClick={() => toggleSort("price")}>Live Price <SortIcon field="price" /></TableHead>
+              <TableHead className="text-text-tertiary text-[11px] uppercase tracking-[0.1em]">RSI-14</TableHead>
+              <TableHead className="text-right cursor-pointer hover:bg-[color:var(--surface-2)] text-text-tertiary text-[11px] uppercase tracking-[0.1em]" onClick={() => toggleSort("value")}>Total Value <SortIcon field="value" /></TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>

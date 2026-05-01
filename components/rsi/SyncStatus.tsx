@@ -17,10 +17,10 @@ function stateFor(syncedAt: Date | null, isFetching: boolean): SyncState {
 }
 
 const STATE_DOT: Record<SyncState, string> = {
-  synced: "bg-emerald-500",
-  refreshing: "bg-sky-500 animate-pulse",
-  delayed: "bg-amber-500",
-  idle: "bg-gray-300",
+  synced: "bg-[color:var(--positive)] shadow-[0_0_0_3px_var(--positive-soft)]",
+  refreshing: "bg-[color:var(--info)] animate-pulse",
+  delayed: "bg-[color:var(--warning)]",
+  idle: "bg-[color:var(--text-tertiary)]",
 };
 
 const STATE_LABEL: Record<SyncState, string> = {
@@ -47,21 +47,21 @@ export function SyncStatus({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "hidden sm:flex items-center gap-2 rounded-md border bg-card px-2.5 py-1 text-xs text-muted-foreground",
+        "hidden sm:flex items-center gap-2 rounded-full border border-border bg-[color:var(--surface-1)] px-3 py-1 text-[11px] text-text-secondary",
         className,
       )}
       title={`Indicators synced ${absolute}`}
     >
       <RefreshCw
         className={cn(
-          "h-3 w-3 text-muted-foreground",
+          "h-3 w-3 text-text-tertiary",
           state === "refreshing" && "animate-spin",
         )}
       />
       <span className="tabular-nums">
-        {state === "idle" ? "No sync yet" : `Last sync ${relative}`}
+        {state === "idle" ? "No sync yet" : `Last sync ${absolute}`}
       </span>
-      <span className="flex items-center gap-1 border-l pl-2">
+      <span className="flex items-center gap-1.5 border-l border-border pl-2">
         <span className={cn("h-1.5 w-1.5 rounded-full", STATE_DOT[state])} />
         <span>{STATE_LABEL[state]}</span>
       </span>

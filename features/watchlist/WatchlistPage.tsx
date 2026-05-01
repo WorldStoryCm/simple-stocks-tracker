@@ -32,8 +32,8 @@ export function WatchlistPage() {
     <div className="flex flex-col gap-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Watchlist</h1>
-          <p className="text-muted-foreground mt-1">Track potential setups and thesis.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Watchlist</h1>
+          <p className="text-text-tertiary text-sm mt-1">Track potential setups and theses.</p>
         </div>
         <WatchlistDialog />
       </div>
@@ -57,16 +57,16 @@ export function WatchlistPage() {
                 <CardContent className="p-5">
                   <div className="flex justify-between items-start mb-4">
                     <div>
-                      <h3 className="text-xl font-bold flex items-center gap-2">
+                      <h3 className="text-lg font-semibold flex items-center gap-2">
                         {item.symbol}
-                        {item.status === 'ready' && <span className="bg-green-500/20 text-green-500 text-xs px-2 py-0.5 rounded-full">Ready</span>}
+                        {item.status === 'ready' && <span className="bg-[color:var(--positive-soft)] text-[color:var(--positive)] text-[10px] px-2 py-0.5 rounded-full">Ready</span>}
                       </h3>
-                      {item.platform && <p className="text-xs text-muted-foreground mt-1">{item.platform}</p>}
+                      {item.platform && <p className="text-xs text-text-tertiary mt-1">{item.platform}</p>}
                     </div>
                     <div className="text-right">
-                      <div className="text-lg font-bold">${quote?.price?.toFixed(2) || "---"}</div>
+                      <div className="text-lg font-semibold font-tabular">${quote?.price?.toFixed(2) || "---"}</div>
                       {quote && (
-                        <div className={`text-xs font-medium ${quote.changePercent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                        <div className={`text-xs font-medium font-tabular ${quote.changePercent >= 0 ? 'text-[color:var(--positive)]' : 'text-[color:var(--negative)]'}`}>
                           {quote.changePercent >= 0 ? '+' : ''}{quote.changePercent.toFixed(2)}%
                         </div>
                       )}
@@ -95,7 +95,7 @@ export function WatchlistPage() {
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="text-red-500 hover:text-red-600 hover:bg-red-500/10 -mr-2"
+                      className="text-[color:var(--negative)] hover:text-[color:var(--negative)] hover:bg-[color:var(--negative-soft)] -mr-2"
                       onClick={() => {
                         if (confirm(`Remove ${item.symbol} from watchlist?`)) {
                           deleteMutation.mutate({ id: item.id });

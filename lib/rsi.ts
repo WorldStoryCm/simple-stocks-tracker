@@ -6,22 +6,20 @@
 import { db } from "@/db/drizzle";
 import { indicatorSnapshots } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
+import {
+  classifyRsi,
+  rsiErrorLabel,
+  RSI_STATE_LABELS,
+  type RsiError,
+  type RsiState,
+} from "@/lib/rsi-shared";
 
 const PERIOD = 14;
 const STALE_MINUTES = 30;
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export type RsiState =
-  | "oversold"
-  | "near_oversold"
-  | "neutral"
-  | "near_overbought"
-  | "overbought";
-
-export type RsiError = "not_found" | "fetch_failed" | "insufficient_data";
+// Re-export shared helpers so existing `@/lib/rsi` imports keep working server-side.
+export { classifyRsi, rsiErrorLabel, RSI_STATE_LABELS };
+export type { RsiError, RsiState };
 
 export interface RsiResult {
   ticker: string;
@@ -36,36 +34,6 @@ export interface RsiResult {
 }
 
 const HISTORY_POINTS = 3;
-
-const RSI_ERROR_LABELS: Record<RsiError, string> = {
-  not_found: "Ticker not found",
-  fetch_failed: "Data source unavailable",
-  insufficient_data: "Not enough history",
-};
-
-export function rsiErrorLabel(error: RsiError): string {
-  return RSI_ERROR_LABELS[error];
-}
-
-// ---------------------------------------------------------------------------
-// State classification
-// ---------------------------------------------------------------------------
-
-export function classifyRsi(rsi: number): RsiState {
-  if (rsi <= 30) return "oversold";
-  if (rsi <= 40) return "near_oversold";
-  if (rsi <= 60) return "neutral";
-  if (rsi <= 70) return "near_overbought";
-  return "overbought";
-}
-
-export const RSI_STATE_LABELS: Record<RsiState, string> = {
-  oversold: "Oversold",
-  near_oversold: "Near Oversold",
-  neutral: "Neutral",
-  near_overbought: "Near Overbought",
-  overbought: "Overbought",
-};
 
 // ---------------------------------------------------------------------------
 // Yahoo Finance — daily closes fetch
