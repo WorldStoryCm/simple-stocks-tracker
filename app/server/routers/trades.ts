@@ -309,4 +309,54 @@ export const tradesRouter = router({
       await db.delete(trades).where(and(eq(trades.id, input.id), eq(trades.userId, ctx.session.user.id)));
       return true;
     }),
+  symbolPnl: protectedProcedure
+    .input(z.object({ symbolId: z.string().min(1) }))
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+
+      const symbolTrades = await db.query.trades.findMany({
+        where: and(
+          eq(trades.userId, userId),
+          eq(trades.symbolId, input.symbolId),
+        ),
+        orderBy: [asc(trades.tradeDate), asc(trades.createdAt)],
+      });
+
+      if (symbolTrades.length === 0) {
+        return { chartData: [], totalPnl: 0 };
+      }
+
+      const sellIds = symbolTrades.filter(t => t.tradeType === 'sell').map(t => t.id);
+      const pnlBySell = new Map<string, number>();
+      let totalPnl = 0;
+
+      if (sellIds.length > 0) {
+        const matches = await db
+          .select({
+            sellTradeId: tradeLotMatches.sellTradeId,
+            realizedPnl: tradeLotMatches.realizedPnl,
+          })
+          .from(tradeLotMatches)
+          .where(and(
+            eq(tradeLotMatches.userId, userId),
+            inArray(tradeLotMatches.sellTradeId, sellIds),
+          ));
+
+        for (const m of matches) {
+          const pnl = Number(m.realizedPnl);
+          pnlBySell.set(m.sellTradeId, (pnlBySell.get(m.sellTradeId) ?? 0) + pnl);
+          totalPnl += pnl;
+        }
+      }
+
+      const chartData = symbolTrades.map(t => ({
+        date: t.tradeDate,
+        buyPrice: t.tradeType === 'buy' ? Number(t.price) : null,
+        sellPrice: t.tradeType === 'sell' ? Number(t.price) : null,
+        quantity: Number(t.quantity),
+        pnl: t.tradeType === 'sell' ? (pnlBySell.get(t.id) ?? 0) : null,
+      }));
+
+      return { chartData, totalPnl };
+    }),
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
 import { Button } from "@/components/button";
@@ -10,11 +10,15 @@ import {
   Settings2,
   TrendingDown,
   TrendingUp,
+  X,
 } from "lucide-react";
 import {
   Area,
   AreaChart,
   CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip as RechartsTooltip,
   XAxis,
@@ -571,6 +575,227 @@ function MoversList({
   );
 }
 
+/* ---------------- profit/loss by symbol ---------------- */
+
+function ProfitLossBySymbolCard() {
+  const [query, setQuery] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const [selected, setSelected] = useState<{ id: string; ticker: string } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const { data: symbols = [] } = trpc.symbols.list.useQuery();
+  const { data: pnlData, isLoading: pnlLoading } = trpc.trades.symbolPnl.useQuery(
+    { symbolId: selected?.id ?? "" },
+    { enabled: !!selected?.id },
+  );
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const filtered = useMemo(() => {
+    if (!query) return symbols as any[];
+    const q = query.toLowerCase();
+    return (symbols as any[]).filter(
+      (s) =>
+        s.ticker.toLowerCase().includes(q) ||
+        (s.displayName ?? "").toLowerCase().includes(q),
+    );
+  }, [symbols, query]);
+
+  function selectSymbol(sym: { id: string; ticker: string }) {
+    setSelected(sym);
+    setQuery(sym.ticker);
+    setIsOpen(false);
+  }
+
+  function clear() {
+    setSelected(null);
+    setQuery("");
+    setIsOpen(false);
+  }
+
+  const totalPnl = pnlData?.totalPnl ?? 0;
+  const chartData = pnlData?.chartData ?? [];
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium text-text-secondary">
+          P/L by Symbol
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {/* Typeahead */}
+        <div ref={containerRef} className="relative">
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-[color:var(--surface-1)] px-3 py-2 focus-within:border-[color:var(--brand-ring)]">
+            <input
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setSelected(null);
+                setIsOpen(true);
+              }}
+              onFocus={() => setIsOpen(true)}
+              placeholder="Search symbol…"
+              className="flex-1 bg-transparent text-sm outline-none placeholder:text-text-tertiary"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={clear}
+                className="text-text-tertiary hover:text-text-primary transition-colors"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          {isOpen && filtered.length > 0 && (
+            <div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-[color:var(--surface-2)] shadow-xl overflow-hidden">
+              {filtered.slice(0, 10).map((s: any) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    selectSymbol({ id: s.id, ticker: s.ticker });
+                  }}
+                  className="flex w-full items-center gap-3 px-3 py-2 text-sm hover:bg-[color:var(--surface-3)] transition-colors text-left"
+                >
+                  <span className="font-medium text-text-primary">{s.ticker}</span>
+                  {s.displayName && (
+                    <span className="text-text-tertiary truncate">{s.displayName}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Chart area */}
+        {selected && (
+          <>
+            {pnlLoading ? (
+              <div className="flex h-[240px] items-center justify-center text-sm text-text-tertiary">
+                Loading…
+              </div>
+            ) : chartData.length === 0 ? (
+              <div className="flex h-[240px] items-center justify-center text-sm text-text-tertiary">
+                No trades for {selected.ticker}.
+              </div>
+            ) : (
+              <div className="h-[240px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={chartData}
+                    margin={{ top: 6, right: 8, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid stroke={chart.grid} vertical={false} />
+                    <XAxis
+                      dataKey="date"
+                      tickLine={false}
+                      axisLine={false}
+                      stroke={chart.axis}
+                      fontSize={11}
+                      minTickGap={24}
+                    />
+                    <YAxis
+                      tickLine={false}
+                      axisLine={false}
+                      stroke={chart.axis}
+                      fontSize={11}
+                      width={56}
+                      tickFormatter={(v) =>
+                        Math.abs(v) >= 1000
+                          ? `$${(v / 1000).toFixed(1)}K`
+                          : `$${v}`
+                      }
+                    />
+                    <RechartsTooltip
+                      cursor={{ stroke: surface.s3, strokeWidth: 1 }}
+                      contentStyle={{
+                        background: surface.s2,
+                        border: `1px solid ${surface.border}`,
+                        borderRadius: 10,
+                        color: text.primary,
+                        fontSize: 12,
+                      }}
+                      formatter={(val: any, name: any, props: any) => {
+                        if (val == null) return [null, null];
+                        const label = name === "buyPrice" ? "Buy Price" : "Sell Price";
+                        const pnl = props.payload?.pnl;
+                        const extra =
+                          name === "sellPrice" && pnl != null
+                            ? `  P/L: ${fmtMoney(pnl)}`
+                            : "";
+                        return [`${fmtMoney(Number(val), false)}${extra}`, label];
+                      }}
+                    />
+                    <Legend
+                      formatter={(val) =>
+                        val === "buyPrice" ? "Buy" : "Sell"
+                      }
+                      wrapperStyle={{ fontSize: 11, color: text.secondary }}
+                    />
+                    <Line
+                      type="linear"
+                      dataKey="buyPrice"
+                      name="buyPrice"
+                      stroke={status.positive}
+                      strokeWidth={2}
+                      dot={{ r: 4, fill: status.positive, strokeWidth: 0 }}
+                      activeDot={{ r: 6 }}
+                      connectNulls={false}
+                    />
+                    <Line
+                      type="linear"
+                      dataKey="sellPrice"
+                      name="sellPrice"
+                      stroke={status.negative}
+                      strokeWidth={2}
+                      dot={{ r: 4, fill: status.negative, strokeWidth: 0 }}
+                      activeDot={{ r: 6 }}
+                      connectNulls={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* Total P/L */}
+            {!pnlLoading && chartData.length > 0 && (
+              <div className="flex items-center justify-between rounded-lg bg-[color:var(--surface-1)] px-4 py-3">
+                <span className="text-xs uppercase tracking-[0.1em] text-text-tertiary">
+                  Total Realized P/L — {selected.ticker}
+                </span>
+                <span
+                  className={cn(
+                    "font-tabular text-lg font-semibold",
+                    totalPnl > 0
+                      ? "text-[color:var(--positive)]"
+                      : totalPnl < 0
+                        ? "text-[color:var(--negative)]"
+                        : "text-text-secondary",
+                  )}
+                >
+                  {fmtMoney(totalPnl)}
+                </span>
+              </div>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 /* ---------------- page ---------------- */
 
 export function DashboardPage() {
@@ -661,6 +886,8 @@ export function DashboardPage() {
         <PlatformsSummaryCard data={platforms} />
         <BucketBudgetCard data={buckets} />
       </div>
+
+      <ProfitLossBySymbolCard />
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         <RecentTradesCard />
