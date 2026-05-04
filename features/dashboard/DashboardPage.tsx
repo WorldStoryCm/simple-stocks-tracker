@@ -15,17 +15,19 @@ import {
 import {
   Area,
   AreaChart,
+  Bar,
   CartesianGrid,
-  Legend,
+  Cell,
+  ComposedChart,
   Line,
-  LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip as RechartsTooltip,
   XAxis,
   YAxis,
 } from "recharts";
 import { cn } from "@/components/component.utils";
-import { chart, status, surface, text } from "@/lib/ui/tokens";
+import { brand, chart, status, surface, text } from "@/lib/ui/tokens";
 
 /* ---------------- helpers ---------------- */
 
@@ -635,18 +637,6 @@ function ProfitLossBySymbolCard() {
   const totalPnl = pnlData?.totalPnl ?? 0;
   const chartData = pnlData?.chartData ?? [];
 
-  // Y-axis domain: snug around actual price range with 4% padding
-  const allPrices = chartData.flatMap((d: any) =>
-    [d.buyPrice, d.sellPrice].filter((v) => v != null) as number[],
-  );
-  const yMin = allPrices.length > 0 ? Math.min(...allPrices) : 0;
-  const yMax = allPrices.length > 0 ? Math.max(...allPrices) : 1;
-  const yPad = (yMax - yMin) * 0.15 || yMax * 0.05;
-  const yDomain: [number, number] = [
-    Math.max(0, yMin - yPad),
-    yMax + yPad,
-  ];
-
   return (
     // z-[60] + relative when dropdown open so this card's stacking context
     // sits above sibling grid cards (which have transition-based stacking contexts)
@@ -713,12 +703,12 @@ function ProfitLossBySymbolCard() {
               </div>
             ) : chartData.length === 0 ? (
               <div className="flex h-[240px] items-center justify-center text-sm text-text-tertiary">
-                No trades for {selected.ticker}.
+                No closed trades for {selected.ticker} yet.
               </div>
             ) : (
               <div className="h-[240px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
+                  <ComposedChart
                     data={chartData}
                     margin={{ top: 6, right: 16, left: 0, bottom: 0 }}
                   >
@@ -737,15 +727,15 @@ function ProfitLossBySymbolCard() {
                       stroke={chart.axis}
                       fontSize={11}
                       width={60}
-                      domain={yDomain}
-                      tickFormatter={(v) =>
-                        Math.abs(v) >= 1000
-                          ? `$${(v / 1000).toFixed(1)}K`
-                          : `$${Number(v).toFixed(2)}`
-                      }
+                      tickFormatter={(v) => {
+                        const abs = Math.abs(v);
+                        const s = abs >= 1000 ? `$${(abs / 1000).toFixed(1)}K` : `$${abs.toFixed(0)}`;
+                        return v < 0 ? `-${s}` : s;
+                      }}
                     />
+                    <ReferenceLine y={0} stroke={surface.s3} strokeDasharray="4 3" />
                     <RechartsTooltip
-                      cursor={{ stroke: surface.s3, strokeWidth: 1 }}
+                      cursor={{ fill: surface.s3, fillOpacity: 0.4 }}
                       contentStyle={{
                         background: surface.s2,
                         border: `1px solid ${surface.border}`,
@@ -753,42 +743,32 @@ function ProfitLossBySymbolCard() {
                         color: text.primary,
                         fontSize: 12,
                       }}
-                      formatter={(val: any, name: any, props: any) => {
+                      formatter={(val: any, name: any) => {
                         if (val == null) return [null, null];
-                        const label = name === "buyPrice" ? "Buy Price" : "Sell Price";
-                        const pnl = props.payload?.pnl;
-                        const extra =
-                          name === "sellPrice" && pnl != null
-                            ? `   P/L: ${fmtMoney(pnl)}`
-                            : "";
-                        return [`${fmtMoney(Number(val), false)}${extra}`, label];
+                        if (name === "pnl") return [fmtMoney(Number(val)), "Session P/L"];
+                        if (name === "cumulative") return [fmtMoney(Number(val)), "Cumulative"];
+                        return [val, name];
                       }}
                     />
-                    <Legend
-                      formatter={(val) => (val === "buyPrice" ? "Buy" : "Sell")}
-                      wrapperStyle={{ fontSize: 11, color: text.secondary }}
-                    />
+                    <Bar dataKey="pnl" name="pnl" maxBarSize={40} radius={[3, 3, 0, 0]}>
+                      {(chartData as any[]).map((entry, i) => (
+                        <Cell
+                          key={i}
+                          fill={entry.pnl >= 0 ? status.positive : status.negative}
+                          fillOpacity={0.8}
+                        />
+                      ))}
+                    </Bar>
                     <Line
-                      type="linear"
-                      dataKey="buyPrice"
-                      name="buyPrice"
-                      stroke={status.positive}
+                      type="monotone"
+                      dataKey="cumulative"
+                      name="cumulative"
+                      stroke={brand.to}
                       strokeWidth={2}
-                      dot={{ r: 4, fill: status.positive, strokeWidth: 0 }}
-                      activeDot={{ r: 6 }}
-                      connectNulls={false}
+                      dot={false}
+                      activeDot={{ r: 4, fill: brand.to, strokeWidth: 0 }}
                     />
-                    <Line
-                      type="linear"
-                      dataKey="sellPrice"
-                      name="sellPrice"
-                      stroke={status.negative}
-                      strokeWidth={2}
-                      dot={{ r: 4, fill: status.negative, strokeWidth: 0 }}
-                      activeDot={{ r: 6 }}
-                      connectNulls={false}
-                    />
-                  </LineChart>
+                  </ComposedChart>
                 </ResponsiveContainer>
               </div>
             )}

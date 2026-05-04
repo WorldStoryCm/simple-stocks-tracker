@@ -349,13 +349,20 @@ export const tradesRouter = router({
         }
       }
 
-      const chartData = symbolTrades.map(t => ({
-        date: t.tradeDate,
-        buyPrice: t.tradeType === 'buy' ? Number(t.price) : null,
-        sellPrice: t.tradeType === 'sell' ? Number(t.price) : null,
-        quantity: Number(t.quantity),
-        pnl: t.tradeType === 'sell' ? (pnlBySell.get(t.id) ?? 0) : null,
-      }));
+      // One data point per sell event: session P/L bar + cumulative line
+      const sellTrades = symbolTrades.filter(t => t.tradeType === 'sell');
+      let cumulative = 0;
+      const chartData = sellTrades.map(t => {
+        const pnl = parseFloat((pnlBySell.get(t.id) ?? 0).toFixed(2));
+        cumulative = parseFloat((cumulative + pnl).toFixed(2));
+        return {
+          date: t.tradeDate,
+          pnl,
+          cumulative,
+          quantity: Number(t.quantity),
+          price: Number(t.price),
+        };
+      });
 
       return { chartData, totalPnl };
     }),
