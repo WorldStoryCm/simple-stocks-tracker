@@ -581,6 +581,7 @@ function ProfitLossBySymbolCard() {
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [selected, setSelected] = useState<{ id: string; ticker: string } | null>(null);
+  const autoSelectedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { data: symbols = [] } = trpc.symbols.list.useQuery();
@@ -588,6 +589,16 @@ function ProfitLossBySymbolCard() {
     { symbolId: selected?.id ?? "" },
     { enabled: !!selected?.id },
   );
+
+  // Auto-select first symbol once on load
+  useEffect(() => {
+    if (!autoSelectedRef.current && (symbols as any[]).length > 0) {
+      autoSelectedRef.current = true;
+      const first = (symbols as any[])[0];
+      setSelected({ id: first.id, ticker: first.ticker });
+      setQuery(first.ticker);
+    }
+  }, [symbols]);
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -600,14 +611,14 @@ function ProfitLossBySymbolCard() {
   }, []);
 
   const filtered = useMemo(() => {
-    if (!query) return symbols as any[];
+    if (!query || selected?.ticker === query) return symbols as any[];
     const q = query.toLowerCase();
     return (symbols as any[]).filter(
       (s) =>
         s.ticker.toLowerCase().includes(q) ||
         (s.displayName ?? "").toLowerCase().includes(q),
     );
-  }, [symbols, query]);
+  }, [symbols, query, selected]);
 
   function selectSymbol(sym: { id: string; ticker: string }) {
     setSelected(sym);
@@ -624,8 +635,22 @@ function ProfitLossBySymbolCard() {
   const totalPnl = pnlData?.totalPnl ?? 0;
   const chartData = pnlData?.chartData ?? [];
 
+  // Y-axis domain: snug around actual price range with 4% padding
+  const allPrices = chartData.flatMap((d: any) =>
+    [d.buyPrice, d.sellPrice].filter((v) => v != null) as number[],
+  );
+  const yMin = allPrices.length > 0 ? Math.min(...allPrices) : 0;
+  const yMax = allPrices.length > 0 ? Math.max(...allPrices) : 1;
+  const yPad = (yMax - yMin) * 0.15 || yMax * 0.05;
+  const yDomain: [number, number] = [
+    Math.max(0, yMin - yPad),
+    yMax + yPad,
+  ];
+
   return (
-    <Card>
+    // z-[60] + relative when dropdown open so this card's stacking context
+    // sits above sibling grid cards (which have transition-based stacking contexts)
+    <Card className={cn(isOpen && "relative z-[60]")}>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium text-text-secondary">
           P/L by Symbol
@@ -658,7 +683,7 @@ function ProfitLossBySymbolCard() {
           </div>
 
           {isOpen && filtered.length > 0 && (
-            <div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-[color:var(--surface-2)] shadow-xl overflow-hidden">
+            <div className="absolute z-30 mt-1 w-full rounded-lg border border-border bg-[color:var(--surface-2)] shadow-xl overflow-hidden">
               {filtered.slice(0, 10).map((s: any) => (
                 <button
                   key={s.id}
@@ -695,7 +720,7 @@ function ProfitLossBySymbolCard() {
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart
                     data={chartData}
-                    margin={{ top: 6, right: 8, left: 0, bottom: 0 }}
+                    margin={{ top: 6, right: 16, left: 0, bottom: 0 }}
                   >
                     <CartesianGrid stroke={chart.grid} vertical={false} />
                     <XAxis
@@ -704,18 +729,19 @@ function ProfitLossBySymbolCard() {
                       axisLine={false}
                       stroke={chart.axis}
                       fontSize={11}
-                      minTickGap={24}
+                      minTickGap={40}
                     />
                     <YAxis
                       tickLine={false}
                       axisLine={false}
                       stroke={chart.axis}
                       fontSize={11}
-                      width={56}
+                      width={60}
+                      domain={yDomain}
                       tickFormatter={(v) =>
                         Math.abs(v) >= 1000
                           ? `$${(v / 1000).toFixed(1)}K`
-                          : `$${v}`
+                          : `$${Number(v).toFixed(2)}`
                       }
                     />
                     <RechartsTooltip
@@ -733,15 +759,13 @@ function ProfitLossBySymbolCard() {
                         const pnl = props.payload?.pnl;
                         const extra =
                           name === "sellPrice" && pnl != null
-                            ? `  P/L: ${fmtMoney(pnl)}`
+                            ? `   P/L: ${fmtMoney(pnl)}`
                             : "";
                         return [`${fmtMoney(Number(val), false)}${extra}`, label];
                       }}
                     />
                     <Legend
-                      formatter={(val) =>
-                        val === "buyPrice" ? "Buy" : "Sell"
-                      }
+                      formatter={(val) => (val === "buyPrice" ? "Buy" : "Sell")}
                       wrapperStyle={{ fontSize: 11, color: text.secondary }}
                     />
                     <Line
