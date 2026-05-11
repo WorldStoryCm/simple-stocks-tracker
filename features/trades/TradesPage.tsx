@@ -255,21 +255,8 @@ export function TradesPage() {
         <AddTradeButton />
       </div>
 
-      <div className="flex flex-col sm:flex-row items-center gap-4">
-        <Tabs
-          defaultValue="all"
-          value={actionFilter}
-          onValueChange={(v) => { setActionFilter(v); setPage(1); }}
-          className="w-full sm:w-auto rounded-lg"
-        >
-          <TabsList className="grid w-full grid-cols-3 min-w-[200px]">
-            <TabsTrigger value="all">All Actions</TabsTrigger>
-            <TabsTrigger value="buy">Buy</TabsTrigger>
-            <TabsTrigger value="sell">Sell</TabsTrigger>
-          </TabsList>
-        </Tabs>
-
-        <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap flex-1">
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-2 w-full flex-wrap">
           <Popover open={symbolOpen} onOpenChange={setSymbolOpen}>
             <PopoverTrigger asChild>
               <Button variant="outline" className="w-[150px] justify-between font-normal">
@@ -331,6 +318,19 @@ export function TradesPage() {
             </SelectContent>
           </Select>
         </div>
+
+        <Tabs
+          defaultValue="all"
+          value={actionFilter}
+          onValueChange={(v) => { setActionFilter(v); setPage(1); }}
+          className="w-full sm:w-auto rounded-lg"
+        >
+          <TabsList className="grid w-full sm:w-auto grid-cols-3 min-w-[260px]">
+            <TabsTrigger value="all">All Actions</TabsTrigger>
+            <TabsTrigger value="buy">Buy</TabsTrigger>
+            <TabsTrigger value="sell">Sell</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       <div className="rounded-[var(--radius-lg)] border border-border bg-card overflow-x-auto [scrollbar-gutter:stable]">
