@@ -4,9 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
 import { Button } from "@/components/button";
+import { AddTradeButton } from "@/components/trades/AddTradeButton";
 import {
   ChevronDown,
-  Plus,
   Settings2,
   TrendingDown,
   TrendingUp,
@@ -86,14 +86,11 @@ function FilterRow() {
         Reset
       </button>
       <div className="ml-auto flex items-center gap-2">
-        <Button variant="outline" size="sm">
-          <Settings2 className="h-3.5 w-3.5" />
-          Customize
-        </Button>
-        <Button variant="default" size="sm">
-          <Plus className="h-3.5 w-3.5" />
-          Add Trade
-        </Button>
+        {/*<Button variant="outline" size="sm">*/}
+        {/*  <Settings2 className="h-3.5 w-3.5" />*/}
+        {/*  Customize*/}
+        {/*</Button>*/}
+        <AddTradeButton size="sm" />
       </div>
     </div>
   );

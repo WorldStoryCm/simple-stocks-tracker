@@ -210,12 +210,12 @@ export function TradeDialog({ open, onOpenChange, trade }: { open: boolean, onOp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] overflow-y-auto max-h-screen">
+      <DialogContent className="w-[calc(100vw-1rem)] sm:w-auto sm:max-w-[600px] max-h-[calc(100dvh-1rem)] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader title={isEditing ? "Edit Trade" : "Record Trade"} />
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField control={form.control} name="tradeType" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Action</FormLabel>
@@ -239,7 +239,7 @@ export function TradeDialog({ open, onOpenChange, trade }: { open: boolean, onOp
               )} />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField control={form.control} name="platformId" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Broker</FormLabel>
@@ -379,7 +379,7 @@ export function TradeDialog({ open, onOpenChange, trade }: { open: boolean, onOp
               </div>
             )}
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <FormField control={form.control} name="quantity" render={({ field }) => (
                 <FormItem>
                   <FormLabel className="flex items-center justify-between">
@@ -428,19 +428,21 @@ export function TradeDialog({ open, onOpenChange, trade }: { open: boolean, onOp
               </Button>
               <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                 {!isEditing && (
-                  <Button 
-                    type="submit" 
+                  <Button
+                    type="submit"
                     variant="outline"
                     disabled={isPending}
                     onClick={() => setSubmitMode("add-another")}
+                    className="w-full sm:w-auto"
                   >
                     {isPending && submitMode === "add-another" ? "Recording..." : "Record & Add Another"}
                   </Button>
                 )}
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   disabled={isPending}
                   onClick={() => setSubmitMode("close")}
+                  className="w-full sm:w-auto"
                 >
                   {isPending && submitMode === "close" ? (isEditing ? "Updating..." : "Recording...") : (isEditing ? "Update Trade" : "Record Trade")}
                 </Button>

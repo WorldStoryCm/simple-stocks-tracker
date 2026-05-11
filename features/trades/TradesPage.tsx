@@ -5,6 +5,7 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/button";
 import { Loader2, Plus, MoreHorizontal, ArrowUpDown, ArrowDown, ArrowUp, Search } from "lucide-react";
 import { TradeDialog } from "@/components/trades/TradeDialog";
+import { AddTradeButton } from "@/components/trades/AddTradeButton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -251,9 +252,7 @@ export function TradesPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Trading Ledger</h1>
         </div>
-        <Button onClick={() => { setEditingTrade(null); setIsDialogOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" /> Add Trade
-        </Button>
+        <AddTradeButton />
       </div>
 
       <div className="flex flex-col sm:flex-row items-center gap-4">
@@ -420,7 +419,7 @@ export function TradesPage() {
 
       <TradeDialog
         open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
+        onOpenChange={(o) => { setIsDialogOpen(o); if (!o) setEditingTrade(null); }}
         trade={editingTrade}
       />
     </div>
