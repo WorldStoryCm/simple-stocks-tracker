@@ -39,13 +39,13 @@ type Trade = {
 type SortField = "tradeDate" | "symbolId" | "platformId" | "tradeType" | "price" | "quantity" | "total";
 
 const COLUMN_SIZES = {
-  date: 130,
+  date: 120,
   action: 90,
-  symbol: 110,
-  platform: 140,
-  price: 120,
-  quantity: 120,
-  total: 140,
+  symbol: 100,
+  platform: 90,
+  price: 110,
+  quantity: 110,
+  total: 130,
   pnl: 130,
   actions: 56,
 };

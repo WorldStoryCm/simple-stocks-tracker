@@ -859,10 +859,6 @@ export function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6 animate-stagger-in">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-      </div>
-
       <FilterRow />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
