@@ -5,6 +5,19 @@ import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
 import { Button } from "@/components/button";
 import { AddTradeButton } from "@/components/trades/AddTradeButton";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/Popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select";
+import { Input } from "@/components/input";
+import {
+  format as formatDate,
+  parseISO,
+  startOfMonth,
+  endOfMonth,
+  startOfYear,
+  endOfYear,
+  subMonths,
+  subYears,
+} from "date-fns";
 import {
   ChevronDown,
   Settings2,
@@ -53,43 +66,325 @@ function plClass(value: number) {
 
 /* ---------------- filter chips ---------------- */
 
-function FilterPill({
-  label,
-  value = "All",
-}: {
+export type DashboardFilters = {
+  platformId?: string;
+  bucketId?: string;
+  symbolId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+};
+
+type FilterPillProps = {
   label: string;
   value?: string;
-}) {
-  return (
+  active?: boolean;
+  children?: React.ReactNode;
+  onClear?: () => void;
+};
+
+function FilterPill({ label, value = "All", active, children, onClear }: FilterPillProps) {
+  const trigger = (
     <button
       type="button"
-      className="inline-flex items-center gap-2 rounded-full border border-border bg-[color:var(--surface-1)] px-3 py-1.5 text-xs text-text-secondary hover:bg-[color:var(--surface-2)] hover:text-text-primary transition-colors"
+      className={cn(
+        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition-colors",
+        active
+          ? "border-[color:var(--brand-from)]/40 bg-[color:var(--brand-from)]/10 text-text-primary"
+          : "border-border bg-[color:var(--surface-1)] text-text-secondary hover:bg-[color:var(--surface-2)] hover:text-text-primary",
+      )}
     >
       <span className="text-text-tertiary">{label}</span>
       <span className="font-medium text-text-primary">{value}</span>
-      <ChevronDown className="h-3 w-3 text-text-tertiary" />
+      {active && onClear ? (
+        <span
+          role="button"
+          aria-label={`Clear ${label}`}
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); onClear(); }}
+          className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-text-tertiary hover:text-text-primary hover:bg-[color:var(--surface-2)]"
+        >
+          <X className="h-3 w-3" />
+        </span>
+      ) : (
+        <ChevronDown className="h-3 w-3 text-text-tertiary" />
+      )}
     </button>
+  );
+
+  if (!children) return trigger;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverContent align="start" className="w-[260px] p-0 shadow-lg border">
+        {children}
+      </PopoverContent>
+    </Popover>
   );
 }
 
-function FilterRow() {
+function ListPicker({
+  options,
+  selected,
+  onSelect,
+  searchable = true,
+  placeholder = "Search...",
+}: {
+  options: { id: string; label: string }[];
+  selected?: string;
+  onSelect: (id: string | undefined) => void;
+  searchable?: boolean;
+  placeholder?: string;
+}) {
+  const [q, setQ] = useState("");
+  const filtered = useMemo(
+    () => (q ? options.filter(o => o.label.toLowerCase().includes(q.toLowerCase())) : options),
+    [options, q],
+  );
+  return (
+    <div className="flex flex-col">
+      {searchable && (
+        <div className="border-b px-2 py-1.5">
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={placeholder}
+            className="h-8 border-0 bg-transparent text-sm focus-visible:ring-0 px-2"
+          />
+        </div>
+      )}
+      <div className="max-h-[260px] overflow-y-auto p-1">
+        <button
+          type="button"
+          className={cn(
+            "w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-[color:var(--surface-2)]",
+            !selected && "bg-[color:var(--surface-2)]/60 font-medium",
+          )}
+          onClick={() => onSelect(undefined)}
+        >
+          All
+        </button>
+        {filtered.map((o) => (
+          <button
+            key={o.id}
+            type="button"
+            className={cn(
+              "w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-[color:var(--surface-2)]",
+              selected === o.id && "bg-[color:var(--surface-2)]/60 font-medium",
+            )}
+            onClick={() => onSelect(o.id)}
+          >
+            {o.label}
+          </button>
+        ))}
+        {filtered.length === 0 && (
+          <div className="px-2 py-3 text-center text-xs text-text-tertiary">No matches</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const ISO = (d: Date) => formatDate(d, "yyyy-MM-dd");
+
+const DATE_PRESETS: { key: string; label: string; short: string; range: () => [string, string] }[] = [
+  {
+    key: "this-month",
+    label: "This month",
+    short: "TM",
+    range: () => { const n = new Date(); return [ISO(startOfMonth(n)), ISO(endOfMonth(n))]; },
+  },
+  {
+    key: "last-month",
+    label: "Last month",
+    short: "LM",
+    range: () => { const n = subMonths(new Date(), 1); return [ISO(startOfMonth(n)), ISO(endOfMonth(n))]; },
+  },
+  {
+    key: "this-year",
+    label: "This year",
+    short: "TY",
+    range: () => { const n = new Date(); return [ISO(startOfYear(n)), ISO(endOfYear(n))]; },
+  },
+  {
+    key: "last-year",
+    label: "Last year",
+    short: "LY",
+    range: () => { const n = subYears(new Date(), 1); return [ISO(startOfYear(n)), ISO(endOfYear(n))]; },
+  },
+];
+
+function DateRangePicker({
+  from,
+  to,
+  onApply,
+  onClear,
+}: {
+  from?: string;
+  to?: string;
+  onApply: (from?: string, to?: string) => void;
+  onClear: () => void;
+}) {
+  const [localFrom, setLocalFrom] = useState(from ?? "");
+  const [localTo, setLocalTo] = useState(to ?? "");
+  useEffect(() => { setLocalFrom(from ?? ""); setLocalTo(to ?? ""); }, [from, to]);
+
+  const matchedPreset = DATE_PRESETS.find(p => {
+    const [pf, pt] = p.range();
+    return pf === localFrom && pt === localTo;
+  })?.key;
+
+  return (
+    <div className="flex flex-col gap-3 p-3">
+      <div className="grid grid-cols-4 gap-1">
+        {DATE_PRESETS.map((p) => {
+          const active = matchedPreset === p.key;
+          return (
+            <button
+              key={p.key}
+              type="button"
+              title={p.label}
+              aria-label={p.label}
+              onClick={() => {
+                const [f, t] = p.range();
+                setLocalFrom(f);
+                setLocalTo(t);
+                onApply(f, t);
+              }}
+              className={cn(
+                "h-8 rounded-md text-[11px] font-semibold tabular-nums transition-colors",
+                active
+                  ? "bg-[color:var(--brand-from)]/15 text-text-primary border border-[color:var(--brand-from)]/40"
+                  : "border border-border bg-[color:var(--surface-1)] text-text-secondary hover:bg-[color:var(--surface-2)] hover:text-text-primary",
+              )}
+            >
+              {p.short}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex flex-col gap-1">
+        <label className="text-[11px] font-medium uppercase tracking-wide text-text-tertiary">From</label>
+        <Input type="date" value={localFrom} onChange={(e) => setLocalFrom(e.target.value)} className="h-8 text-sm" />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label className="text-[11px] font-medium uppercase tracking-wide text-text-tertiary">To</label>
+        <Input type="date" value={localTo} onChange={(e) => setLocalTo(e.target.value)} className="h-8 text-sm" />
+      </div>
+      <div className="flex justify-between gap-2">
+        <Button variant="ghost" size="sm" onClick={() => { setLocalFrom(""); setLocalTo(""); onClear(); }}>
+          Clear
+        </Button>
+        <Button size="sm" onClick={() => onApply(localFrom || undefined, localTo || undefined)}>
+          Apply
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function formatDateRange(from?: string, to?: string) {
+  if (!from && !to) return undefined;
+  const f = (s?: string) => (s ? formatDate(parseISO(s), "MMM d, yyyy") : "…");
+  return `${f(from)} – ${f(to)}`;
+}
+
+function FilterRow({
+  filters,
+  setFilters,
+  platforms,
+  buckets,
+  symbols,
+}: {
+  filters: DashboardFilters;
+  setFilters: React.Dispatch<React.SetStateAction<DashboardFilters>>;
+  platforms: { id: string; name: string }[];
+  buckets: { id: string; label: string }[];
+  symbols: { id: string; ticker: string }[];
+}) {
+  const platformLabel = filters.platformId
+    ? platforms.find(p => p.id === filters.platformId)?.name ?? "—"
+    : "All";
+  const bucketLabel = filters.bucketId
+    ? filters.bucketId === "uncategorized"
+      ? "Uncategorized"
+      : buckets.find(b => b.id === filters.bucketId)?.label ?? "—"
+    : "All";
+  const symbolLabel = filters.symbolId
+    ? symbols.find(s => s.id === filters.symbolId)?.ticker ?? "—"
+    : "All";
+  const dateLabel = formatDateRange(filters.dateFrom, filters.dateTo) ?? "All";
+
+  const anyActive =
+    !!filters.platformId || !!filters.bucketId || !!filters.symbolId || !!filters.dateFrom || !!filters.dateTo;
+
+  const bucketOptions = useMemo(
+    () => [{ id: "uncategorized", label: "Uncategorized" }, ...buckets.map(b => ({ id: b.id, label: b.label }))],
+    [buckets],
+  );
+
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <FilterPill label="Platform" />
-      <FilterPill label="Bucket" />
-      <FilterPill label="Date Range" value="Apr 15 – Apr 21, 2026" />
-      <FilterPill label="Symbol" />
-      <button
-        type="button"
-        className="text-xs text-text-tertiary hover:text-text-primary transition-colors px-2"
+      <FilterPill
+        label="Platform"
+        value={platformLabel}
+        active={!!filters.platformId}
+        onClear={() => setFilters(f => ({ ...f, platformId: undefined }))}
       >
-        Reset
-      </button>
+        <ListPicker
+          options={platforms.map(p => ({ id: p.id, label: p.name }))}
+          selected={filters.platformId}
+          onSelect={(id) => setFilters(f => ({ ...f, platformId: id }))}
+          placeholder="Search platform..."
+        />
+      </FilterPill>
+      <FilterPill
+        label="Bucket"
+        value={bucketLabel}
+        active={!!filters.bucketId}
+        onClear={() => setFilters(f => ({ ...f, bucketId: undefined }))}
+      >
+        <ListPicker
+          options={bucketOptions}
+          selected={filters.bucketId}
+          onSelect={(id) => setFilters(f => ({ ...f, bucketId: id }))}
+          placeholder="Search bucket..."
+        />
+      </FilterPill>
+      <FilterPill
+        label="Date Range"
+        value={dateLabel}
+        active={!!filters.dateFrom || !!filters.dateTo}
+        onClear={() => setFilters(f => ({ ...f, dateFrom: undefined, dateTo: undefined }))}
+      >
+        <DateRangePicker
+          from={filters.dateFrom}
+          to={filters.dateTo}
+          onApply={(from, to) => setFilters(f => ({ ...f, dateFrom: from, dateTo: to }))}
+          onClear={() => setFilters(f => ({ ...f, dateFrom: undefined, dateTo: undefined }))}
+        />
+      </FilterPill>
+      <FilterPill
+        label="Symbol"
+        value={symbolLabel}
+        active={!!filters.symbolId}
+        onClear={() => setFilters(f => ({ ...f, symbolId: undefined }))}
+      >
+        <ListPicker
+          options={symbols.map(s => ({ id: s.id, label: s.ticker }))}
+          selected={filters.symbolId}
+          onSelect={(id) => setFilters(f => ({ ...f, symbolId: id }))}
+          placeholder="Search symbol..."
+        />
+      </FilterPill>
+      {anyActive && (
+        <button
+          type="button"
+          onClick={() => setFilters({})}
+          className="text-xs text-text-tertiary hover:text-text-primary transition-colors px-2"
+        >
+          Reset
+        </button>
+      )}
       <div className="ml-auto flex items-center gap-2">
-        {/*<Button variant="outline" size="sm">*/}
-        {/*  <Settings2 className="h-3.5 w-3.5" />*/}
-        {/*  Customize*/}
-        {/*</Button>*/}
         <AddTradeButton size="sm" />
       </div>
     </div>
@@ -548,14 +843,17 @@ function MoversList({
           rows.map((r) => (
             <div
               key={r.ticker}
-              className="flex items-center justify-between px-5 py-2.5"
+              className="flex items-center justify-between gap-3 px-5 py-2.5"
             >
-              <span className="text-sm font-medium text-text-primary">
+              <span
+                className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary"
+                title={r.ticker}
+              >
                 {r.ticker}
               </span>
               <span
                 className={cn(
-                  "font-tabular text-sm",
+                  "shrink-0 whitespace-nowrap font-tabular text-sm tabular-nums",
                   positive
                     ? "text-[color:var(--positive)]"
                     : "text-[color:var(--negative)]",
@@ -800,8 +1098,15 @@ function ProfitLossBySymbolCard() {
 /* ---------------- page ---------------- */
 
 export function DashboardPage() {
-  const { data: perf, isLoading } = trpc.performance.stats.useQuery();
-  const { data: positions } = trpc.positions.list.useQuery();
+  const [filters, setFilters] = useState<DashboardFilters>({});
+
+  const { data: platformsList } = trpc.platforms.list.useQuery();
+  const { data: bucketsList } = trpc.buckets.list.useQuery();
+  const { data: symbolsList } = trpc.symbols.list.useQuery();
+
+  const queryFilters = useMemo(() => ({ filters }), [filters]);
+  const { data: perf, isLoading } = trpc.performance.stats.useQuery(queryFilters);
+  const { data: positions } = trpc.positions.list.useQuery(queryFilters);
 
   const todayPnl = useMemo(() => {
     const arr = perf?.dailyStats?.data;
@@ -856,7 +1161,13 @@ export function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6 animate-stagger-in">
-      <FilterRow />
+      <FilterRow
+        filters={filters}
+        setFilters={setFilters}
+        platforms={(platformsList as any[]) ?? []}
+        buckets={(bucketsList as any[]) ?? []}
+        symbols={(symbolsList as any[]) ?? []}
+      />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
         <KpiCard label="Today P/L" value={todayPnl} delta={0.62} />
@@ -886,8 +1197,9 @@ export function DashboardPage() {
 
       <ProfitLossBySymbolCard />
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        <RecentTradesCard />
+      <RecentTradesCard />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <MoversList title="Top Gainers" rows={movers.gainers} positive />
         <MoversList title="Top Losers" rows={movers.losers} positive={false} />
       </div>

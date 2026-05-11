@@ -2,6 +2,34 @@ import { router, protectedProcedure } from '../trpc';
 import { db } from '@/db/drizzle';
 import { trades, tradeLotMatches, platforms, buckets, goals, symbols, capitalProgressSettings } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
+import { z } from 'zod';
+
+const filtersSchema = z
+  .object({
+    platformId: z.string().optional(),
+    bucketId: z.string().optional(),
+    symbolId: z.string().optional(),
+    dateFrom: z.string().optional(),
+    dateTo: z.string().optional(),
+  })
+  .optional();
+
+function tradePassesFilters(
+  t: { platformId: string; bucketId: string | null; symbolId: string; tradeDate: string | null },
+  f?: { platformId?: string; bucketId?: string; symbolId?: string; dateFrom?: string; dateTo?: string },
+) {
+  if (!f) return true;
+  if (f.platformId && f.platformId !== 'all' && t.platformId !== f.platformId) return false;
+  if (f.bucketId && f.bucketId !== 'all') {
+    if (f.bucketId === 'uncategorized') {
+      if (t.bucketId !== null) return false;
+    } else if (t.bucketId !== f.bucketId) return false;
+  }
+  if (f.symbolId && f.symbolId !== 'all' && t.symbolId !== f.symbolId) return false;
+  if (f.dateFrom && (!t.tradeDate || t.tradeDate < f.dateFrom)) return false;
+  if (f.dateTo && (!t.tradeDate || t.tradeDate > f.dateTo)) return false;
+  return true;
+}
 import { format, startOfWeek } from 'date-fns';
 import { getExchangeRates, convertFromUSD, convertToUSD } from '@/lib/exchange-rates';
 import { getLiveQuotes } from '@/lib/live-quotes';
@@ -61,8 +89,11 @@ function buildCapitalMilestones(targetAmount: number) {
 }
 
 export const performanceRouter = router({
-  stats: protectedProcedure.query(async ({ ctx }) => {
+  stats: protectedProcedure
+    .input(z.object({ filters: filtersSchema }).optional())
+    .query(async ({ ctx, input }) => {
     const userId = ctx.session.user.id;
+    const filters = input?.filters;
     
     const rates = await getExchangeRates();
     const [allPlatforms, activeGoals, allSymbols, progressSettings] = await Promise.all([
@@ -84,7 +115,7 @@ export const performanceRouter = router({
     };
 
     // In v1 we do in-memory aggregations for simplicity.
-    const allMatches = await db.query.tradeLotMatches.findMany({
+    const allMatchesRaw = await db.query.tradeLotMatches.findMany({
       where: eq(tradeLotMatches.userId, userId),
       with: {
         sellTrade: true // to get the date of the sell
@@ -92,8 +123,16 @@ export const performanceRouter = router({
     });
 
     // Also get all buys to calculate Total Invested
-    const allTrades = await db.query.trades.findMany({
+    const allTradesRaw = await db.query.trades.findMany({
       where: eq(trades.userId, userId)
+    });
+
+    const allTrades = allTradesRaw.filter(t => tradePassesFilters(t, filters));
+    const tradeIdSet = new Set(allTrades.map(t => t.id));
+    const allMatches = allMatchesRaw.filter(m => {
+      const sellOk = m.sellTrade ? tradePassesFilters(m.sellTrade, filters) : false;
+      const buyOk = tradeIdSet.has(m.buyTradeId);
+      return sellOk && buyOk;
     });
 
     let totalInvested = 0;

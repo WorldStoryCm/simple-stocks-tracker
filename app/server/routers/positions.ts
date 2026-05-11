@@ -2,13 +2,43 @@ import { router, protectedProcedure } from '../trpc';
 import { db } from '@/db/drizzle';
 import { trades, tradeLotMatches } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { z } from 'zod';
+
+const filtersSchema = z
+  .object({
+    platformId: z.string().optional(),
+    bucketId: z.string().optional(),
+    symbolId: z.string().optional(),
+    dateFrom: z.string().optional(),
+    dateTo: z.string().optional(),
+  })
+  .optional();
+
+function tradePassesFilters(
+  t: { platformId: string; bucketId: string | null; symbolId: string; tradeDate: string | null },
+  f?: { platformId?: string; bucketId?: string; symbolId?: string; dateFrom?: string; dateTo?: string },
+) {
+  if (!f) return true;
+  if (f.platformId && f.platformId !== 'all' && t.platformId !== f.platformId) return false;
+  if (f.bucketId && f.bucketId !== 'all') {
+    if (f.bucketId === 'uncategorized') {
+      if (t.bucketId !== null) return false;
+    } else if (t.bucketId !== f.bucketId) return false;
+  }
+  if (f.symbolId && f.symbolId !== 'all' && t.symbolId !== f.symbolId) return false;
+  if (f.dateFrom && (!t.tradeDate || t.tradeDate < f.dateFrom)) return false;
+  if (f.dateTo && (!t.tradeDate || t.tradeDate > f.dateTo)) return false;
+  return true;
+}
 
 export const positionsRouter = router({
-  list: protectedProcedure.query(async ({ ctx }) => {
+  list: protectedProcedure
+    .input(z.object({ filters: filtersSchema }).optional())
+    .query(async ({ ctx, input }) => {
     const userId = ctx.session.user.id;
-    // For V1, we fetch all user trades and matches and aggregate them in memory.
-    // In production with 10k+ trades, this should be a SQL View or incremental cache.
-    const allTrades = await db.query.trades.findMany({
+    const filters = input?.filters;
+
+    const allTradesRaw = await db.query.trades.findMany({
       where: eq(trades.userId, userId),
       with: {
         platform: true,
@@ -17,9 +47,13 @@ export const positionsRouter = router({
       }
     });
 
-    const allMatches = await db.query.tradeLotMatches.findMany({
+    const allMatchesRaw = await db.query.tradeLotMatches.findMany({
       where: eq(tradeLotMatches.userId, userId)
     });
+
+    const allTrades = allTradesRaw.filter(t => tradePassesFilters(t, filters));
+    const tradeIdSet = new Set(allTrades.map(t => t.id));
+    const allMatches = allMatchesRaw.filter(m => tradeIdSet.has(m.buyTradeId));
 
     const positionsMap = new Map<string, any>();
 
