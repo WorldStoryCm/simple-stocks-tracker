@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/button";
+import { Input } from "@/components/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/table";
-import { Loader2, Plus, MoreHorizontal, RefreshCw } from "lucide-react";
+import { Loader2, Plus, MoreHorizontal, RefreshCw, Search, BookOpen } from "lucide-react";
 import { SymbolDialog } from "@/components/symbols/SymbolDialog";
+import { CatalogBrowserDialog } from "@/components/symbols/CatalogBrowserDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/dropdown-menu";
 import { RsiBadge, getRsiState } from "@/components/rsi/RsiBadge";
 import toast from "react-hot-toast";
@@ -20,14 +22,35 @@ const FILTER_CHIPS: { label: string; value: RsiFilter }[] = [
   { label: "RSI > 70  Overbought", value: "overbought" },
 ];
 
+const PAGE_SIZE = 25;
+
 export function SymbolsPage() {
-  const { data: symbols, isLoading } = trpc.symbols.list.useQuery();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingSymbol, setEditingSymbol] = useState<any>(null);
+  const [page, setPage] = useState(1);
+  const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
   const [rsiFilter, setRsiFilter] = useState<RsiFilter>("all");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCatalogOpen, setIsCatalogOpen] = useState(false);
+  const [editingSymbol, setEditingSymbol] = useState<any>(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(q.trim()), 250);
+    return () => clearTimeout(t);
+  }, [q]);
+  useEffect(() => { setPage(1); }, [debouncedQ]);
+
+  const { data, isLoading } = trpc.symbols.paged.useQuery({
+    page,
+    limit: PAGE_SIZE,
+    q: debouncedQ || undefined,
+  });
+
+  const symbols = data?.items ?? [];
+  const totalPages = data?.totalPages ?? 1;
+  const totalCount = data?.totalCount ?? 0;
 
   const tickerEntries = useMemo(
-    () => symbols?.map((s: any) => ({ ticker: s.ticker, rsiTicker: s.rsiTicker ?? null })) ?? [],
+    () => symbols.map((s: any) => ({ ticker: s.ticker, rsiTicker: s.rsiTicker ?? null })),
     [symbols],
   );
 
@@ -51,6 +74,7 @@ export function SymbolsPage() {
     onSuccess: (result) => {
       toast.success(`Refreshed ${result.updated}/${result.total} symbols${result.failed ? ` (${result.failed} failed)` : ""}`);
       utils.symbols.list.invalidate();
+      utils.symbols.paged.invalidate();
       utils.performance.stats.invalidate();
     },
     onError: (err) => toast.error(`Refresh failed: ${err.message}`),
@@ -66,16 +90,9 @@ export function SymbolsPage() {
     setIsDialogOpen(true);
   };
 
-  const tickers = useMemo(() => tickerEntries.map((e) => e.ticker), [tickerEntries]);
-
-  const sorted = useMemo(
-    () => symbols?.slice().sort((a: any, b: any) => a.ticker.localeCompare(b.ticker)) ?? [],
-    [symbols],
-  );
-
   const filtered = useMemo(() => {
-    if (rsiFilter === "all") return sorted;
-    return sorted.filter((s: any) => {
+    if (rsiFilter === "all") return symbols;
+    return symbols.filter((s: any) => {
       const rsi = rsiMap[s.ticker]?.rsi;
       if (rsi == null) return false;
       const state = getRsiState(rsi);
@@ -84,17 +101,20 @@ export function SymbolsPage() {
       if (rsiFilter === "neutral") return state === "neutral";
       return true;
     });
-  }, [sorted, rsiFilter, rsiMap]);
+  }, [symbols, rsiFilter, rsiMap]);
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Symbols</h1>
           <p className="text-muted-foreground mt-1">Manage the stocks and assets you trade.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => enrichAll.mutate()} disabled={enrichAll.isPending || !symbols?.length}>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" onClick={() => setIsCatalogOpen(true)}>
+            <BookOpen className="mr-2 h-4 w-4" /> Browse Catalog
+          </Button>
+          <Button variant="outline" onClick={() => enrichAll.mutate()} disabled={enrichAll.isPending || totalCount === 0}>
             {enrichAll.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
             Refresh metadata
           </Button>
@@ -104,8 +124,16 @@ export function SymbolsPage() {
         </div>
       </div>
 
-      {/* RSI filter chips */}
-      {tickers.length > 0 && (
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative w-full sm:w-[320px]">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search ticker or name..."
+            className="pl-8"
+          />
+        </div>
         <div className="flex items-center gap-2 flex-wrap">
           {FILTER_CHIPS.map((chip) => (
             <button
@@ -122,7 +150,7 @@ export function SymbolsPage() {
             </button>
           ))}
         </div>
-      )}
+      </div>
 
       <div className="rounded-md border bg-card overflow-x-auto [scrollbar-gutter:stable]">
         <Table>
@@ -146,9 +174,11 @@ export function SymbolsPage() {
             ) : filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                  {rsiFilter !== "all"
+                  {debouncedQ
+                    ? "No symbols match your search."
+                    : rsiFilter !== "all"
                     ? "No symbols match this RSI filter."
-                    : "No symbols tracked yet. Add one to start logging trades."}
+                    : "No symbols tracked yet. Add one or browse the catalog to start logging trades."}
                 </TableCell>
               </TableRow>
             ) : (
@@ -182,10 +212,30 @@ export function SymbolsPage() {
         </Table>
       </div>
 
+      <div className="flex items-center justify-between py-1">
+        <div className="text-sm text-text-tertiary">
+          {totalCount > 0
+            ? `Page ${page} of ${totalPages} (${totalCount.toLocaleString()} total)`
+            : ""}
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1 || isLoading}>
+            Previous
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages || isLoading}>
+            Next
+          </Button>
+        </div>
+      </div>
+
       <SymbolDialog
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         symbol={editingSymbol}
+      />
+      <CatalogBrowserDialog
+        open={isCatalogOpen}
+        onOpenChange={setIsCatalogOpen}
       />
     </div>
   );

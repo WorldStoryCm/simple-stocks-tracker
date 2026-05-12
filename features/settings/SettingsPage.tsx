@@ -147,7 +147,6 @@ export function SettingsPage() {
   const [editActive, setEditActive] = useState(true);
   const [progressCurrency, setProgressCurrency] = useState<(typeof CURRENCY_OPTIONS)[number]["value"]>("EUR");
   const [progressTargetAmount, setProgressTargetAmount] = useState("");
-  const [manualContributionAmount, setManualContributionAmount] = useState("");
 
   const { data: buckets, isLoading } = trpc.buckets.list.useQuery();
   const { data: goalsList, isLoading: goalsLoading } = trpc.goals.list.useQuery();
@@ -205,7 +204,6 @@ export function SettingsPage() {
     const timeoutId = window.setTimeout(() => {
       setProgressCurrency(capitalProgressSettings.currencyCode as (typeof CURRENCY_OPTIONS)[number]["value"]);
       setProgressTargetAmount(Number(capitalProgressSettings.targetAmount).toFixed(2));
-      setManualContributionAmount(Number(capitalProgressSettings.manualContributionAmount).toFixed(2));
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
@@ -224,22 +222,15 @@ export function SettingsPage() {
 
   const handleSaveCapitalProgress = () => {
     const targetAmount = Number(progressTargetAmount);
-    const manualAmount = Number(manualContributionAmount);
 
     if (!Number.isFinite(targetAmount) || targetAmount <= 0) {
       toast.error("Enter a target amount greater than 0");
       return;
     }
 
-    if (!Number.isFinite(manualAmount) || manualAmount < 0) {
-      toast.error("Manual contributions must be 0 or greater");
-      return;
-    }
-
     saveCapitalProgressMutation.mutate({
       currencyCode: progressCurrency,
       targetAmount: targetAmount.toFixed(2),
-      manualContributionAmount: manualAmount.toFixed(2),
     });
   };
 
@@ -258,7 +249,7 @@ export function SettingsPage() {
         <CardHeader>
           <CardTitle>Capital Goal Progress</CardTitle>
           <CardDescription>
-            Configure the stacked dashboard bar for your path to the first 100k. The base layer is net money added from outside, the market layer is current growth from live positions plus cash.
+            Set the currency and target for the dashboard capital goal. Progress is the current value of your open positions plus cash across active platforms.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -268,7 +259,7 @@ export function SettingsPage() {
             </div>
           ) : (
             <div className="grid gap-5">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="grid gap-2">
                   <Label htmlFor="progress-currency">Progress Currency</Label>
                   <Select value={progressCurrency} onValueChange={(value) => setProgressCurrency(value as (typeof CURRENCY_OPTIONS)[number]["value"])}>
@@ -296,52 +287,6 @@ export function SettingsPage() {
                     onChange={(e) => setProgressTargetAmount(e.target.value)}
                     startAddon={currencySymbol(progressCurrency)}
                   />
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="manual-contributions">Manual Contributions</Label>
-                  <Input
-                    id="manual-contributions"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={manualContributionAmount}
-                    onChange={(e) => setManualContributionAmount(e.target.value)}
-                    startAddon={currencySymbol(progressCurrency)}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <div className="rounded-lg border bg-card p-4 shadow-sm">
-                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Base layer</div>
-                  <div className="mt-2 text-2xl font-bold">
-                    {formatAmount(Number(manualContributionAmount || 0), progressCurrency, {
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 0,
-                    })}
-                  </div>
-                  <p className="mt-1 text-sm text-muted-foreground">Salary top-ups and manual injections you want counted toward the first 100k.</p>
-                </div>
-
-                <div className="rounded-lg border bg-card p-4 shadow-sm">
-                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Checkpoint ladder</div>
-                  <div className="mt-2 text-2xl font-bold">
-                    85 / 90 / 95 / 100
-                  </div>
-                  <p className="mt-1 text-sm text-muted-foreground">Milestones are derived from your target, so a 100k goal becomes 85k, 90k, 95k, and the finish line.</p>
-                </div>
-
-                <div className="rounded-lg border bg-card p-4 shadow-sm">
-                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Dashboard total</div>
-                  <div className="mt-2 text-2xl font-bold">
-                    {formatAmount(Number(manualContributionAmount || 0), progressCurrency, {
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 0,
-                    })}{" "}
-                    + market growth
-                  </div>
-                  <p className="mt-1 text-sm text-muted-foreground">The green segment uses current equity minus your external contributions, so profits still sitting in positions are included.</p>
                 </div>
               </div>
 

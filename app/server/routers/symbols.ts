@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc';
 import { db } from '@/db/drizzle';
 import { symbols } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, ilike, or, count } from 'drizzle-orm';
 import YahooFinance from 'yahoo-finance2';
 
 const yahooFinance = new YahooFinance();
@@ -29,6 +29,49 @@ export const symbolsRouter = router({
       orderBy: (s, { asc }) => [asc(s.ticker)],
     });
   }),
+  paged: protectedProcedure
+    .input(
+      z.object({
+        page: z.number().int().min(1).default(1),
+        limit: z.number().int().min(1).max(200).default(50),
+        q: z.string().optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      const { page, limit, q } = input;
+      const offset = (page - 1) * limit;
+
+      const conditions = [eq(symbols.userId, userId)] as any[];
+      if (q && q.trim()) {
+        const term = `%${q.trim()}%`;
+        conditions.push(or(ilike(symbols.ticker, term), ilike(symbols.displayName, term)));
+      }
+      const where = and(...conditions);
+
+      const [items, totalRow] = await Promise.all([
+        db
+          .select()
+          .from(symbols)
+          .where(where as any)
+          .orderBy(symbols.ticker)
+          .limit(limit)
+          .offset(offset),
+        db
+          .select({ value: count() })
+          .from(symbols)
+          .where(where as any),
+      ]);
+
+      const totalCount = Number(totalRow[0]?.value ?? 0);
+      return {
+        items,
+        page,
+        limit,
+        totalCount,
+        totalPages: Math.max(1, Math.ceil(totalCount / limit)),
+      };
+    }),
   create: protectedProcedure
     .input(z.object({
       ticker: z.string().min(1).toUpperCase(),

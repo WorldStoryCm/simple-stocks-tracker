@@ -123,7 +123,6 @@ export const capitalProgressSettings = pgTable(
     userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
     currencyCode: text("currency_code").notNull().default("EUR"),
     targetAmount: decimal("target_amount", { precision: 14, scale: 2 }).notNull().default("100000"),
-    manualContributionAmount: decimal("manual_contribution_amount", { precision: 14, scale: 2 }).notNull().default("0"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
   },
@@ -263,3 +262,20 @@ export const tradeLotMatchesRelations = relations(tradeLotMatches, ({ one }) => 
   sellTrade: one(trades, { fields: [tradeLotMatches.sellTradeId], references: [trades.id] }),
   buyTrade: one(trades, { fields: [tradeLotMatches.buyTradeId], references: [trades.id] })
 }));
+
+export const tickerCatalog = pgTable(
+  "ticker_catalog",
+  {
+    symbol: text("symbol").primaryKey(),
+    name: text("name"),
+    exchange: text("exchange"),
+    marketCategory: text("market_category"),
+    isEtf: boolean("is_etf").notNull().default(false),
+    isTest: boolean("is_test").notNull().default(false),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("ticker_catalog_symbol_idx").on(table.symbol),
+    index("ticker_catalog_exchange_idx").on(table.exchange),
+  ]
+);

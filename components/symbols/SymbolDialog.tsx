@@ -93,6 +93,7 @@ export function SymbolDialog({ open, onOpenChange, symbol }: Props) {
     onSuccess: () => {
       toast.success("Symbol added");
       utils.symbols.list.invalidate();
+      utils.symbols.paged.invalidate();
       onOpenChange(false);
     },
     onError: (err) => {
@@ -104,6 +105,7 @@ export function SymbolDialog({ open, onOpenChange, symbol }: Props) {
     onSuccess: () => {
       toast.success("Symbol updated");
       utils.symbols.list.invalidate();
+      utils.symbols.paged.invalidate();
       onOpenChange(false);
     },
     onError: (err) => {

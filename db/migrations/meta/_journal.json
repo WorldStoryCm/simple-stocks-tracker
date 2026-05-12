@@ -64,6 +64,20 @@
       "when": 1776867590276,
       "tag": "0008_tiny_exodus",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1778519119523,
+      "tag": "0009_red_madripoor",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1778588834588,
+      "tag": "0010_same_deathbird",
+      "breakpoints": true
     }
   ]
 }

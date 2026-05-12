@@ -41,6 +41,7 @@ import {
 } from "recharts";
 import { cn } from "@/components/component.utils";
 import { brand, chart, status, surface, text } from "@/lib/ui/tokens";
+import { formatAmount } from "@/lib/currency";
 
 /* ---------------- helpers ---------------- */
 
@@ -441,6 +442,77 @@ function KpiCard({
             )}
           </span>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function FreeCashCard({
+  value,
+  currencyCode,
+}: {
+  value: number;
+  currencyCode: string;
+}) {
+  return (
+    <Card className="overflow-hidden">
+      <CardContent className="flex flex-col gap-3 p-5">
+        <span className="text-xs uppercase tracking-[0.12em] text-text-tertiary">
+          Free Cash
+        </span>
+        <span className="font-tabular text-[28px] font-semibold tracking-tight text-text-primary">
+          {formatAmount(value, currencyCode, {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+          })}
+        </span>
+        <span className="text-[11px] text-text-tertiary">
+          Unspent across active platforms
+        </span>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CapitalGoalCard({
+  current,
+  target,
+  currencyCode,
+}: {
+  current: number;
+  target: number;
+  currencyCode: string;
+}) {
+  const pct = target > 0 ? Math.min((current / target) * 100, 100) : 0;
+  return (
+    <Card className="overflow-hidden">
+      <CardContent className="flex flex-col gap-3 p-5">
+        <span className="text-xs uppercase tracking-[0.12em] text-text-tertiary">
+          Capital Goal
+        </span>
+        <div className="flex items-baseline gap-2">
+          <span className="font-tabular text-[28px] font-semibold tracking-tight text-text-primary">
+            {formatAmount(current, currencyCode, {
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 0,
+            })}
+          </span>
+          <span className="text-xs text-text-tertiary font-tabular">
+            / {formatAmount(target, currencyCode, {
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 0,
+            })}
+          </span>
+        </div>
+        <div className="h-1.5 w-full rounded-full bg-[color:var(--surface-2)] overflow-hidden">
+          <div
+            className="h-full rounded-full [background-image:linear-gradient(90deg,var(--brand-from),var(--positive))] transition-all duration-500"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <span className="text-[11px] text-text-tertiary font-tabular">
+          {pct.toFixed(1)}% toward target
+        </span>
       </CardContent>
     </Card>
   );
@@ -1108,16 +1180,6 @@ export function DashboardPage() {
   const { data: perf, isLoading } = trpc.performance.stats.useQuery(queryFilters);
   const { data: positions } = trpc.positions.list.useQuery(queryFilters);
 
-  const todayPnl = useMemo(() => {
-    const arr = perf?.dailyStats?.data;
-    return arr && arr.length > 0 ? arr[arr.length - 1].pnl : 0;
-  }, [perf]);
-
-  const weekPnl = useMemo(() => {
-    const arr = perf?.weeklyStats?.data;
-    return arr && arr.length > 0 ? arr[arr.length - 1].pnl : 0;
-  }, [perf]);
-
   const monthPnl = useMemo(() => {
     const arr = perf?.monthlyStats?.data;
     return arr && arr.length > 0 ? arr[arr.length - 1].pnl : 0;
@@ -1170,8 +1232,15 @@ export function DashboardPage() {
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
-        <KpiCard label="Today P/L" value={todayPnl} delta={0.62} />
-        <KpiCard label="Week P/L" value={weekPnl} delta={3.41} />
+        <FreeCashCard
+          value={(perf as any)?.capitalProgress?.cashAmount ?? 0}
+          currencyCode={(perf as any)?.capitalProgress?.currencyCode ?? "EUR"}
+        />
+        <CapitalGoalCard
+          current={(perf as any)?.capitalProgress?.totalAmount ?? 0}
+          target={(perf as any)?.capitalProgress?.targetAmount ?? 0}
+          currencyCode={(perf as any)?.capitalProgress?.currencyCode ?? "EUR"}
+        />
         <KpiCard label="Month P/L" value={monthPnl} delta={9.22} />
         <KpiCard label="All-time P/L" value={allTimePnl} delta={29.76} />
       </div>

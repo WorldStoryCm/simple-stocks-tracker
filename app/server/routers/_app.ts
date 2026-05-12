@@ -11,6 +11,7 @@ import { goalsRouter } from './goals';
 import { capitalProgressRouter } from './capitalProgress';
 import { shadowRouter } from './shadow';
 import { rsiRouter } from './rsi';
+import { tickerCatalogRouter } from './tickerCatalog';
 
 export const appRouter = router({
   platforms: platformsRouter,
@@ -25,6 +26,7 @@ export const appRouter = router({
   capitalProgress: capitalProgressRouter,
   shadow: shadowRouter,
   rsi: rsiRouter,
+  tickerCatalog: tickerCatalogRouter,
 });
 
 export type AppRouter = typeof appRouter;

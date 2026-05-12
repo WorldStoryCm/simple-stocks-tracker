@@ -1,0 +1,1 @@
+ALTER TABLE "capital_progress_settings" DROP COLUMN "manual_contribution_amount";

@@ -74,18 +74,10 @@ function fillMonthlyKeys(from: string, to: string): string[] {
 const DEFAULT_CAPITAL_PROGRESS_SETTINGS = {
   currencyCode: "EUR",
   targetAmount: 100000,
-  manualContributionAmount: 0,
 };
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
-}
-
-function buildCapitalMilestones(targetAmount: number) {
-  return [0.9, 0.95, 1].map((ratio) => ({
-    amount: Math.round(targetAmount * ratio),
-    ratio,
-  }));
 }
 
 export const performanceRouter = router({
@@ -357,7 +349,6 @@ export const performanceRouter = router({
       ? {
           currencyCode: progressSettings.currencyCode,
           targetAmount: Number(progressSettings.targetAmount),
-          manualContributionAmount: Number(progressSettings.manualContributionAmount),
         }
       : DEFAULT_CAPITAL_PROGRESS_SETTINGS;
 
@@ -375,18 +366,9 @@ export const performanceRouter = router({
         : sum,
       0
     );
-    const totalEquityAmount = convertFromUSD(
-      livePositionsValueUSD + totalCashUSD,
-      capitalProgressConfig.currencyCode,
-      rates
-    );
-    const marketProfitAmount = totalEquityAmount - capitalProgressConfig.manualContributionAmount;
-    const totalAmount = totalEquityAmount;
-    const milestones = buildCapitalMilestones(capitalProgressConfig.targetAmount).map((milestone) => ({
-      ...milestone,
-      isReached: totalAmount >= milestone.amount,
-      progress: clamp((milestone.amount / capitalProgressConfig.targetAmount) * 100, 0, 100),
-    }));
+    const livePositionsAmount = convertFromUSD(livePositionsValueUSD, capitalProgressConfig.currencyCode, rates);
+    const cashAmount = convertFromUSD(totalCashUSD, capitalProgressConfig.currencyCode, rates);
+    const totalAmount = livePositionsAmount + cashAmount;
 
     return {
       totalInvested,
@@ -407,14 +389,11 @@ export const performanceRouter = router({
       capitalProgress: {
         currencyCode: capitalProgressConfig.currencyCode,
         targetAmount: capitalProgressConfig.targetAmount,
-        manualContributionAmount: capitalProgressConfig.manualContributionAmount,
-        marketProfitAmount,
-        livePositionsAmount: convertFromUSD(livePositionsValueUSD, capitalProgressConfig.currencyCode, rates),
-        cashAmount: convertFromUSD(totalCashUSD, capitalProgressConfig.currencyCode, rates),
+        livePositionsAmount,
+        cashAmount,
         totalAmount,
         remainingAmount: Math.max(0, capitalProgressConfig.targetAmount - totalAmount),
         progressPercent: clamp((totalAmount / capitalProgressConfig.targetAmount) * 100, 0, 100),
-        milestones,
       },
     };
   })
