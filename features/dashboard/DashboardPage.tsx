@@ -69,7 +69,6 @@ function plClass(value: number) {
 
 export type DashboardFilters = {
   platformId?: string;
-  bucketId?: string;
   symbolId?: string;
   dateFrom?: string;
   dateTo?: string;
@@ -292,22 +291,15 @@ function FilterRow({
   filters,
   setFilters,
   platforms,
-  buckets,
   symbols,
 }: {
   filters: DashboardFilters;
   setFilters: React.Dispatch<React.SetStateAction<DashboardFilters>>;
   platforms: { id: string; name: string }[];
-  buckets: { id: string; label: string }[];
   symbols: { id: string; ticker: string }[];
 }) {
   const platformLabel = filters.platformId
     ? platforms.find(p => p.id === filters.platformId)?.name ?? "—"
-    : "All";
-  const bucketLabel = filters.bucketId
-    ? filters.bucketId === "uncategorized"
-      ? "Uncategorized"
-      : buckets.find(b => b.id === filters.bucketId)?.label ?? "—"
     : "All";
   const symbolLabel = filters.symbolId
     ? symbols.find(s => s.id === filters.symbolId)?.ticker ?? "—"
@@ -315,12 +307,7 @@ function FilterRow({
   const dateLabel = formatDateRange(filters.dateFrom, filters.dateTo) ?? "All";
 
   const anyActive =
-    !!filters.platformId || !!filters.bucketId || !!filters.symbolId || !!filters.dateFrom || !!filters.dateTo;
-
-  const bucketOptions = useMemo(
-    () => [{ id: "uncategorized", label: "Uncategorized" }, ...buckets.map(b => ({ id: b.id, label: b.label }))],
-    [buckets],
-  );
+    !!filters.platformId || !!filters.symbolId || !!filters.dateFrom || !!filters.dateTo;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -335,19 +322,6 @@ function FilterRow({
           selected={filters.platformId}
           onSelect={(id) => setFilters(f => ({ ...f, platformId: id }))}
           placeholder="Search platform..."
-        />
-      </FilterPill>
-      <FilterPill
-        label="Bucket"
-        value={bucketLabel}
-        active={!!filters.bucketId}
-        onClear={() => setFilters(f => ({ ...f, bucketId: undefined }))}
-      >
-        <ListPicker
-          options={bucketOptions}
-          selected={filters.bucketId}
-          onSelect={(id) => setFilters(f => ({ ...f, bucketId: id }))}
-          placeholder="Search bucket..."
         />
       </FilterPill>
       <FilterPill
@@ -710,68 +684,6 @@ function PlatformsSummaryCard({
                   <div
                     className="h-full rounded-full [background-image:linear-gradient(90deg,var(--brand-from),var(--brand-to))]"
                     style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-/* ---------------- bucket budget ---------------- */
-
-const BUCKET_COLORS = [
-  "var(--brand-to)",
-  "var(--positive)",
-  "var(--warning)",
-  "var(--negative)",
-];
-
-function BucketBudgetCard({
-  data,
-}: {
-  data: { name: string; value: number }[];
-}) {
-  return (
-    <Card>
-      <CardHeader className="pb-2 flex-row items-center justify-between">
-        <CardTitle className="text-sm font-medium text-text-secondary">
-          Bucket Budget Usage
-        </CardTitle>
-        <button
-          type="button"
-          className="text-xs text-text-tertiary hover:text-text-primary transition-colors"
-        >
-          Manage
-        </button>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3 pt-1">
-        {data.length === 0 ? (
-          <div className="text-sm text-text-tertiary">No buckets.</div>
-        ) : (
-          data.map((d, i) => {
-            const target = d.value * 1.4 || 1;
-            const pct = Math.min((d.value / target) * 100, 100);
-            const color = BUCKET_COLORS[i % BUCKET_COLORS.length];
-            return (
-              <div key={d.name} className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-text-secondary">{d.name}</span>
-                  <span className="font-tabular text-text-primary">
-                    ${d.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                    <span className="ml-1 text-text-tertiary">
-                      / ${target.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                    </span>
-                    <span className="ml-2 text-text-secondary">{pct.toFixed(0)}%</span>
-                  </span>
-                </div>
-                <div className="h-1.5 w-full rounded-full bg-[color:var(--surface-2)] overflow-hidden">
-                  <div
-                    className="h-full rounded-full"
-                    style={{ width: `${pct}%`, background: color }}
                   />
                 </div>
               </div>
@@ -1173,7 +1085,6 @@ export function DashboardPage() {
   const [filters, setFilters] = useState<DashboardFilters>({});
 
   const { data: platformsList } = trpc.platforms.list.useQuery();
-  const { data: bucketsList } = trpc.buckets.list.useQuery();
   const { data: symbolsList } = trpc.symbols.list.useQuery();
 
   const queryFilters = useMemo(() => ({ filters }), [filters]);
@@ -1197,7 +1108,6 @@ export function DashboardPage() {
   const portfolioStats = (perf as any)?.portfolioStats ?? [];
 
   const platforms = perf?.investedPerPlatform ?? [];
-  const buckets = perf?.investedPerBucket ?? [];
 
   const movers = useMemo(() => {
     const list = (positions ?? [])
@@ -1227,7 +1137,6 @@ export function DashboardPage() {
         filters={filters}
         setFilters={setFilters}
         platforms={(platformsList as any[]) ?? []}
-        buckets={(bucketsList as any[]) ?? []}
         symbols={(symbolsList as any[]) ?? []}
       />
 
@@ -1259,10 +1168,7 @@ export function DashboardPage() {
         <CumulativeChartCard data={portfolioStats} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <PlatformsSummaryCard data={platforms} />
-        <BucketBudgetCard data={buckets} />
-      </div>
+      <PlatformsSummaryCard data={platforms} />
 
       <ProfitLossBySymbolCard />
 

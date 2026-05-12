@@ -1,18 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useSession, signOut } from "@/lib/auth-client";
+import { useSession } from "@/lib/auth-client";
 import { Button } from "@/components/button";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/components/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/sheet";
 import { Bell, Menu, Plus, Search } from "lucide-react";
 import { SidebarNav } from "./Sidebar";
+import { UserMenu } from "./UserMenu";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { SyncStatus } from "@/components/rsi/SyncStatus";
 
@@ -56,31 +50,15 @@ export function Header() {
         <SyncStatus />
 
         {session?.user ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="ml-1 flex h-9 w-9 items-center justify-center rounded-full [background-image:linear-gradient(135deg,var(--brand-from),var(--brand-to))] text-xs font-semibold text-white shadow-[var(--shadow-glow-brand)] transition-transform hover:scale-105"
-                aria-label="Account menu"
-              >
-                {session.user.name?.charAt(0).toUpperCase() || "U"}
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <div className="flex flex-col gap-0.5 p-2">
-                <span className="text-sm font-medium text-text-primary">
-                  {session.user.name}
-                </span>
-                <span className="text-xs text-text-tertiary truncate">
-                  {session.user.email}
-                </span>
-              </div>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => signOut()}>
-                Sign Out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <UserMenu>
+            <button
+              type="button"
+              className="ml-1 flex h-9 w-9 items-center justify-center rounded-full [background-image:linear-gradient(135deg,var(--brand-from),var(--brand-to))] text-xs font-semibold text-white shadow-[var(--shadow-glow-brand)] transition-transform hover:scale-105"
+              aria-label="Account menu"
+            >
+              {session.user.name?.charAt(0).toUpperCase() || "U"}
+            </button>
+          </UserMenu>
         ) : null}
       </div>
     </header>

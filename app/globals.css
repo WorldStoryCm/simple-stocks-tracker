@@ -60,10 +60,15 @@
 
   /* ── RSI buckets ────────────────────────────────────── */
   --rsi-overbought: #ff5c7a;
+  --rsi-overbought-soft: rgba(255, 92, 122, 0.14);
   --rsi-near-overbought: #f2b441;
+  --rsi-near-overbought-soft: rgba(242, 180, 65, 0.14);
   --rsi-neutral: #7c8aa6;
+  --rsi-neutral-soft: rgba(124, 138, 166, 0.14);
   --rsi-near-oversold: #5ae0b5;
+  --rsi-near-oversold-soft: rgba(90, 224, 181, 0.14);
   --rsi-oversold: #22d39a;
+  --rsi-oversold-soft: rgba(34, 211, 154, 0.14);
 
   /* ── Charts ─────────────────────────────────────────── */
   --chart-line: var(--positive);
@@ -132,6 +137,28 @@
   --sidebar-border: #e4e4e7;
   --sidebar-active: #09090b;
   --sidebar-active-bg: #f4f4f5;
+
+  /* ── Status / P&L (deeper for legibility on white) ──── */
+  --positive: #047857;                            /* emerald-700 */
+  --positive-soft: rgba(4, 120, 87, 0.12);
+  --negative: #b91c1c;                            /* red-700 */
+  --negative-soft: rgba(185, 28, 28, 0.10);
+  --warning: #b45309;                             /* amber-700 */
+  --warning-soft: rgba(180, 83, 9, 0.10);
+  --info: #1d4ed8;                                /* blue-700 */
+  --info-soft: rgba(29, 78, 216, 0.10);
+
+  /* ── RSI buckets (deeper for legibility on white) ──── */
+  --rsi-overbought: #b91c1c;                      /* red-700 */
+  --rsi-overbought-soft: rgba(185, 28, 28, 0.10);
+  --rsi-near-overbought: #b45309;                 /* amber-700 */
+  --rsi-near-overbought-soft: rgba(180, 83, 9, 0.10);
+  --rsi-neutral: #52525b;                         /* zinc-600 */
+  --rsi-neutral-soft: rgba(82, 82, 91, 0.08);
+  --rsi-near-oversold: #0f766e;                   /* teal-700 */
+  --rsi-near-oversold-soft: rgba(15, 118, 110, 0.10);
+  --rsi-oversold: #047857;                        /* emerald-700 */
+  --rsi-oversold-soft: rgba(4, 120, 87, 0.12);
 }
 
 @theme inline {
@@ -220,7 +247,6 @@
 }
 
 html {
-  color-scheme: dark;
   background: var(--background);
 }
 

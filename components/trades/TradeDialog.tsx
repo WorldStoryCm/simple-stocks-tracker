@@ -31,7 +31,6 @@ const formSchema = z.object({
   platformId: z.string().min(1, "Broker is required"),
   symbolId: z.string().min(1, "Symbol is required"),
   newTicker: z.string().optional(),
-  bucketId: z.string().optional(),
   tradeType: z.enum(["buy", "sell"]),
   tradeDate: z.string().min(1, "Date is required"),
   quantity: z.string().min(1, "Quantity is required"),
@@ -49,7 +48,6 @@ export function TradeDialog({ open, onOpenChange, trade }: { open: boolean, onOp
   const isEditing = !!(trade && trade.id);
   const { data: platforms } = trpc.platforms.list.useQuery();
   const { data: symbols } = trpc.symbols.list.useQuery();
-  const { data: buckets } = trpc.buckets.list.useQuery();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -57,7 +55,6 @@ export function TradeDialog({ open, onOpenChange, trade }: { open: boolean, onOp
       platformId: "",
       symbolId: "",
       newTicker: "",
-      bucketId: "",
       tradeType: "buy",
       tradeDate: new Date().toISOString().split('T')[0],
       quantity: "",
@@ -74,7 +71,6 @@ export function TradeDialog({ open, onOpenChange, trade }: { open: boolean, onOp
           platformId: trade.platformId || "",
           symbolId: trade.symbolId || "",
           newTicker: "",
-          bucketId: trade.bucketId || "",
           tradeType: trade.tradeType || "buy",
           tradeDate: trade.tradeDate ? new Date(trade.tradeDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
           quantity: trade.quantity || "",
@@ -87,7 +83,6 @@ export function TradeDialog({ open, onOpenChange, trade }: { open: boolean, onOp
           platformId: "",
           symbolId: "",
           newTicker: "",
-          bucketId: "",
           tradeType: "buy",
           tradeDate: new Date().toISOString().split('T')[0],
           quantity: "",
@@ -159,7 +154,6 @@ export function TradeDialog({ open, onOpenChange, trade }: { open: boolean, onOp
     const payload = {
       platformId: values.platformId,
       symbolId: finalSymbolId,
-      bucketId: values.bucketId,
       tradeType: values.tradeType,
       tradeDate: values.tradeDate,
       quantity: values.quantity,
@@ -358,19 +352,6 @@ export function TradeDialog({ open, onOpenChange, trade }: { open: boolean, onOp
                 )}
               </div>
             </div>
-
-            <FormField control={form.control} name="bucketId" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Capital Bucket</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Select bucket" /></SelectTrigger></FormControl>
-                  <SelectContent>
-                    {buckets?.map((b: any) => <SelectItem key={b.id} value={b.id}>{b.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
 
             {selectedPlatformCurrency && selectedPlatformCurrency !== 'USD' && (
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 border rounded-md px-3 py-1.5">

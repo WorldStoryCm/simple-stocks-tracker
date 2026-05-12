@@ -78,6 +78,20 @@
       "when": 1778588834588,
       "tag": "0010_same_deathbird",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1778590777563,
+      "tag": "0011_tranquil_devos",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1778595379054,
+      "tag": "0012_late_swordsman",
+      "breakpoints": true
     }
   ]
 }

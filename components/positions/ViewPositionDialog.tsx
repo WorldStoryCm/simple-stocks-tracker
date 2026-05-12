@@ -34,7 +34,6 @@ export function ViewPositionDialog({ open, onOpenChange, pos, quote }: ViewPosit
     setPrefilledTrade({
       platformId: pos.platform?.id,
       symbolId: pos.symbol?.id,
-      bucketId: pos.bucket?.id,
       tradeType: type,
     });
     setTradeDialogOpen(true);
@@ -99,7 +98,6 @@ export function ViewPositionDialog({ open, onOpenChange, pos, quote }: ViewPosit
                 value={formatAmount(currentVal, quoteCurrency)}
                 className={currentVal < investedAmount ? "text-red-500 dark:text-red-400" : ""}
               />
-              <StatRow label="Bucket" value={pos.bucket?.label || <span className="text-muted-foreground italic">None</span>} />
             </div>
 
             {/* Actions */}

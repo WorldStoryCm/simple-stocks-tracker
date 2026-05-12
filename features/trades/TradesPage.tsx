@@ -30,7 +30,6 @@ type Trade = {
   tradeType: "buy" | "sell";
   symbol: { ticker: string };
   platform: { name: string };
-  bucket?: { label: string } | null;
   price: string | number;
   quantity: string | number;
   currencyCode?: string;
@@ -56,7 +55,6 @@ export function TradesPage() {
   const [actionFilter, setActionFilter] = useState("all");
   const [symbolFilter, setSymbolFilter] = useState("all");
   const [platformFilter, setPlatformFilter] = useState("all");
-  const [bucketFilter, setBucketFilter] = useState("all");
   const [sortField, setSortField] = useState<SortField>("tradeDate");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
@@ -65,7 +63,6 @@ export function TradesPage() {
 
   const { data: symbols } = trpc.symbols.list.useQuery();
   const { data: platforms } = trpc.platforms.list.useQuery();
-  const { data: buckets } = trpc.buckets.list.useQuery();
 
   const { data: tradesData, isLoading } = trpc.trades.list.useQuery({
     page,
@@ -73,7 +70,6 @@ export function TradesPage() {
     action: actionFilter,
     symbolId: symbolFilter !== "all" ? symbolFilter : undefined,
     platformId: platformFilter !== "all" ? platformFilter : undefined,
-    bucketId: bucketFilter !== "all" ? bucketFilter : undefined,
     sortField,
     sortDir,
   });
@@ -306,17 +302,6 @@ export function TradesPage() {
             </SelectContent>
           </Select>
 
-          <Select value={bucketFilter} onValueChange={(v) => { setBucketFilter(v); setPage(1); }}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="All Buckets" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Buckets</SelectItem>
-              {buckets?.map((b: any) => (
-                <SelectItem key={b.id} value={b.id}>{b.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
 
         <Tabs

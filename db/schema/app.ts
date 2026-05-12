@@ -42,24 +42,6 @@ export const symbols = pgTable(
   ]
 );
 
-export const buckets = pgTable(
-  "buckets",
-  {
-    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-    key: text("key").notNull(),
-    label: text("label").notNull(),
-    budgetAmount: decimal("budget_amount", { precision: 14, scale: 2 }).notNull().default("0"),
-    sortOrder: decimal("sort_order").notNull().default("0"),
-    isActive: boolean("is_active").notNull().default(true),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
-  },
-  (table) => [
-    unique("buckets_user_id_key_unique").on(table.userId, table.key),
-  ]
-);
-
 export const trades = pgTable(
   "trades",
   {
@@ -67,7 +49,6 @@ export const trades = pgTable(
     userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
     platformId: text("platform_id").notNull().references(() => platforms.id, { onDelete: "restrict" }),
     symbolId: text("symbol_id").notNull().references(() => symbols.id, { onDelete: "restrict" }),
-    bucketId: text("bucket_id").references(() => buckets.id, { onDelete: "set null" }),
     tradeType: text("trade_type", { enum: ["buy", "sell"] }).notNull(),
     tradeDate: date("trade_date").notNull(),
     quantity: decimal("quantity", { precision: 16, scale: 4 }).notNull(),
@@ -80,7 +61,7 @@ export const trades = pgTable(
   },
   (table) => [
     index("trades_user_id_trade_date_idx").on(table.userId, table.tradeDate),
-    index("trades_user_plat_sym_buck_date_idx").on(table.userId, table.platformId, table.symbolId, table.bucketId, table.tradeDate),
+    index("trades_user_plat_sym_date_idx").on(table.userId, table.platformId, table.symbolId, table.tradeDate),
   ]
 );
 
@@ -131,54 +112,12 @@ export const capitalProgressSettings = pgTable(
   ]
 );
 
-export const watchlistItems = pgTable(
-  "watchlist_items",
-  {
-    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-    platformId: text("platform_id").references(() => platforms.id, { onDelete: "set null" }),
-    symbolId: text("symbol_id").notNull().references(() => symbols.id, { onDelete: "cascade" }),
-    thesis: text("thesis"),
-    targetBuyPrice: decimal("target_buy_price", { precision: 16, scale: 4 }),
-    targetSellPrice: decimal("target_sell_price", { precision: 16, scale: 4 }),
-    status: text("status", { enum: ["watching", "ready", "bought", "archived"] }).notNull().default("watching"),
-    notes: text("notes"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
-  }
-);
-
-export const watchlistTags = pgTable(
-  "watchlist_tags",
-  {
-    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-    name: text("name").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => [
-    unique("watchlist_tags_user_id_name_unique").on(table.userId, table.name),
-  ]
-);
-
-export const watchlistItemTags = pgTable(
-  "watchlist_item_tags",
-  {
-    watchlistItemId: text("watchlist_item_id").notNull().references(() => watchlistItems.id, { onDelete: "cascade" }),
-    watchlistTagId: text("watchlist_tag_id").notNull().references(() => watchlistTags.id, { onDelete: "cascade" }),
-  },
-  (table) => [
-    unique("watchlist_item_tags_item_tag_unique").on(table.watchlistItemId, table.watchlistTagId),
-  ]
-);
-
 export const shadowCases = pgTable(
   "shadow_cases",
   {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
     platformId: text("platform_id").references(() => platforms.id, { onDelete: "set null" }),
-    bucket: text("bucket"),
     symbol: text("symbol").notNull(),
     direction: text("direction", { enum: ["up", "down", "watch"] }).notNull(),
     thesis: text("thesis").notNull(),
@@ -255,7 +194,6 @@ export const tradesRelations = relations(trades, ({ one }) => ({
   user: one(user, { fields: [trades.userId], references: [user.id] }),
   platform: one(platforms, { fields: [trades.platformId], references: [platforms.id] }),
   symbol: one(symbols, { fields: [trades.symbolId], references: [symbols.id] }),
-  bucket: one(buckets, { fields: [trades.bucketId], references: [buckets.id] }),
 }));
 
 export const tradeLotMatchesRelations = relations(tradeLotMatches, ({ one }) => ({
