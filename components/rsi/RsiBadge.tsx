@@ -56,6 +56,8 @@ interface RsiBadgeProps {
   rsi: number | null | undefined;
   /** If true renders a compact single-line pill; default false = stacked */
   inline?: boolean;
+  /** If true renders a number-only pill with the state label moved to the tooltip */
+  compact?: boolean;
   /** Optional error state — renders a neutral "mismatch" pill instead of the value */
   error?: RsiErrorKind | null;
   /** When set, RSI was fetched using this alias ticker — surfaced as a tooltip hint */
@@ -89,7 +91,7 @@ function TrendArrow({ history }: { history?: number[] }) {
   );
 }
 
-export function RsiBadge({ rsi, inline = false, error, via, history, className }: RsiBadgeProps) {
+export function RsiBadge({ rsi, inline = false, compact = false, error, via, history, className }: RsiBadgeProps) {
   if (error) {
     return (
       <span
@@ -115,6 +117,26 @@ export function RsiBadge({ rsi, inline = false, error, via, history, className }
   const label = RSI_STATE_LABELS[state];
   const styles = STATE_STYLES[state];
   const viaTitle = via ? `RSI fetched via alias ${via}` : undefined;
+
+  if (compact) {
+    const trendTitle = history && history.length >= 2
+      ? ` · trend ${history.map((v) => v.toFixed(1)).join(" → ")}`
+      : "";
+    const tooltip = `${label} (RSI-14: ${rsi.toFixed(1)})${via ? ` · alias ${via}` : ""}${trendTitle}`;
+    return (
+      <span
+        title={tooltip}
+        className={cn(
+          "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs font-medium tabular-nums",
+          styles,
+          className,
+        )}
+      >
+        <span>{rsi.toFixed(0)}</span>
+        <TrendArrow history={history} />
+      </span>
+    );
+  }
 
   if (inline) {
     return (

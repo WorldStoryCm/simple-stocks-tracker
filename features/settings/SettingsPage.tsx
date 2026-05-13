@@ -1,299 +1,31 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { inferRouterOutputs } from "@trpc/server";
-import { trpc } from "@/lib/trpc";
-import { Button } from "@/components/button";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/card";
-import { Input } from "@/components/input";
-import { Switch } from "@/components/switch";
-import { Label } from "@/components/label";
-import { Loader2, Target, Pencil, Trash2, Check, X } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select";
-import toast from "react-hot-toast";
-import { CURRENCY_OPTIONS } from "@/lib/constants";
-import { currencySymbol, formatAmount } from "@/lib/currency";
-import type { AppRouter } from "@/app/server/routers/_app";
-
-type RouterOutputs = inferRouterOutputs<AppRouter>;
-type Goal = RouterOutputs["goals"]["list"][number];
-type GoalType = "monthly_profit" | "yearly_profit";
-
-const GOAL_TYPES: GoalType[] = ["monthly_profit", "yearly_profit"];
-
-const GOAL_LABELS: Record<GoalType, { label: string; description: string; example: string }> = {
-  monthly_profit: {
-    label: "Monthly Profit Target",
-    description: "Target realized P/L per calendar month",
-    example: "e.g. 1000 for $1,000/month",
-  },
-  yearly_profit: {
-    label: "Yearly Profit Target",
-    description: "Target realized P/L for the full calendar year",
-    example: "e.g. 10000 for $10,000/year",
-  },
-};
-
-function GoalRow({
-  goalType,
-  existing,
-  onSave,
-  onDelete,
-  isSaving,
-  isDeleting,
-}: {
-  goalType: GoalType;
-  existing: Goal | undefined;
-  onSave: (goalType: GoalType, amount: string) => void;
-  onDelete: (goalType: GoalType) => void;
-  isSaving: boolean;
-  isDeleting: boolean;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(existing ? Number(existing.amount).toFixed(2) : "");
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      setValue(existing ? Number(existing.amount).toFixed(2) : "");
-      setEditing(false);
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [existing]);
-
-  const meta = GOAL_LABELS[goalType];
-
-  const handleSave = () => {
-    const num = parseFloat(value);
-    if (isNaN(num) || num <= 0) {
-      toast.error("Enter a positive amount");
-      return;
-    }
-    onSave(goalType, num.toFixed(2));
-  };
-
-  return (
-    <div className="flex flex-col gap-3 border rounded-lg p-4 bg-card shadow-sm">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="flex items-center gap-2">
-            <Target className="h-4 w-4 text-primary" />
-            <span className="font-semibold">{meta.label}</span>
-          </div>
-          <p className="text-sm text-muted-foreground mt-0.5">{meta.description}</p>
-        </div>
-        {existing && !editing && (
-          <div className="flex items-center gap-1 shrink-0">
-            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setEditing(true)}>
-              <Pencil className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-              onClick={() => onDelete(goalType)}
-              disabled={isDeleting}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {existing && !editing ? (
-        <div className="flex items-baseline gap-1">
-          <span className="text-2xl font-bold text-primary">
-            ${Number(existing.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-          </span>
-          <span className="text-sm text-muted-foreground">
-            / {goalType === "monthly_profit" ? "month" : "year"}
-          </span>
-        </div>
-      ) : (
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder={meta.example}
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              className="pl-7"
-              onKeyDown={(e) => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") setEditing(false); }}
-            />
-          </div>
-          <Button size="sm" onClick={handleSave} disabled={isSaving} className="gap-1">
-            {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-            {existing ? "Update" : "Set Goal"}
-          </Button>
-          {existing && editing && (
-            <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
-              <X className="h-3.5 w-3.5" />
-            </Button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
+import { AccountSection } from "./components/AccountSection";
+import { CapitalProgressSection } from "./components/CapitalProgressSection";
+import { ProfitGoalsSection } from "./components/ProfitGoalsSection";
 
 export function SettingsPage() {
-  const [progressCurrency, setProgressCurrency] = useState<(typeof CURRENCY_OPTIONS)[number]["value"]>("EUR");
-  const [progressTargetAmount, setProgressTargetAmount] = useState("");
-
-  const { data: goalsList, isLoading: goalsLoading } = trpc.goals.list.useQuery();
-  const { data: capitalProgressSettings, isLoading: capitalProgressLoading } = trpc.capitalProgress.get.useQuery();
-  const utils = trpc.useUtils();
-
-  const upsertGoalMutation = trpc.goals.upsert.useMutation({
-    onSuccess: () => {
-      utils.goals.list.invalidate();
-      utils.performance.stats.invalidate();
-      toast.success("Goal saved");
-    },
-    onError: (err) => toast.error(err.message || "Failed to save goal"),
-  });
-
-  const deleteGoalMutation = trpc.goals.delete.useMutation({
-    onSuccess: () => {
-      utils.goals.list.invalidate();
-      utils.performance.stats.invalidate();
-      toast.success("Goal removed");
-    },
-    onError: (err) => toast.error(err.message || "Failed to remove goal"),
-  });
-
-  const saveCapitalProgressMutation = trpc.capitalProgress.upsert.useMutation({
-    onSuccess: () => {
-      utils.capitalProgress.get.invalidate();
-      utils.performance.stats.invalidate();
-      toast.success("Capital progress settings saved");
-    },
-    onError: (err) => toast.error(err.message || "Failed to save capital progress settings"),
-  });
-
-  useEffect(() => {
-    if (!capitalProgressSettings) return;
-
-    const timeoutId = window.setTimeout(() => {
-      setProgressCurrency(capitalProgressSettings.currencyCode as (typeof CURRENCY_OPTIONS)[number]["value"]);
-      setProgressTargetAmount(Number(capitalProgressSettings.targetAmount).toFixed(2));
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [capitalProgressSettings]);
-
-  const handleSaveCapitalProgress = () => {
-    const targetAmount = Number(progressTargetAmount);
-
-    if (!Number.isFinite(targetAmount) || targetAmount <= 0) {
-      toast.error("Enter a target amount greater than 0");
-      return;
-    }
-
-    saveCapitalProgressMutation.mutate({
-      currencyCode: progressCurrency,
-      targetAmount: targetAmount.toFixed(2),
-    });
-  };
-
-  const goalsMap = new Map<GoalType, Goal>(
-    (goalsList ?? []).map((goal) => [goal.goalType as GoalType, goal])
-  );
-
   return (
-    <div className="flex flex-col gap-6 max-w-4xl mx-auto">
+    <div className="flex flex-col gap-8 max-w-4xl mx-auto">
       <div>
         <h1 className="text-3xl font-bold">Settings</h1>
-        <p className="text-muted-foreground mt-1">Configure your profit goals and capital target.</p>
+        <p className="text-muted-foreground mt-1">Manage your account and configure profit and capital targets.</p>
       </div>
 
-      <Card id="capital-progress-settings" loading={capitalProgressLoading}>
-        <CardHeader>
-          <CardTitle>Capital Goal Progress</CardTitle>
-          <CardDescription>
-            Set the currency and target for the dashboard capital goal. Progress is the current value of your open positions plus cash across active platforms.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {capitalProgressLoading ? (
-            <div className="min-h-[180px]" />
-          ) : (
-            <div className="grid gap-5">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="grid gap-2">
-                  <Label htmlFor="progress-currency">Progress Currency</Label>
-                  <Select value={progressCurrency} onValueChange={(value) => setProgressCurrency(value as (typeof CURRENCY_OPTIONS)[number]["value"])}>
-                    <SelectTrigger id="progress-currency" className="h-10">
-                      <SelectValue placeholder="Select currency" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CURRENCY_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+      <section className="flex flex-col gap-4">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">
+          Account
+        </h2>
+        <AccountSection />
+      </section>
 
-                <div className="grid gap-2">
-                  <Label htmlFor="progress-target">Target Amount</Label>
-                  <Input
-                    id="progress-target"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={progressTargetAmount}
-                    onChange={(e) => setProgressTargetAmount(e.target.value)}
-                    startAddon={currencySymbol(progressCurrency)}
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-3 border-t pt-4 md:flex-row md:items-center md:justify-between">
-                <p className="text-sm text-muted-foreground">
-                  Current setup: target {formatAmount(Number(progressTargetAmount || 0), progressCurrency, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}.
-                </p>
-                <Button onClick={handleSaveCapitalProgress} disabled={saveCapitalProgressMutation.isPending}>
-                  {saveCapitalProgressMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  Save capital progress
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Profit Goals */}
-      <Card loading={goalsLoading}>
-        <CardHeader>
-          <CardTitle>Profit Goals</CardTitle>
-          <CardDescription>Set monthly and yearly profit targets to track your progress on the dashboard.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {goalsLoading ? (
-            <div className="min-h-[140px]" />
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {GOAL_TYPES.map((type) => (
-                <GoalRow
-                  key={type}
-                  goalType={type}
-                  existing={goalsMap.get(type)}
-                  onSave={(gt, amount) => upsertGoalMutation.mutate({ goalType: gt, amount })}
-                  onDelete={(gt) => deleteGoalMutation.mutate({ goalType: gt })}
-                  isSaving={upsertGoalMutation.isPending}
-                  isDeleting={deleteGoalMutation.isPending}
-                />
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
+      <section className="flex flex-col gap-4">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">
+          App
+        </h2>
+        <CapitalProgressSection />
+        <ProfitGoalsSection />
+      </section>
     </div>
   );
 }

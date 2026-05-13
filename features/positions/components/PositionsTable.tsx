@@ -27,17 +27,22 @@ export type RsiMapEntry = {
 
 // Fixed widths prevent layout jump when quotes/RSI populate async.
 const COLUMN_SIZES = {
-  symbol: 110,
-  platform: 130,
-  qty: 110,
-  cost: 120,
-  invested: 130,
-  price: 160,
-  rsi: 180,
-  value: 140,
-  actions: 56,
+  symbol: 96,
+  platform: 110,
+  qty: 88,
+  cost: 96,
+  invested: 108,
+  price: 108,
+  rsi: 64,
+  value: 116,
+  actions: 44,
 };
 const COL_TOTAL = Object.values(COLUMN_SIZES).reduce((a, b) => a + b, 0);
+
+function formatQty(qty: number) {
+  const fixed = qty.toFixed(4);
+  return fixed.replace(/\.?0+$/, "");
+}
 
 function SortIcon({
   field,
@@ -144,23 +149,25 @@ export function PositionsTable({
                     {isAgg && <span className="ml-2 text-xs font-normal text-muted-foreground">({pos._lotCount} lots)</span>}
                   </td>
                   <td className={`${cellCls} ${isAgg && pos.platform.name.includes("platforms") ? "text-muted-foreground italic" : ""}`}>{pos.platform.name}</td>
-                  <td className={`${cellCls} text-right tabular-nums font-medium`}>{Number(pos.openQty).toFixed(4)}</td>
+                  <td className={`${cellCls} text-right tabular-nums font-medium`}>{formatQty(Number(pos.openQty))}</td>
                   <td className={`${cellCls} text-right tabular-nums`}>{formatPrice(Number(pos.avgCost), pos.currencyCode || 'USD')}</td>
                   <td className={`${cellCls} text-right tabular-nums`}>{formatAmount(investedAmount, pos.currencyCode || 'USD')}</td>
-                  <td className={`${cellCls} text-right font-medium`}>
+                  <td
+                    className={`${cellCls} text-right tabular-nums font-medium ${
+                      quote ? (quote.changePercent >= 0 ? "text-[color:var(--positive)]" : "text-[color:var(--negative)]") : ""
+                    }`}
+                    title={quote ? `${quote.changePercent >= 0 ? '+' : ''}${quote.changePercent.toFixed(2)}% today` : undefined}
+                  >
                     {formatPrice(marketPrice, quote?.currency || pos.currencyCode || 'USD')}
-                    {quote && <span className={`ml-1 text-xs ${quote.changePercent >= 0 ? "text-green-500" : "text-red-500"}`}>
-                      ({quote.changePercent >= 0 ? '+' : ''}{quote.changePercent.toFixed(2)}%)
-                    </span>}
                   </td>
                   <td className={cellCls}>
                     {(() => {
                       const entry = rsiMap[pos.symbol.ticker];
                       if (!entry) return <span className="text-xs text-muted-foreground">—</span>;
                       if (entry.rsi == null) {
-                        return <RsiBadge rsi={null} error={entry.error ?? null} inline />;
+                        return <RsiBadge rsi={null} error={entry.error ?? null} compact />;
                       }
-                      return <RsiBadge rsi={entry.rsi} via={entry.via} history={entry.history} inline />;
+                      return <RsiBadge rsi={entry.rsi} via={entry.via} history={entry.history} compact />;
                     })()}
                   </td>
                   <td className={`${cellCls} text-right font-medium ${currentVal < investedAmount ? "text-red-500 dark:text-red-400" : ""}`}>{formatAmount(currentVal, quote?.currency || pos.currencyCode || 'USD')}</td>

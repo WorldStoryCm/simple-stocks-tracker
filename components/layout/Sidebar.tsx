@@ -19,6 +19,7 @@ import {
 import { cn } from "@/components/component.utils";
 import { useSession } from "@/lib/auth-client";
 import { UserMenu } from "@/components/layout/UserMenu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/avatar";
 
 type NavItem = {
   name: string;
@@ -34,7 +35,7 @@ type NavGroup = {
 const NAV_GROUPS: NavGroup[] = [
   {
     items: [
-      { name: "Dashboard", href: "/", icon: LayoutDashboard },
+      { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
       { name: "Trades", href: "/trades", icon: ArrowRightLeft },
       { name: "Positions", href: "/positions", icon: PieChart },
       { name: "Performance", href: "/performance", icon: LineChart },
@@ -234,9 +235,14 @@ export function Sidebar() {
                 collapsed ? "justify-center p-1.5" : "gap-3 px-2 py-2",
               )}
             >
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full [background-image:linear-gradient(135deg,var(--brand-from),var(--brand-to))] text-xs font-semibold text-white">
-                {session.user.name?.charAt(0).toUpperCase() || "U"}
-              </span>
+              <Avatar className="h-8 w-8 shrink-0">
+                {session.user.image ? (
+                  <AvatarImage src={session.user.image} alt={session.user.name || "Avatar"} />
+                ) : null}
+                <AvatarFallback className="text-xs font-semibold text-white [background-image:linear-gradient(135deg,var(--brand-from),var(--brand-to))]">
+                  {session.user.name?.charAt(0).toUpperCase() || "U"}
+                </AvatarFallback>
+              </Avatar>
               {!collapsed && (
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-text-primary">

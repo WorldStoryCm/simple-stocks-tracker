@@ -39,14 +39,18 @@ A personal, manual stock journal and performance tracker for people who actively
 - Capital Progress settings (starting capital + monthly contributions)
 - Ticker catalog autocomplete
 
+### Planned (next)
+- **CSV / Excel import** — bulk-load historical trades from any broker export. Schema-detect, preview, confirm, then write through the same FIFO pipeline as manual entry.
+- **Full export** — one-click export of trades, platforms, symbols, and goals to CSV (so the user can hand it to an accountant or migrate to another tool).
+- **Shadow Theses** — narrative containers grouping multiple shadow cases under a single thesis.
+- **Catalyst Calendar** — upcoming earnings, ex-dividend, and economic events relevant to tracked symbols.
+
 ### Out of scope (v1)
-- Automatic broker sync / CSV import
-- Tax reporting
+- Automatic broker sync (live OAuth into broker accounts)
+- Tax reporting (export your data and give it to your accountant)
 - Dividends, options, forex, crypto
 - Multi-user collaboration
-- Margin/short borrowing
-- Shadow Theses (narrative containers grouping multiple cases) — *planned, not built*
-- Catalyst Calendar — *planned, not built*
+- Margin / short borrowing
 
 ---
 

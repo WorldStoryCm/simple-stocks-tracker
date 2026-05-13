@@ -1,10 +1,10 @@
 const items = [
   { gone: "Automatic broker sync", instead: "Manual entry — your data, your control" },
-  { gone: "Tax reporting", instead: "Use a real accountant for that" },
+  { gone: "Tax reporting", instead: "Export your data and hand it to your accountant" },
   { gone: "Options, forex, crypto", instead: "Stocks only, on purpose" },
   { gone: "Live charting", instead: "Quotes and RSI, nothing more" },
   { gone: "Multi-user collaboration", instead: "One portfolio, one person" },
-  { gone: "CSV / broker import", instead: "Type it. You'll remember it." },
+  { gone: "Cluttered analytics dashboards", instead: "The numbers you act on, nothing else" },
 ];
 
 export function NotHere() {

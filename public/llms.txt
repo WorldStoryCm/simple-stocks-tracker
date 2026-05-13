@@ -27,14 +27,20 @@ Stock Tracker is a single-user web app for people who actively buy and sell stoc
 - `/shadow` — Cases table (Open / Closed / Archived) with status badges, review drawer
 - `/settings` — Goals editor and Capital Progress configuration
 
+## Planned (next)
+
+- **CSV / Excel import** of historical trades from any broker export, parsed and written through the same FIFO pipeline as manual entry.
+- **Full export** to CSV — trades, platforms, symbols, and goals — so the user can hand it to an accountant or migrate to another tool.
+- **Shadow Theses** grouping multiple cases under a single narrative.
+- **Catalyst Calendar** for upcoming earnings and ex-dividend dates on tracked symbols.
+
 ## What's intentionally not here
 
-- Automatic broker sync — manual entry is the point
-- Tax reporting — use an accountant
+- Automatic broker sync (live OAuth into broker accounts)
+- Tax reporting — export your trade history and give it to your accountant
 - Options, forex, crypto — stocks only
 - Live charting — quotes and RSI only
 - Multi-user collaboration — one portfolio, one person
-- CSV / broker import — type it; you'll remember it
 
 ## FAQ
 
