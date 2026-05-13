@@ -1,0 +1,53 @@
+# Stock Tracker
+
+> A personal, manual stock journal that turns trades into clean P/L. Multi-broker ledger, FIFO realized P/L, RSI-aware positions, capital curves, win-rate breakdowns, and Shadow Trading for ideas you didn't act on.
+
+Stock Tracker is a single-user web app for people who actively buy and sell stocks across multiple brokers and want reproducible profit/loss visibility — without broker sync, spreadsheets, taxes, or options bloat. Every trade is entered manually. Every P/L figure is auditable down to the FIFO lot match that produced it.
+
+## Pillars
+
+- **Multi-platform manual ledger.** Log every buy and sell across all your brokers in one place. One currency per platform.
+- **Realized & unrealized P/L.** FIFO matching, deterministic, fully auditable. Persisted lot matches recompute incrementally when historical trades are edited.
+- **Capital curves.** Cumulative P/L over 1M, 3M, 1Y, and all-time.
+- **Wins & losses.** Win rate, P/L by symbol, recent trades, performance per day/week/month/year.
+- **RSI badges everywhere.** The same RSI signal — Oversold, Near Oversold, Neutral, Near Overbought, Overbought — on the watchlist, open positions, and shadow cases.
+- **Shadow Trading.** Capture a directional idea you didn't trade. Freeze the entry price + RSI + thesis. Review the outcome later.
+- **Goals.** Monthly and yearly profit goals with live progress.
+- **Mobile-ready.** Every page works on a phone.
+
+## Pages
+
+- `/` — Landing
+- `/dashboard` — KPIs (Month P/L, All-time P/L), Goals, Cumulative P/L chart, Platforms Summary, Recent Trades, P/L by Symbol
+- `/trades` — Trades log: All Actions / Buy / Sell tabs; sortable Date, Symbol, Platform, Type, Price, Qty, P/L
+- `/positions` — Table + Heatmap views grouped by platform, with RSI badges
+- `/performance` — Portfolio Growth chart; Daily / Weekly / Monthly / Yearly tabs; Realized P/L and Win Rate KPIs
+- `/platforms` — Per-platform totals (invested, current value, realized, unrealized)
+- `/symbols` — Watchlist with RSI badges, ticker-catalog search, RSI < 35 backtest over ~400 daily closes
+- `/shadow` — Cases table (Open / Closed / Archived) with status badges, review drawer
+- `/settings` — Goals editor and Capital Progress configuration
+
+## What's intentionally not here
+
+- Automatic broker sync — manual entry is the point
+- Tax reporting — use an accountant
+- Options, forex, crypto — stocks only
+- Live charting — quotes and RSI only
+- Multi-user collaboration — one portfolio, one person
+- CSV / broker import — type it; you'll remember it
+
+## FAQ
+
+**Does it sync with my broker?** No. Manual entry by design — it keeps the ledger auditable and broker-agnostic.
+
+**How is P/L calculated?** FIFO (first-in, first-out). Every sell is matched against the oldest open buy lots for the same symbol and platform.
+
+**What is Shadow Trading?** A feature for tracking ideas you didn't actually trade. You capture symbol, direction, entry price, and thesis. The system freezes that context so you can review honestly later.
+
+**Where does RSI come from?** Computed from daily closes and cached per ticker. The same badge appears on watchlist, positions, and shadow cases.
+
+**Is it free?** Yes. Sign in with Google.
+
+## Tech
+
+Next.js (App Router) · React · TypeScript · Tailwind · tRPC · Drizzle ORM · PostgreSQL · Better Auth · Recharts.

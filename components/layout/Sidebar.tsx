@@ -58,7 +58,7 @@ const FOOTER_ITEMS: NavItem[] = [
 function BrandMark({ collapsed = false }: { collapsed?: boolean }) {
   return (
     <Link
-      href="/"
+      href="/dashboard"
       className={cn(
         "flex items-center gap-2.5 rounded-md transition-colors hover:bg-[color:var(--surface-2)]",
         collapsed ? "justify-center px-1.5 py-1.5" : "px-2 py-1.5",

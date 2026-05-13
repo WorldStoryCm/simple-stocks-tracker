@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "../trpc";
-import { getRsiForTickers, getLastSyncedAt, runBacktest } from "@/lib/rsi";
+import { rsiService } from "../services/rsi";
 
 const tickerEntrySchema = z.object({
   ticker: z.string().min(1),
@@ -16,21 +16,13 @@ export const rsiRouter = router({
    */
   getMany: protectedProcedure
     .input(z.object({ tickers: z.array(tickerEntrySchema).min(1).max(50) }))
-    .query(async ({ ctx, input }) => {
-      const userId = ctx.session.user.id;
-      const results = await getRsiForTickers(userId, input.tickers);
-      return results;
-    }),
+    .query(({ ctx, input }) => rsiService.getMany(ctx.session.user.id, input.tickers)),
 
   /**
    * Returns the last time any RSI snapshot was synced for the current user.
    * Used for the header "Last sync was ..." status.
    */
-  lastSyncedAt: protectedProcedure.query(async ({ ctx }) => {
-    const userId = ctx.session.user.id;
-    const syncedAt = await getLastSyncedAt(userId);
-    return { syncedAt: syncedAt?.toISOString() ?? null };
-  }),
+  lastSyncedAt: protectedProcedure.query(({ ctx }) => rsiService.lastSyncedAt(ctx.session.user.id)),
 
   /**
    * Runs an RSI-below-35 crossing backtest for a single ticker over ~400 daily closes.
@@ -41,7 +33,5 @@ export const rsiRouter = router({
       ticker: z.string().min(1),
       rsiTicker: z.string().min(1).nullable().optional(),
     }))
-    .query(async ({ input }) => {
-      return runBacktest(input.ticker, input.rsiTicker ?? null);
-    }),
+    .query(({ input }) => rsiService.backtest(input.ticker, input.rsiTicker)),
 });

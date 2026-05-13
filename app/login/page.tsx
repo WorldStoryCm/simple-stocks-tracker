@@ -10,7 +10,7 @@ export default function LoginPage() {
         <h1 className="text-2xl font-bold">Sign In</h1>
         <p className="text-muted-foreground text-sm">Sign in to track your trades and positions.</p>
         <div className="w-full mt-4">
-          <GoogleButton handleGoogleSignIn={() => signIn.social({ provider: "google" })} />
+          <GoogleButton handleGoogleSignIn={() => signIn.social({ provider: "google", callbackURL: "/dashboard" })} />
         </div>
       </div>
     </div>
