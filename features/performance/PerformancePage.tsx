@@ -1,7 +1,6 @@
 "use client";
 
 import { trpc } from "@/lib/trpc";
-import { Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
 import {
   ComposedChart,
@@ -84,14 +83,6 @@ const PortfolioTooltip = ({ active, payload, label }: any) => {
 
 export function PerformancePage() {
   const { data: stats, isLoading } = trpc.performance.stats.useQuery();
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center p-12">
-        <Loader2 className="animate-spin text-muted-foreground w-8 h-8" />
-      </div>
-    );
-  }
 
   const renderPortfolioChart = (data: any[] | undefined) => {
     if (!data || data.length === 0) {
@@ -306,28 +297,28 @@ export function PerformancePage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
+        <Card loading={isLoading}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Realized P/L</CardTitle>
           </CardHeader>
           <CardContent>
             <div className={`text-3xl font-bold ${(stats?.totalRealizedPnl || 0) >= 0 ? "text-green-500" : "text-red-500"}`}>
-              ${stats?.totalRealizedPnl.toFixed(2)}
+              ${stats?.totalRealizedPnl?.toFixed(2) ?? "0.00"}
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card loading={isLoading}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Win Rate</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{stats?.winRate.toFixed(1)}%</div>
+            <div className="text-3xl font-bold">{stats?.winRate?.toFixed(1) ?? "0.0"}%</div>
             <p className="text-xs text-muted-foreground mt-1">Across all closed trades</p>
           </CardContent>
         </Card>
       </div>
 
-      <Card className="col-span-full mt-4">
+      <Card loading={isLoading} className="col-span-full mt-4">
         <CardContent className="pt-6">
           <Tabs defaultValue="daily" className="w-full">
             <TabsList className="grid w-full grid-cols-4 sm:w-[520px]">

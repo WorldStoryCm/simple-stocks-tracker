@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/button";
-import { Loader2, Plus, MoreHorizontal, ArrowUpDown, ArrowDown, ArrowUp, Search } from "lucide-react";
+import { Plus, MoreHorizontal, ArrowUpDown, ArrowDown, ArrowUp, Search } from "lucide-react";
+import { Card } from "@/components/card";
 import { TradeDialog } from "@/components/trades/TradeDialog";
 import { AddTradeButton } from "@/components/trades/AddTradeButton";
 import {
@@ -318,7 +319,10 @@ export function TradesPage() {
         </Tabs>
       </div>
 
-      <div className="rounded-[var(--radius-lg)] border border-border bg-card overflow-x-auto [scrollbar-gutter:stable]">
+      <Card
+        loading={isLoading}
+        className="overflow-x-auto [scrollbar-gutter:stable]"
+      >
         <table
           className="w-full text-sm"
           style={{ tableLayout: "fixed", minWidth: colTotal }}
@@ -350,15 +354,9 @@ export function TradesPage() {
           </thead>
           <tbody>
             {isLoading ? (
-              Array.from({ length: 8 }).map((_, i) => (
-                <tr key={`skeleton-${i}`} className="border-b border-border">
-                  {table.getVisibleLeafColumns().map((col) => (
-                    <td key={col.id} className="h-11 px-3 align-middle">
-                      <div className="h-3 w-3/4 animate-pulse rounded bg-[color:var(--surface-2)]" />
-                    </td>
-                  ))}
-                </tr>
-              ))
+              <tr>
+                <td colSpan={columns.length} className="h-[360px]" />
+              </tr>
             ) : trades.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="h-24 text-center text-text-tertiary">
@@ -390,7 +388,7 @@ export function TradesPage() {
             )}
           </tbody>
         </table>
-      </div>
+      </Card>
 
       <div className="flex items-center justify-between py-2">
         <div className="text-sm text-text-tertiary">

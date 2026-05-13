@@ -1,7 +1,8 @@
 "use client";
 
-import { Loader2, MoreHorizontal, ArrowUpDown, ArrowDown, ArrowUp } from "lucide-react";
+import { MoreHorizontal, ArrowUpDown, ArrowDown, ArrowUp } from "lucide-react";
 import { Button } from "@/components/button";
+import { Card } from "@/components/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/dropdown-menu";
 import { RsiBadge } from "@/components/rsi/RsiBadge";
 import { formatAmount, formatPrice } from "@/lib/currency";
@@ -85,7 +86,10 @@ export function PositionsTable({
   const colCount = Object.keys(COLUMN_SIZES).length;
 
   return (
-    <div className="rounded-[var(--radius-lg)] border border-border bg-card overflow-x-auto [scrollbar-gutter:stable]">
+    <Card
+      loading={isLoading}
+      className="overflow-x-auto [scrollbar-gutter:stable]"
+    >
       <table
         className="w-full text-sm"
         style={{ tableLayout: "fixed", minWidth: COL_TOTAL }}
@@ -117,9 +121,7 @@ export function PositionsTable({
         <tbody className="animate-stagger-in">
           {isLoading ? (
             <tr className="border-b border-border">
-              <td colSpan={colCount} className="h-24 text-center">
-                <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
-              </td>
+              <td colSpan={colCount} className="h-24 text-center" />
             </tr>
           ) : positions.length === 0 ? (
             <tr className="border-b border-border">
@@ -199,6 +201,6 @@ export function PositionsTable({
           )}
         </tbody>
       </table>
-    </div>
+    </Card>
   );
 }

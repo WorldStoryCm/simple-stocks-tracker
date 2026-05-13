@@ -6,6 +6,7 @@ import { Button } from "@/components/button";
 import { Input } from "@/components/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/table";
 import { Loader2, Plus, MoreHorizontal, RefreshCw, Search, BookOpen } from "lucide-react";
+import { Card } from "@/components/card";
 import { SymbolDialog } from "@/components/symbols/SymbolDialog";
 import { CatalogBrowserDialog } from "@/components/symbols/CatalogBrowserDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/dropdown-menu";
@@ -152,7 +153,10 @@ export function SymbolsPage() {
         </div>
       </div>
 
-      <div className="rounded-md border bg-card overflow-x-auto [scrollbar-gutter:stable]">
+      <Card
+        loading={isLoading}
+        className="rounded-md overflow-x-auto [scrollbar-gutter:stable]"
+      >
         <Table>
           <TableHeader>
             <TableRow>
@@ -167,9 +171,7 @@ export function SymbolsPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">
-                  <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
-                </TableCell>
+                <TableCell colSpan={6} className="h-24 text-center" />
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
@@ -210,7 +212,7 @@ export function SymbolsPage() {
             )}
           </TableBody>
         </Table>
-      </div>
+      </Card>
 
       <div className="flex items-center justify-between py-1">
         <div className="text-sm text-text-tertiary">

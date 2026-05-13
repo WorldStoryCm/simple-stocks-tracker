@@ -2,7 +2,7 @@
 
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader } from "@/components/card";
-import { Loader2, Pin } from "lucide-react";
+import { Pin } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/components/component.utils";
 
@@ -26,16 +26,14 @@ export function RightRail() {
   const { data: notes, isLoading } = trpc.shadow.listRecentNotes.useQuery({ limit: 30 });
 
   return (
-    <Card className="flex flex-col h-full">
+    <Card loading={isLoading} className="flex flex-col h-full">
       <CardHeader className="pb-3 border-b">
         <h2 className="font-semibold text-sm">Activity</h2>
         <p className="text-xs text-muted-foreground">Recent notes across all cases</p>
       </CardHeader>
       <CardContent className="flex-1 overflow-y-auto p-3">
         {isLoading ? (
-          <div className="flex justify-center py-6">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          </div>
+          <div className="min-h-[120px]" />
         ) : !notes || notes.length === 0 ? (
           <div className="flex flex-col items-center py-8 text-center">
             <p className="text-xs text-muted-foreground">No notes yet. Add notes to your cases as they develop.</p>

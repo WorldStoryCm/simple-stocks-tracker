@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { Loader2 } from "lucide-react";
 import { Treemap, ResponsiveContainer, Tooltip as RechartsTooltip } from "recharts";
+import { Card } from "@/components/card";
 
 // Map PnL% to a color along a red→neutral→green gradient.
 // Intensity saturates at ±20% so extreme values don't dominate.
@@ -71,22 +71,20 @@ export function HeatmapView({
 
   if (isLoading) {
     return (
-      <div className="flex h-[500px] items-center justify-center rounded-md border bg-card">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
+      <Card loading className="h-[500px]" />
     );
   }
 
   if (data.length === 0) {
     return (
-      <div className="flex h-[500px] items-center justify-center rounded-md border bg-card text-muted-foreground text-sm">
+      <Card className="flex h-[500px] items-center justify-center text-muted-foreground text-sm">
         No open positions to visualize.
-      </div>
+      </Card>
     );
   }
 
   return (
-    <div className="rounded-md border bg-card p-2">
+    <Card className="p-2">
       <div className="h-[500px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <Treemap
@@ -120,6 +118,6 @@ export function HeatmapView({
       <p className="mt-2 text-xs text-muted-foreground px-2">
         Tile size = current market value. Color = unrealized P/L % (saturates at ±20%). Click a tile to view details.
       </p>
-    </div>
+    </Card>
   );
 }

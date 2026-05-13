@@ -373,15 +373,17 @@ function KpiCard({
   value,
   delta,
   deltaLabel,
+  loading,
 }: {
   label: string;
   value: number;
   delta?: number;
   deltaLabel?: string;
+  loading?: boolean;
 }) {
   const isPos = value >= 0;
   return (
-    <Card className="overflow-hidden">
+    <Card loading={loading} className="overflow-hidden">
       <CardContent className="flex flex-col gap-3 p-5">
         <span className="text-xs uppercase tracking-[0.12em] text-text-tertiary">
           {label}
@@ -424,12 +426,14 @@ function KpiCard({
 function FreeCashCard({
   value,
   currencyCode,
+  loading,
 }: {
   value: number;
   currencyCode: string;
+  loading?: boolean;
 }) {
   return (
-    <Card className="overflow-hidden">
+    <Card loading={loading} className="overflow-hidden">
       <CardContent className="flex flex-col gap-3 p-5">
         <span className="text-xs uppercase tracking-[0.12em] text-text-tertiary">
           Free Cash
@@ -452,14 +456,16 @@ function CapitalGoalCard({
   current,
   target,
   currencyCode,
+  loading,
 }: {
   current: number;
   target: number;
   currencyCode: string;
+  loading?: boolean;
 }) {
   const pct = target > 0 ? Math.min((current / target) * 100, 100) : 0;
   return (
-    <Card className="overflow-hidden">
+    <Card loading={loading} className="overflow-hidden">
       <CardContent className="flex flex-col gap-3 p-5">
         <span className="text-xs uppercase tracking-[0.12em] text-text-tertiary">
           Capital Goal
@@ -540,12 +546,14 @@ function GoalRow({
 function GoalsCard({
   monthly,
   yearly,
+  loading,
 }: {
   monthly: { current: number; target: number };
   yearly: { current: number; target: number };
+  loading?: boolean;
 }) {
   return (
-    <Card>
+    <Card loading={loading} className="overflow-hidden">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium text-text-secondary">
           Goals
@@ -563,11 +571,13 @@ function GoalsCard({
 
 function CumulativeChartCard({
   data,
+  loading,
 }: {
   data: { period: string; cumulativePnl: number }[];
+  loading?: boolean;
 }) {
   return (
-    <Card className="lg:col-span-2">
+    <Card loading={loading} className="overflow-hidden lg:col-span-2">
       <CardHeader className="pb-2 flex-row items-center justify-between">
         <CardTitle className="text-sm font-medium text-text-secondary">
           Cumulative P/L (All-time)
@@ -652,12 +662,14 @@ function CumulativeChartCard({
 
 function PlatformsSummaryCard({
   data,
+  loading,
 }: {
   data: { name: string; value: number }[];
+  loading?: boolean;
 }) {
   const total = data.reduce((s, d) => s + d.value, 0);
   return (
-    <Card>
+    <Card loading={loading} className="overflow-hidden">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium text-text-secondary">
           Platforms Summary
@@ -698,11 +710,11 @@ function PlatformsSummaryCard({
 /* ---------------- recent trades ---------------- */
 
 function RecentTradesCard() {
-  const { data } = trpc.trades.list.useQuery({ page: 1, limit: 5 });
+  const { data, isLoading } = trpc.trades.list.useQuery({ page: 1, limit: 5 });
   const items = data?.items ?? [];
 
   return (
-    <Card className="lg:col-span-2">
+    <Card loading={isLoading} className="overflow-hidden lg:col-span-2">
       <CardHeader className="pb-2 flex-row items-center justify-between">
         <CardTitle className="text-sm font-medium text-text-secondary">
           Recent Trades
@@ -808,13 +820,15 @@ function MoversList({
   title,
   rows,
   positive,
+  loading,
 }: {
   title: string;
   rows: { ticker: string; pnl: number; pct: number }[];
   positive: boolean;
+  loading?: boolean;
 }) {
   return (
-    <Card>
+    <Card loading={loading} className="overflow-hidden">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium text-text-secondary">
           {title}
@@ -865,7 +879,7 @@ function ProfitLossBySymbolCard() {
   const autoSelectedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const { data: symbols = [] } = trpc.symbols.list.useQuery();
+  const { data: symbols = [], isLoading: symbolsLoading } = trpc.symbols.list.useQuery();
   const { data: pnlData, isLoading: pnlLoading } = trpc.trades.symbolPnl.useQuery(
     { symbolId: selected?.id ?? "" },
     { enabled: !!selected?.id },
@@ -919,7 +933,7 @@ function ProfitLossBySymbolCard() {
   return (
     // z-[60] + relative when dropdown open so this card's stacking context
     // sits above sibling grid cards (which have transition-based stacking contexts)
-    <Card className={cn(isOpen && "relative z-[60]")}>
+    <Card loading={symbolsLoading} className={cn("relative", isOpen && "z-[60]")}>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium text-text-secondary">
           P/L by Symbol
@@ -977,9 +991,7 @@ function ProfitLossBySymbolCard() {
         {selected && (
           <>
             {pnlLoading ? (
-              <div className="flex h-[240px] items-center justify-center text-sm text-text-tertiary">
-                Loading…
-              </div>
+              <div className="h-[240px]" />
             ) : chartData.length === 0 ? (
               <div className="flex h-[240px] items-center justify-center text-sm text-text-tertiary">
                 No closed trades for {selected.ticker} yet.
@@ -1088,8 +1100,8 @@ export function DashboardPage() {
   const { data: symbolsList } = trpc.symbols.list.useQuery();
 
   const queryFilters = useMemo(() => ({ filters }), [filters]);
-  const { data: perf, isLoading } = trpc.performance.stats.useQuery(queryFilters);
-  const { data: positions } = trpc.positions.list.useQuery(queryFilters);
+  const { data: perf, isLoading: perfLoading } = trpc.performance.stats.useQuery(queryFilters);
+  const { data: positions, isLoading: positionsLoading } = trpc.positions.list.useQuery(queryFilters);
 
   const monthPnl = useMemo(() => {
     const arr = perf?.monthlyStats?.data;
@@ -1144,14 +1156,16 @@ export function DashboardPage() {
         <FreeCashCard
           value={(perf as any)?.capitalProgress?.cashAmount ?? 0}
           currencyCode={(perf as any)?.capitalProgress?.currencyCode ?? "EUR"}
+          loading={perfLoading}
         />
         <CapitalGoalCard
           current={(perf as any)?.capitalProgress?.totalAmount ?? 0}
           target={(perf as any)?.capitalProgress?.targetAmount ?? 0}
           currencyCode={(perf as any)?.capitalProgress?.currencyCode ?? "EUR"}
+          loading={perfLoading}
         />
-        <KpiCard label="Month P/L" value={monthPnl} delta={9.22} />
-        <KpiCard label="All-time P/L" value={allTimePnl} delta={29.76} />
+        <KpiCard label="Month P/L" value={monthPnl} delta={9.22} loading={perfLoading} />
+        <KpiCard label="All-time P/L" value={allTimePnl} delta={29.76} loading={perfLoading} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -1164,24 +1178,21 @@ export function DashboardPage() {
             current: yearlyGoal?.current ?? allTimePnl,
             target: yearlyGoal?.target ?? 30000,
           }}
+          loading={perfLoading}
         />
-        <CumulativeChartCard data={portfolioStats} />
+        <CumulativeChartCard data={portfolioStats} loading={perfLoading} />
       </div>
 
-      <PlatformsSummaryCard data={platforms} />
+      <PlatformsSummaryCard data={platforms} loading={perfLoading} />
 
       <ProfitLossBySymbolCard />
 
       <RecentTradesCard />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <MoversList title="Top Gainers" rows={movers.gainers} positive />
-        <MoversList title="Top Losers" rows={movers.losers} positive={false} />
+        <MoversList title="Top Gainers" rows={movers.gainers} positive loading={positionsLoading} />
+        <MoversList title="Top Losers" rows={movers.losers} positive={false} loading={positionsLoading} />
       </div>
-
-      {isLoading && (
-        <div className="text-xs text-text-tertiary">Loading…</div>
-      )}
     </div>
   );
 }

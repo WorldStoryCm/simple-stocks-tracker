@@ -1,18 +1,27 @@
 "use client";
 
 import { cn } from "@/components/component.utils";
+import { CardLoading } from "@/components/CardLoading";
 import { type HTMLAttributes, forwardRef } from "react";
 
-const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
+type CardProps = HTMLAttributes<HTMLDivElement> & {
+  loading?: boolean;
+};
+
+const Card = forwardRef<HTMLDivElement, CardProps>(
+  ({ className, loading, children, ...props }, ref) => (
     <div
       ref={ref}
       className={cn(
-        "bg-card text-card-foreground rounded-[var(--radius-lg)] border border-border shadow-[var(--shadow-sm)] transition-all duration-300 ease-out hover:border-[var(--surface-3)] hover:shadow-[var(--shadow-md)]",
+        "bg-card text-card-foreground rounded-[var(--radius-lg)] border border-border shadow-[var(--shadow-sm)]",
+        loading && "relative overflow-hidden",
         className
       )}
       {...props}
-    />
+    >
+      {children}
+      {loading && <CardLoading />}
+    </div>
   )
 );
 Card.displayName = "Card";

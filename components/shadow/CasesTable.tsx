@@ -9,7 +9,7 @@ import { DirectionBadge, StatusBadge, OutcomeBadge, MoveBadge } from "./ShadowBa
 import { RsiBadge } from "@/components/rsi/RsiBadge";
 import { ReviewDrawer } from "./ReviewDrawer";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/dropdown-menu";
-import { Loader2, MoreHorizontal, ClipboardCheck, Archive, StickyNote } from "lucide-react";
+import { MoreHorizontal, ClipboardCheck, Archive, StickyNote } from "lucide-react";
 import { differenceInDays, format } from "date-fns";
 import toast from "react-hot-toast";
 
@@ -256,7 +256,7 @@ export function CasesTable({ onAddNote }: CasesTableProps) {
 
   return (
     <>
-      <Card className="flex flex-col h-full min-h-0">
+      <Card loading={isLoading} className="flex flex-col h-full min-h-0">
         <CardHeader className="pb-0 border-b px-4 pt-3">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="bg-transparent h-auto gap-2 p-0">
@@ -289,9 +289,7 @@ export function CasesTable({ onAddNote }: CasesTableProps) {
         </CardHeader>
         <CardContent className="flex-1 overflow-y-auto p-0">
           {isLoading ? (
-            <div className="flex justify-center py-10">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
+            <div className="min-h-[200px]" />
           ) : (
             <>
               {activeTab === "open" && (

@@ -6,6 +6,7 @@ import { Button } from "@/components/button";
 import { Input } from "@/components/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/table";
 import { Loader2, Plus, MoreHorizontal, ArrowDownToLine, ArrowUpFromLine, Wallet } from "lucide-react";
+import { Card } from "@/components/card";
 import { PlatformDialog } from "@/components/platforms/PlatformDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogFooter } from "@/components/dialog";
@@ -124,7 +125,10 @@ export function PlatformsPage() {
         </Button>
       </div>
 
-      <div className="rounded-md border bg-card overflow-x-auto [scrollbar-gutter:stable]">
+      <Card
+        loading={isLoading}
+        className="rounded-md overflow-x-auto [scrollbar-gutter:stable]"
+      >
         <Table>
           <TableHeader>
             <TableRow>
@@ -138,9 +142,7 @@ export function PlatformsPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center">
-                  <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
-                </TableCell>
+                <TableCell colSpan={5} className="h-24 text-center" />
               </TableRow>
             ) : platforms?.length === 0 ? (
               <TableRow>
@@ -221,7 +223,7 @@ export function PlatformsPage() {
             )}
           </TableBody>
         </Table>
-      </div>
+      </Card>
 
       <PlatformDialog
         open={isDialogOpen}

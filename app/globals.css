@@ -381,6 +381,16 @@ table,
   animation: milestone-badge 1700ms var(--ease-out-expo) forwards;
 }
 
+@keyframes card-loading-sweep {
+  0% { transform: translate3d(-50%, -50%, 0); }
+  100% { transform: translate3d(50%, 50%, 0); }
+}
+
+.animate-card-loading-sweep {
+  animation: card-loading-sweep 3.2s ease-in-out infinite;
+  will-change: transform;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

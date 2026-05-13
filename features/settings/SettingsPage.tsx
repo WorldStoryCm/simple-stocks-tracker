@@ -210,7 +210,7 @@ export function SettingsPage() {
         <p className="text-muted-foreground mt-1">Configure your profit goals and capital target.</p>
       </div>
 
-      <Card id="capital-progress-settings">
+      <Card id="capital-progress-settings" loading={capitalProgressLoading}>
         <CardHeader>
           <CardTitle>Capital Goal Progress</CardTitle>
           <CardDescription>
@@ -219,9 +219,7 @@ export function SettingsPage() {
         </CardHeader>
         <CardContent>
           {capitalProgressLoading ? (
-            <div className="py-6 flex justify-center">
-              <Loader2 className="animate-spin h-5 w-5 text-muted-foreground" />
-            </div>
+            <div className="min-h-[180px]" />
           ) : (
             <div className="grid gap-5">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -270,14 +268,14 @@ export function SettingsPage() {
       </Card>
 
       {/* Profit Goals */}
-      <Card>
+      <Card loading={goalsLoading}>
         <CardHeader>
           <CardTitle>Profit Goals</CardTitle>
           <CardDescription>Set monthly and yearly profit targets to track your progress on the dashboard.</CardDescription>
         </CardHeader>
         <CardContent>
           {goalsLoading ? (
-            <div className="py-6 flex justify-center"><Loader2 className="animate-spin h-5 w-5 text-muted-foreground" /></div>
+            <div className="min-h-[140px]" />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {GOAL_TYPES.map((type) => (
