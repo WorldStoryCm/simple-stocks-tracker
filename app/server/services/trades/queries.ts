@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray, sql, SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, lte, sql, SQL } from "drizzle-orm";
 import { db } from "@/db/drizzle";
 import { trades, tradeLotMatches } from "@/db/schema";
 
@@ -8,12 +8,14 @@ export type TradesListInput = {
   action: string;
   symbolId?: string;
   platformId?: string;
+  dateFrom?: string;
+  dateTo?: string;
   sortField: "tradeDate" | "symbolId" | "platformId" | "tradeType" | "price" | "quantity" | "total";
   sortDir: "asc" | "desc";
 };
 
 export async function list(userId: string, input: TradesListInput) {
-  const { page, limit, action, symbolId, platformId, sortField, sortDir } = input;
+  const { page, limit, action, symbolId, platformId, dateFrom, dateTo, sortField, sortDir } = input;
   const conditions: SQL[] = [eq(trades.userId, userId)];
 
   if (action && action !== "all") {
@@ -21,6 +23,8 @@ export async function list(userId: string, input: TradesListInput) {
   }
   if (symbolId && symbolId !== "all") conditions.push(eq(trades.symbolId, symbolId));
   if (platformId && platformId !== "all") conditions.push(eq(trades.platformId, platformId));
+  if (dateFrom) conditions.push(gte(trades.tradeDate, dateFrom));
+  if (dateTo) conditions.push(lte(trades.tradeDate, dateTo));
 
   const whereClause = and(...conditions);
 
@@ -93,9 +97,17 @@ export async function getOpenQuantity(userId: string, platformId: string, symbol
   return totalOpen;
 }
 
-export async function symbolPnl(userId: string, symbolId: string) {
+export async function symbolPnl(
+  userId: string,
+  input: { symbolId: string; platformId?: string; dateFrom?: string; dateTo?: string },
+) {
+  const conditions: SQL[] = [eq(trades.userId, userId), eq(trades.symbolId, input.symbolId)];
+  if (input.platformId && input.platformId !== "all") conditions.push(eq(trades.platformId, input.platformId));
+  if (input.dateFrom) conditions.push(gte(trades.tradeDate, input.dateFrom));
+  if (input.dateTo) conditions.push(lte(trades.tradeDate, input.dateTo));
+
   const symbolTrades = await db.query.trades.findMany({
-    where: and(eq(trades.userId, userId), eq(trades.symbolId, symbolId)),
+    where: and(...conditions),
     orderBy: [asc(trades.tradeDate), asc(trades.createdAt)],
   });
 

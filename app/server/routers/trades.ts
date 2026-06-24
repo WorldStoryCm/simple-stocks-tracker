@@ -9,6 +9,8 @@ const tradesListInput = z
     action: z.string().default("all"),
     symbolId: z.string().optional(),
     platformId: z.string().optional(),
+    dateFrom: z.string().optional(),
+    dateTo: z.string().optional(),
     sortField: z.enum(["tradeDate", "symbolId", "platformId", "tradeType", "price", "quantity", "total"]).default("tradeDate"),
     sortDir: z.enum(["asc", "desc"]).default("desc"),
   })
@@ -50,6 +52,11 @@ export const tradesRouter = router({
     .mutation(({ ctx, input }) => tradesService.remove(ctx.session.user.id, input.id)),
 
   symbolPnl: protectedProcedure
-    .input(z.object({ symbolId: z.string().min(1) }))
-    .query(({ ctx, input }) => tradesService.symbolPnl(ctx.session.user.id, input.symbolId)),
+    .input(z.object({
+      symbolId: z.string().min(1),
+      platformId: z.string().optional(),
+      dateFrom: z.string().optional(),
+      dateTo: z.string().optional(),
+    }))
+    .query(({ ctx, input }) => tradesService.symbolPnl(ctx.session.user.id, input)),
 });
