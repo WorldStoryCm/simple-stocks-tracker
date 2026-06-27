@@ -38,6 +38,11 @@ const COLUMN_SIZES = {
   actions: 44,
 };
 const COL_TOTAL = Object.values(COLUMN_SIZES).reduce((a, b) => a + b, 0);
+const YAHOO_QUOTE_URL = "https://finance.yahoo.com/quote";
+
+function getYahooQuoteUrl(ticker: string) {
+  return `${YAHOO_QUOTE_URL}/${encodeURIComponent(ticker.trim())}`;
+}
 
 function formatQty(qty: number) {
   const fixed = qty.toFixed(4);
@@ -158,7 +163,15 @@ export function PositionsTable({
                     }`}
                     title={quote ? `${quote.changePercent >= 0 ? '+' : ''}${quote.changePercent.toFixed(2)}% today` : undefined}
                   >
-                    {formatPrice(marketPrice, quote?.currency || pos.currencyCode || 'USD')}
+                    <a
+                      href={getYahooQuoteUrl(pos.symbol.ticker)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block rounded-sm underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-label={`Open ${pos.symbol.ticker} on Yahoo Finance`}
+                    >
+                      {formatPrice(marketPrice, quote?.currency || pos.currencyCode || 'USD')}
+                    </a>
                   </td>
                   <td className={cellCls}>
                     {(() => {
