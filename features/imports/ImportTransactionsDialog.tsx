@@ -124,16 +124,18 @@ export function ImportTransactionsDialog({
     if (statusFilter === "selected") return selected.has(row.rowHash);
     return row.status === statusFilter;
   }) ?? [];
+  const historyBatches = (history ?? []) as ImportBatch[];
+  const showHistory = !preview && historyBatches.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         accessibleTitle="Import transactions"
-        className="left-0 top-0 flex h-[100dvh] max-h-none w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-4 overflow-hidden rounded-none border-0 p-4 shadow-none sm:rounded-none sm:p-6"
+        className="left-0 top-0 flex h-[100dvh] max-h-none w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-3 overflow-hidden rounded-none border-0 p-4 shadow-none sm:rounded-none sm:p-5"
       >
         <DialogHeader title="Import Activity" className="shrink-0 pb-3" />
-        <div className="flex min-h-0 flex-1 flex-col gap-4">
-          <div className="grid grid-cols-1 gap-3 xl:grid-cols-[160px_200px_minmax(260px,1fr)_160px]">
+        <div className="flex min-h-0 flex-1 flex-col gap-3">
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-[140px_170px_minmax(220px,1fr)_136px]">
             <Select
               value={sourceSystem}
               onValueChange={(value) => {
@@ -141,7 +143,7 @@ export function ImportTransactionsDialog({
                 resetFileState();
               }}
             >
-              <SelectTrigger><SelectValue placeholder="Source" /></SelectTrigger>
+              <SelectTrigger className="h-9"><SelectValue placeholder="Source" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="revolut">Revolut</SelectItem>
                 <SelectItem value="ibkr">IBKR</SelectItem>
@@ -157,7 +159,7 @@ export function ImportTransactionsDialog({
                 setSelected(new Set());
               }}
             >
-              <SelectTrigger><SelectValue placeholder="Platform" /></SelectTrigger>
+              <SelectTrigger className="h-9"><SelectValue placeholder="Platform" /></SelectTrigger>
               <SelectContent>
                 {platforms?.map((platform) => (
                   <SelectItem key={platform.id} value={platform.id}>{platform.name}</SelectItem>
@@ -165,7 +167,7 @@ export function ImportTransactionsDialog({
               </SelectContent>
             </Select>
 
-            <label className="flex h-8 min-w-0 cursor-pointer items-center gap-2 rounded-md border border-dashed border-border bg-[color:var(--surface-1)] px-3 text-sm hover:bg-[color:var(--surface-2)]/60">
+            <label className="flex h-9 min-w-0 cursor-pointer items-center gap-2 rounded-md border border-dashed border-border bg-[color:var(--surface-1)] px-3 text-sm hover:bg-[color:var(--surface-2)]/60">
               <FileUp className="h-4 w-4 shrink-0 text-text-tertiary" />
               <span className="min-w-0 flex-1 truncate text-text-primary">{fileName || "Choose CSV export"}</span>
               <input
@@ -176,7 +178,13 @@ export function ImportTransactionsDialog({
               />
             </label>
 
-            <Button type="button" variant="outline" disabled={!platformId || !fileContent || pending} onClick={runPreview}>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-9 px-3"
+              disabled={!platformId || !fileContent || pending}
+              onClick={runPreview}
+            >
               <Upload className="mr-1.5 h-4 w-4" />
               Preview
             </Button>
@@ -188,13 +196,15 @@ export function ImportTransactionsDialog({
             activeFilter={statusFilter}
             onFilterChange={setStatusFilter}
           />
-          <ImportPreviewTable rows={visibleRows} selected={selected} toggle={toggle} className="min-h-0 flex-1" />
-          <ImportHistoryPanel
-            batches={(history ?? []) as ImportBatch[]}
-            isLoading={historyLoading}
-            isRollingBack={rollbackMutation.isPending}
-            onRollback={(batchId) => rollbackMutation.mutate({ batchId })}
-          />
+          <ImportPreviewTable rows={visibleRows} selected={selected} toggle={toggle} className="min-h-[360px] flex-1" />
+          {showHistory && (
+            <ImportHistoryPanel
+              batches={historyBatches}
+              isLoading={historyLoading}
+              isRollingBack={rollbackMutation.isPending}
+              onRollback={(batchId) => rollbackMutation.mutate({ batchId })}
+            />
+          )}
         </div>
 
         <DialogFooter className="shrink-0 border-t border-border pt-3">
