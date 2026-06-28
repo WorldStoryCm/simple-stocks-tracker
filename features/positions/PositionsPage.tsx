@@ -7,6 +7,7 @@ import { TradeDialog } from "@/components/trades/TradeDialog";
 import { ViewPositionDialog } from "@/components/positions/ViewPositionDialog";
 import { RsiBacktestDialog } from "@/components/rsi/RsiBacktestDialog";
 import { HeatmapView } from "./components/HeatmapView";
+import { PositionsExportMenu } from "./components/PositionsExportMenu";
 import { PositionsFilterBar } from "./components/PositionsFilterBar";
 import { PositionsTable, type RsiMapEntry } from "./components/PositionsTable";
 import { PositionsPagination } from "./components/PositionsPagination";
@@ -95,6 +96,7 @@ export function PositionsPage() {
         setPlatformFilter={view.setPlatformFilter}
         groupBy={view.filters.groupBy}
         setGroupBy={view.setGroupBy}
+        actions={<PositionsExportMenu positions={view.filtered} isLoading={isLoading} />}
         onChange={() => view.setPage(1)}
       />
 

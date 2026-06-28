@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Search } from "lucide-react";
 import { Button } from "@/components/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/Popover";
@@ -17,6 +17,7 @@ export function PositionsFilterBar({
   setPlatformFilter,
   groupBy,
   setGroupBy,
+  actions,
   onChange,
 }: {
   symbols: any[] | undefined;
@@ -27,6 +28,7 @@ export function PositionsFilterBar({
   setPlatformFilter: (v: string) => void;
   groupBy: PositionsGroupBy;
   setGroupBy: (v: PositionsGroupBy) => void;
+  actions?: ReactNode;
   onChange?: () => void;
 }) {
   const [symbolOpen, setSymbolOpen] = useState(false);
@@ -95,6 +97,11 @@ export function PositionsFilterBar({
           </SelectContent>
         </Select>
       </div>
+      {actions ? (
+        <div className="flex w-full items-center justify-end sm:w-auto">
+          {actions}
+        </div>
+      ) : null}
     </div>
   );
 }

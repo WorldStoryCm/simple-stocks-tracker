@@ -112,6 +112,7 @@ export function usePositionsView({
     page,
     setPage,
     totalPages,
+    filtered,
     display,
     paginated,
   };
