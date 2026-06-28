@@ -15,7 +15,7 @@ export function LandingNav() {
         <nav className="hidden sm:flex items-center gap-6 text-sm text-text-secondary">
           <a href="#features" className="hover:text-text-primary transition-colors">Features</a>
           <a href="#mobile" className="hover:text-text-primary transition-colors">Mobile</a>
-          <a href="#not-here" className="hover:text-text-primary transition-colors">What's not here</a>
+          <a href="#not-here" className="hover:text-text-primary transition-colors">What&apos;s not here</a>
         </nav>
 
         <div className="flex items-center gap-2">

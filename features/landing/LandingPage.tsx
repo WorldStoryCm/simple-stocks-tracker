@@ -26,7 +26,7 @@ export function LandingPage() {
           </div>
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Start your journal.</h2>
           <p className="mt-3 text-text-secondary max-w-md mx-auto">
-            Sign in with Google. Add a platform. Log your first trade. That's it.
+            Sign in with Google. Add a platform. Import a Revolut export or log your first trade.
           </p>
           <Link
             href="/login"

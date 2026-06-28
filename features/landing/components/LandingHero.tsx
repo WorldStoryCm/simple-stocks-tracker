@@ -10,17 +10,14 @@ export function LandingHero() {
       <div className="mx-auto w-full max-w-[1200px] px-6 lg:px-8 pt-16 sm:pt-24 pb-12 sm:pb-16">
         <div className="text-center max-w-3xl mx-auto">
           <span className="inline-flex items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-1)] px-3 py-1 text-xs text-text-secondary">
-            Personal stock journal · No broker sync needed
+            Revolut CSV import · IBKR-ready workflow · FIFO P/L
           </span>
           <h1 className="mt-5 text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.05]">
-            A stock journal that turns your trades into{" "}
-            <span className="bg-clip-text text-transparent [background-image:linear-gradient(135deg,var(--brand-from),var(--brand-to))]">
-              clean P/L.
-            </span>
+            Turn broker exports into a clean stock ledger.
           </h1>
           <p className="mt-5 text-base sm:text-lg text-text-secondary max-w-2xl mx-auto">
-            Log every buy and sell across all your brokers in one place. Get FIFO realized P/L,
-            RSI-aware positions, and a structured place to track ideas you didn't trade.
+            Import activity from Revolut, review matched and missing rows before anything is saved,
+            track dividends separately, and get FIFO realized P/L across your platforms.
           </p>
           <div className="mt-8 flex items-center justify-center gap-3">
             <Link
@@ -34,7 +31,7 @@ export function LandingHero() {
               href="#features"
               className="inline-flex items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-1)] px-5 py-3 text-sm font-medium hover:bg-[color:var(--surface-2)] transition-colors"
             >
-              See the dashboard
+              See what it tracks
             </a>
           </div>
         </div>
@@ -43,7 +40,7 @@ export function LandingHero() {
           <Screenshot
             slot="hero"
             aspect="16 / 9"
-            label="Dashboard — KPIs, cumulative P/L, goals, recent trades"
+            label="Dashboard — broker activity, dividends, FIFO P/L, open positions"
           />
         </div>
       </div>

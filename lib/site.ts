@@ -5,10 +5,10 @@ export const SITE_URL = (
 
 export const SITE_NAME = "Stock Tracker";
 
-export const SITE_TAGLINE = "A personal stock journal that turns your trades into clean P/L.";
+export const SITE_TAGLINE = "A personal stock journal that turns broker exports into clean P/L.";
 
 export const SITE_DESCRIPTION =
-  "Stock Tracker is a personal, manual stock journal. Log every buy and sell across all your brokers in one place. Get FIFO realized P/L, RSI-aware positions, capital curves, win-rate breakdowns, and Shadow Trading to review the ideas you didn't act on.";
+  "Stock Tracker is a personal stock journal for imported and manual trades. Import Revolut CSV activity, prepare for IBKR exports, track dividends, and get FIFO realized P/L, RSI-aware positions, capital curves, and win-rate breakdowns.";
 
 export const SITE_KEYWORDS = [
   "stock journal",
@@ -18,8 +18,9 @@ export const SITE_KEYWORDS = [
   "realized profit and loss",
   "unrealized P/L",
   "RSI",
-  "shadow trading",
-  "trading review",
+  "Revolut import",
+  "IBKR import",
+  "dividend tracker",
   "manual portfolio tracker",
   "multi-broker tracker",
 ];

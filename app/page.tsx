@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { LandingPage } from "@/features/landing/LandingPage";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 
-const TITLE = `${SITE_NAME} — A personal stock journal with FIFO P/L, RSI signals & Shadow Trading`;
+const TITLE = `${SITE_NAME} — Import broker activity, track dividends, and get FIFO P/L`;
 
 export const metadata: Metadata = {
   title: TITLE,

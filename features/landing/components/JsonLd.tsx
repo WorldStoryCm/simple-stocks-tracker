@@ -14,10 +14,12 @@ const softwareApplication = {
     "Multi-platform manual trade ledger",
     "FIFO realized profit and loss",
     "Unrealized P/L with live quotes",
+    "Revolut CSV import preview",
+    "Import batch rollback",
+    "Dividend and cash-event tracking",
     "Cumulative P/L chart (1M, 3M, 1Y, all-time)",
     "Win rate and per-period performance",
-    "RSI badges on watchlist, positions, and shadow cases",
-    "Shadow Trading — review the trades you didn't make",
+    "RSI badges on watchlist and positions",
     "Monthly and yearly profit goals",
   ],
 };
@@ -40,7 +42,15 @@ const faq = {
       name: "Does Stock Tracker sync with my broker?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "No. Stock Tracker is intentionally a manual journal. You log every buy and sell yourself, which keeps the ledger auditable and broker-agnostic.",
+        text: "No live broker sync is required. Stock Tracker imports broker export files, starting with Revolut CSV, and keeps manual entry available for anything missing.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Can I review an import before saving it?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Yes. The import preview separates new rows, matched rows, possible duplicates, ignored rows, and rows that need review before you commit anything.",
       },
     },
     {
@@ -53,10 +63,10 @@ const faq = {
     },
     {
       "@type": "Question",
-      name: "What is Shadow Trading?",
+      name: "Does it track dividends?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Shadow Trading is a feature for tracking ideas you didn't actually trade. You capture the symbol, direction, entry price, and thesis. The system freezes that context so you can later review what would have happened — without hindsight pollution.",
+        text: "Yes. Dividends and dividend tax are stored as separate cash events, so income can be reviewed without mixing it into FIFO trade P/L.",
       },
     },
     {
@@ -64,7 +74,7 @@ const faq = {
       name: "Where does the RSI signal come from?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "RSI values are computed from daily closes and cached per ticker. The same RSI badge — Oversold, Near Oversold, Neutral, Near Overbought, Overbought — appears on your watchlist, your open positions, and your shadow cases for consistency.",
+        text: "RSI values are computed from daily closes and cached per ticker. The same RSI badge — Oversold, Near Oversold, Neutral, Near Overbought, Overbought — appears on your watchlist and open positions for consistency.",
       },
     },
     {

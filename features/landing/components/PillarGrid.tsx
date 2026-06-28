@@ -1,4 +1,4 @@
-import { Layers, TrendingUp, LineChart, Trophy, Activity, Eye, FileSpreadsheet } from "lucide-react";
+import { Layers, TrendingUp, LineChart, Trophy, Activity, FileSpreadsheet, Banknote } from "lucide-react";
 
 interface Pillar {
   icon: typeof Layers;
@@ -11,7 +11,12 @@ const pillars: Pillar[] = [
   {
     icon: Layers,
     title: "Multi-platform ledger",
-    body: "Log every buy and sell across Revolut, IBKR, whatever you use. One ledger, no spreadsheet.",
+    body: "Keep Revolut, IBKR, and manual trades in one ledger with platform-level cash balances.",
+  },
+  {
+    icon: FileSpreadsheet,
+    title: "Broker import preview",
+    body: "Import Revolut CSV exports, see matched vs missing rows, and rollback a batch if needed.",
   },
   {
     icon: TrendingUp,
@@ -30,19 +35,13 @@ const pillars: Pillar[] = [
   },
   {
     icon: Activity,
-    title: "RSI badges everywhere",
-    body: "The same RSI signal on your watchlist, your open positions, and your shadow cases.",
+    title: "RSI context",
+    body: "See the same RSI state on watchlist symbols and open positions before you decide what to do.",
   },
   {
-    icon: Eye,
-    title: "Shadow Trading",
-    body: "Track ideas you didn't act on. Freeze the entry context. Review honestly later.",
-  },
-  {
-    icon: FileSpreadsheet,
-    title: "Import & export",
-    body: "Bring your history in from a CSV or Excel file. Export anytime — your data stays yours.",
-    badge: "Coming soon",
+    icon: Banknote,
+    title: "Dividends",
+    body: "Track dividends and withholding tax separately from trade P/L.",
   },
 ];
 
@@ -54,7 +53,7 @@ export function PillarGrid() {
           Built like a journal, not a brokerage.
         </h2>
         <p className="mt-3 text-text-secondary">
-          Six things it does well. Nothing it doesn't.
+          Import, review, track, and keep the numbers auditable.
         </p>
       </div>
 

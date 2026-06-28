@@ -15,9 +15,9 @@ export function MobileStrip() {
 
       <div className="mt-12 grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
         <Screenshot slot="mobile-dashboard" label="Dashboard" aspect="9 / 19.5" variant="phone" />
-        <Screenshot slot="mobile-positions" label="Positions" aspect="9 / 19.5" variant="phone" />
+        <Screenshot slot="mobile-imports" label="Imports" aspect="9 / 19.5" variant="phone" />
         <Screenshot slot="mobile-trades" label="Trades" aspect="9 / 19.5" variant="phone" />
-        <Screenshot slot="mobile-symbols" label="Symbols" aspect="9 / 19.5" variant="phone" />
+        <Screenshot slot="mobile-dividends" label="Dividends" aspect="9 / 19.5" variant="phone" />
       </div>
     </section>
   );

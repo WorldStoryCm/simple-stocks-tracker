@@ -1,5 +1,5 @@
 const items = [
-  { gone: "Automatic broker sync", instead: "Manual entry — your data, your control" },
+  { gone: "Always-on broker sync", instead: "Auditable file imports, starting with Revolut CSV" },
   { gone: "Tax reporting", instead: "Export your data and hand it to your accountant" },
   { gone: "Options, forex, crypto", instead: "Stocks only, on purpose" },
   { gone: "Live charting", instead: "Quotes and RSI, nothing more" },
