@@ -78,6 +78,12 @@ function ignored(rowIndex: number, raw: Record<string, string>, message: string)
   };
 }
 
+function signedAmount(value: number | undefined, direction: "positive" | "negative") {
+  if (value == null) return undefined;
+  const absolute = Math.abs(value);
+  return direction === "positive" ? absolute : -absolute;
+}
+
 function normalizeRow(rowIndex: number, raw: Record<string, string>): NormalizedImportRow {
   const type = raw.Type?.trim().toUpperCase() ?? "";
   const date = raw.Date?.slice(0, 10);
@@ -106,6 +112,7 @@ function normalizeRow(rowIndex: number, raw: Record<string, string>): Normalized
       tradeType: "buy",
       quantity,
       price,
+      cashImpact: total.amount == null ? undefined : -Math.abs(total.amount),
       importable: true,
     };
   }
@@ -116,14 +123,30 @@ function normalizeRow(rowIndex: number, raw: Record<string, string>): Normalized
       tradeType: "sell",
       quantity,
       price,
+      cashImpact: signedAmount(total.amount, "positive"),
       importable: true,
     };
   }
   if (type === "DIVIDEND") {
-    return { ...base, kind: "cash_event", eventType: "dividend", importable: true };
+    return { ...base, kind: "cash_event", eventType: "dividend", cashImpact: total.amount, importable: true };
   }
   if (type === "DIVIDEND TAX (CORRECTION)") {
-    return { ...base, kind: "cash_event", eventType: "dividend_tax", importable: true };
+    return { ...base, kind: "cash_event", eventType: "dividend_tax", cashImpact: total.amount, importable: true };
+  }
+  if (type === "CASH TOP-UP") {
+    return { ...base, kind: "cash_event", eventType: "deposit", cashImpact: signedAmount(total.amount, "positive"), importable: true };
+  }
+  if (type === "CASH WITHDRAWAL") {
+    return { ...base, kind: "cash_event", eventType: "withdrawal", cashImpact: signedAmount(total.amount, "negative"), importable: true };
+  }
+  if (type === "CUSTODY FEE") {
+    return { ...base, kind: "cash_event", eventType: "fee", cashImpact: signedAmount(total.amount, "negative"), importable: true };
+  }
+  if (type === "CUSTODY FEE REVERSAL") {
+    return { ...base, kind: "cash_event", eventType: "fee_reversal", cashImpact: signedAmount(total.amount, "positive"), importable: true };
+  }
+  if (type === "TRANSFER FROM REVOLUT BANK UAB TO REVOLUT SECURITIES EUROPE UAB") {
+    return { ...base, kind: "cash_event", eventType: "transfer", cashImpact: total.amount, importable: true };
   }
   if (type === "STOCK SPLIT" || type === "MERGER - STOCK") {
     return {
@@ -134,11 +157,8 @@ function normalizeRow(rowIndex: number, raw: Record<string, string>): Normalized
       message: "Corporate actions need explicit position-adjustment support before import.",
     };
   }
-  if (type === "CUSTODY FEE" || type === "CUSTODY FEE REVERSAL") {
-    return ignored(rowIndex, raw, "Custody fees are visible in preview but not imported in this phase.");
-  }
-  if (type.includes("TRANSFER") || type === "CASH TOP-UP" || type === "CASH WITHDRAWAL") {
-    return ignored(rowIndex, raw, "Cash movement rows are not imported in this dividend/trade phase.");
+  if (type.includes("TRANSFER")) {
+    return ignored(rowIndex, raw, "Internal securities transfer rows do not change cash balance and need position-transfer support.");
   }
 
   return {

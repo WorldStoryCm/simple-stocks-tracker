@@ -6,6 +6,7 @@
     "dev": "next dev --port=3001",
     "build": "next build",
     "start": "next start",
+    "test": "node --import tsx --test",
     "lint": "eslint",
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate"

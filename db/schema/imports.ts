@@ -16,7 +16,7 @@ export const importBatches = pgTable(
     rowCount: integer("row_count").notNull().default(0),
     importedCount: integer("imported_count").notNull().default(0),
     skippedCount: integer("skipped_count").notNull().default(0),
-    status: text("status", { enum: ["previewed", "imported", "failed"] }).notNull().default("imported"),
+    status: text("status", { enum: ["previewed", "imported", "failed", "rolled_back"] }).notNull().default("imported"),
     summaryJson: text("summary_json"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },

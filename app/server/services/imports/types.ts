@@ -24,6 +24,7 @@ export type NormalizedImportRow = {
   quantity?: number;
   price?: number;
   amount?: number;
+  cashImpact?: number;
   currencyCode?: string;
   fxRate?: number;
   importable: boolean;

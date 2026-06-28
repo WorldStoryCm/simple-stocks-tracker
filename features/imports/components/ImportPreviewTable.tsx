@@ -23,6 +23,20 @@ function moneyCell(row: ImportPreviewRow) {
   return "-";
 }
 
+function impactCell(row: ImportPreviewRow) {
+  if (row.cashImpact == null) return "-";
+  return `${row.cashImpact >= 0 ? "+" : ""}${formatAmount(row.cashImpact, row.currencyCode ?? "USD")}`;
+}
+
+function previewAction(row: ImportPreviewRow) {
+  if (row.status === "new") return "Add";
+  if (row.status === "matched") return "No change";
+  if (row.status === "possible_match") return "Possible duplicate";
+  if (row.status === "needs_review") return "Review";
+  if (row.status === "ignored") return "Ignore";
+  return row.status;
+}
+
 export function ImportPreviewTable({
   rows,
   selected,
@@ -40,18 +54,20 @@ export function ImportPreviewTable({
             <th className="w-10 px-3 py-2 text-left"></th>
             <th className="px-3 py-2 text-left font-medium uppercase tracking-wide text-text-tertiary">Row</th>
             <th className="px-3 py-2 text-left font-medium uppercase tracking-wide text-text-tertiary">Status</th>
+            <th className="px-3 py-2 text-left font-medium uppercase tracking-wide text-text-tertiary">Action</th>
             <th className="px-3 py-2 text-left font-medium uppercase tracking-wide text-text-tertiary">Date</th>
             <th className="px-3 py-2 text-left font-medium uppercase tracking-wide text-text-tertiary">Type</th>
             <th className="px-3 py-2 text-left font-medium uppercase tracking-wide text-text-tertiary">Symbol</th>
             <th className="px-3 py-2 text-right font-medium uppercase tracking-wide text-text-tertiary">Qty</th>
             <th className="px-3 py-2 text-right font-medium uppercase tracking-wide text-text-tertiary">Price/Amount</th>
+            <th className="px-3 py-2 text-right font-medium uppercase tracking-wide text-text-tertiary">Cash impact</th>
             <th className="px-3 py-2 text-left font-medium uppercase tracking-wide text-text-tertiary">Note</th>
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={9} className="px-3 py-8 text-center text-text-tertiary">No preview rows yet.</td>
+              <td colSpan={11} className="px-3 py-8 text-center text-text-tertiary">No preview rows yet.</td>
             </tr>
           ) : (
             rows.map((row) => {
@@ -72,6 +88,7 @@ export function ImportPreviewTable({
                       {row.status.replace("_", " ")}
                     </span>
                   </td>
+                  <td className="px-3 py-2 font-medium text-text-primary">{previewAction(row)}</td>
                   <td className="px-3 py-2 font-tabular text-text-secondary">{row.date ?? "-"}</td>
                   <td className="px-3 py-2 text-text-primary">{row.tradeType ?? row.eventType ?? row.sourceType}</td>
                   <td className="px-3 py-2 font-semibold">
@@ -80,6 +97,12 @@ export function ImportPreviewTable({
                   </td>
                   <td className="px-3 py-2 text-right font-tabular">{row.quantity == null ? "-" : row.quantity.toFixed(8)}</td>
                   <td className="px-3 py-2 text-right font-tabular">{moneyCell(row)}</td>
+                  <td className={cn(
+                    "px-3 py-2 text-right font-tabular font-medium",
+                    (row.cashImpact ?? 0) >= 0 ? "text-[color:var(--positive)]" : "text-[color:var(--negative)]",
+                  )}>
+                    {impactCell(row)}
+                  </td>
                   <td className="max-w-[280px] truncate px-3 py-2 text-text-tertiary" title={row.message ?? row.matched?.reason}>
                     {row.message ?? row.matched?.reason ?? "-"}
                   </td>

@@ -8,9 +8,10 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@/components/
 import { Input } from "@/components/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select";
 import { trpc } from "@/lib/trpc";
+import { ImportHistoryPanel } from "./components/ImportHistoryPanel";
 import { ImportPreviewTable } from "./components/ImportPreviewTable";
 import { ImportSummaryStrip } from "./components/ImportSummaryStrip";
-import type { ImportPreview } from "./types";
+import type { ImportBatch, ImportPreview } from "./types";
 
 export function ImportTransactionsDialog({
   open,
@@ -26,6 +27,7 @@ export function ImportTransactionsDialog({
   const [preview, setPreview] = useState<ImportPreview | undefined>();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const { data: platforms } = trpc.platforms.list.useQuery();
+  const { data: history, isLoading: historyLoading } = trpc.imports.history.useQuery(undefined, { enabled: open });
   const utils = trpc.useUtils();
 
   function resetFileState() {
@@ -53,11 +55,26 @@ export function ImportTransactionsDialog({
       utils.symbols.list.invalidate();
       utils.dividends.list.invalidate();
       utils.dividends.summary.invalidate();
+      utils.imports.history.invalidate();
       utils.performance.stats.invalidate();
       resetFileState();
       onOpenChange(false);
     },
     onError: (error) => toast.error(error.message || "Import failed"),
+  });
+
+  const rollbackMutation = trpc.imports.rollback.useMutation({
+    onSuccess: (result) => {
+      toast.success(`Rolled back ${result.tradeRowsDeleted + result.cashEventsDeleted} imported rows`);
+      utils.trades.list.invalidate();
+      utils.positions.list.invalidate();
+      utils.platforms.list.invalidate();
+      utils.dividends.list.invalidate();
+      utils.dividends.summary.invalidate();
+      utils.imports.history.invalidate();
+      utils.performance.stats.invalidate();
+    },
+    onError: (error) => toast.error(error.message || "Rollback failed"),
   });
 
   async function handleFile(file?: File) {
@@ -165,6 +182,12 @@ export function ImportTransactionsDialog({
 
           <ImportSummaryStrip preview={preview} selectedCount={selected.size} />
           <ImportPreviewTable rows={preview?.rows ?? []} selected={selected} toggle={toggle} />
+          <ImportHistoryPanel
+            batches={(history ?? []) as ImportBatch[]}
+            isLoading={historyLoading}
+            isRollingBack={rollbackMutation.isPending}
+            onRollback={(batchId) => rollbackMutation.mutate({ batchId })}
+          />
         </div>
 
         <DialogFooter className="pt-2">

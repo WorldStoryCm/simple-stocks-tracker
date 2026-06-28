@@ -10,6 +10,10 @@ const importPreviewInput = z.object({
 });
 
 export const importsRouter = router({
+  history: protectedProcedure.query(({ ctx }) =>
+    importsService.history(ctx.session.user.id),
+  ),
+
   preview: protectedProcedure
     .input(importPreviewInput)
     .mutation(({ ctx, input }) => importsService.preview(ctx.session.user.id, input)),
@@ -17,4 +21,8 @@ export const importsRouter = router({
   commit: protectedProcedure
     .input(importPreviewInput.extend({ selectedRowHashes: z.array(z.string()).optional() }))
     .mutation(({ ctx, input }) => importsService.commit(ctx.session.user.id, input)),
+
+  rollback: protectedProcedure
+    .input(z.object({ batchId: z.string() }))
+    .mutation(({ ctx, input }) => importsService.rollback(ctx.session.user.id, input.batchId)),
 });

@@ -21,6 +21,7 @@ export type ImportPreviewRow = {
   quantity?: number;
   price?: number;
   amount?: number;
+  cashImpact?: number;
   currencyCode?: string;
   message?: string;
   matched?: { id: string; kind: "trade" | "cash_event"; confidence: number; reason: string };
@@ -33,4 +34,16 @@ export type ImportPreview = {
   fileHash: string;
   rows: ImportPreviewRow[];
   summary: Record<ImportStatus, number>;
+};
+
+export type ImportBatch = {
+  id: string;
+  sourceSystem: "revolut" | "ibkr" | "n26";
+  fileName: string;
+  rowCount: number;
+  importedCount: number;
+  skippedCount: number;
+  status: "previewed" | "imported" | "failed" | "rolled_back";
+  createdAt: string | Date;
+  platform?: { name?: string | null } | null;
 };
