@@ -10,6 +10,8 @@ import { capitalProgressRouter } from './capitalProgress';
 import { shadowRouter } from './shadow';
 import { rsiRouter } from './rsi';
 import { tickerCatalogRouter } from './tickerCatalog';
+import { dividendsRouter } from './dividends';
+import { importsRouter } from './imports';
 
 export const appRouter = router({
   platforms: platformsRouter,
@@ -23,6 +25,8 @@ export const appRouter = router({
   shadow: shadowRouter,
   rsi: rsiRouter,
   tickerCatalog: tickerCatalogRouter,
+  dividends: dividendsRouter,
+  imports: importsRouter,
 });
 
 export type AppRouter = typeof appRouter;

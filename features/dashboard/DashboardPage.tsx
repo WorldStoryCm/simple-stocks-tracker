@@ -5,6 +5,7 @@ import { trpc } from "@/lib/trpc";
 import { CapitalGoalCard, FreeCashCard, GoalsCard, KpiCard } from "./components/DashboardMetricCards";
 import { CumulativeChartCard } from "./components/CumulativeChartCard";
 import { DashboardFilterRow } from "./components/DashboardFilterRow";
+import { DividendsCard } from "./components/DividendsCard";
 import { MoversList } from "./components/MoversList";
 import { PlatformsSummaryCard } from "./components/PlatformsSummaryCard";
 import { ProfitLossBySymbolCard } from "./components/ProfitLossBySymbolCard";
@@ -101,7 +102,10 @@ export function DashboardPage() {
 
       <PlatformsSummaryCard data={perf?.investedPerPlatform ?? []} loading={perfLoading} />
       <ProfitLossBySymbolCard filters={filters} />
-      <RecentTradesCard filters={filters} />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <RecentTradesCard filters={filters} />
+        <DividendsCard filters={filters} />
+      </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <MoversList title="Top Gainers" rows={movers.gainers} positive loading={positionsLoading} />

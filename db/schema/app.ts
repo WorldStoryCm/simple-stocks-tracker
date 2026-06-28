@@ -51,17 +51,21 @@ export const trades = pgTable(
     symbolId: text("symbol_id").notNull().references(() => symbols.id, { onDelete: "restrict" }),
     tradeType: text("trade_type", { enum: ["buy", "sell"] }).notNull(),
     tradeDate: date("trade_date").notNull(),
-    quantity: decimal("quantity", { precision: 16, scale: 4 }).notNull(),
+    quantity: decimal("quantity", { precision: 18, scale: 8 }).notNull(),
     price: decimal("price", { precision: 16, scale: 4 }).notNull(),
     fee: decimal("fee", { precision: 12, scale: 4 }).notNull().default("0"),
     currencyCode: text("currency_code").notNull().default("USD"),
     notes: text("notes"),
+    sourceSystem: text("source_system"),
+    sourceRowHash: text("source_row_hash"),
+    importedAt: timestamp("imported_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
   },
   (table) => [
     index("trades_user_id_trade_date_idx").on(table.userId, table.tradeDate),
     index("trades_user_plat_sym_date_idx").on(table.userId, table.platformId, table.symbolId, table.tradeDate),
+    unique("trades_user_source_row_unique").on(table.userId, table.sourceSystem, table.sourceRowHash),
   ]
 );
 
@@ -72,7 +76,7 @@ export const tradeLotMatches = pgTable(
     userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
     sellTradeId: text("sell_trade_id").notNull().references(() => trades.id, { onDelete: "cascade" }),
     buyTradeId: text("buy_trade_id").notNull().references(() => trades.id, { onDelete: "cascade" }),
-    matchedQuantity: decimal("matched_quantity", { precision: 16, scale: 4 }).notNull(),
+    matchedQuantity: decimal("matched_quantity", { precision: 18, scale: 8 }).notNull(),
     buyPrice: decimal("buy_price", { precision: 16, scale: 4 }).notNull(),
     sellPrice: decimal("sell_price", { precision: 16, scale: 4 }).notNull(),
     matchedCost: decimal("matched_cost", { precision: 14, scale: 2 }).notNull(),

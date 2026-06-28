@@ -2,10 +2,12 @@
 
 import { useCallback, useState } from "react";
 import { getCoreRowModel, useReactTable } from "@tanstack/react-table";
+import { Upload } from "lucide-react";
 import { Button } from "@/components/button";
 import { AddTradeButton } from "@/components/trades/AddTradeButton";
 import { TradeDialog } from "@/components/trades/TradeDialog";
 import { trpc } from "@/lib/trpc";
+import { ImportTransactionsDialog } from "@/features/imports/ImportTransactionsDialog";
 import { TradesTable } from "./components/TradesTable";
 import { TradesToolbar } from "./components/TradesToolbar";
 import type { SortDir, SortField, Trade, TradePlatformOption, TradeSymbolOption } from "./types";
@@ -21,6 +23,7 @@ export function TradesPage() {
   const [sortField, setSortField] = useState<SortField>("tradeDate");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
 
   const resetPage = useCallback(() => setPage(1), []);
@@ -88,7 +91,13 @@ export function TradesPage() {
     <div className="flex flex-col gap-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Trading Ledger</h1>
-        <AddTradeButton />
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setIsImportOpen(true)}>
+            <Upload className="mr-1.5 h-4 w-4" />
+            Import
+          </Button>
+          <AddTradeButton />
+        </div>
       </div>
 
       <TradesToolbar
@@ -141,6 +150,7 @@ export function TradesPage() {
         }}
         trade={editingTrade}
       />
+      <ImportTransactionsDialog open={isImportOpen} onOpenChange={setIsImportOpen} />
     </div>
   );
 }

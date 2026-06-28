@@ -1,0 +1,60 @@
+export type SourceSystem = "revolut" | "ibkr" | "n26";
+
+export type ImportKind = "trade" | "cash_event" | "corporate_action" | "ignored" | "unsupported";
+
+export type ImportStatus =
+  | "new"
+  | "matched"
+  | "possible_match"
+  | "needs_review"
+  | "ignored"
+  | "imported"
+  | "error";
+
+export type NormalizedImportRow = {
+  rowIndex: number;
+  rowHash: string;
+  raw: Record<string, string>;
+  kind: ImportKind;
+  sourceType: string;
+  date?: string;
+  ticker?: string;
+  tradeType?: "buy" | "sell";
+  eventType?: "dividend" | "dividend_tax" | "fee" | "fee_reversal" | "deposit" | "withdrawal" | "transfer" | "other";
+  quantity?: number;
+  price?: number;
+  amount?: number;
+  currencyCode?: string;
+  fxRate?: number;
+  importable: boolean;
+  message?: string;
+};
+
+export type PreviewMatch = {
+  id: string;
+  kind: "trade" | "cash_event";
+  confidence: number;
+  reason: string;
+};
+
+export type PreviewImportRow = NormalizedImportRow & {
+  status: ImportStatus;
+  confidence: number;
+  matched?: PreviewMatch;
+  willCreateSymbol?: boolean;
+};
+
+export type ImportPreview = {
+  sourceSystem: SourceSystem;
+  fileName: string;
+  fileHash: string;
+  rows: PreviewImportRow[];
+  summary: Record<ImportStatus, number>;
+};
+
+export type ImportCommitResult = {
+  batchId: string;
+  imported: number;
+  skipped: number;
+  errors: string[];
+};

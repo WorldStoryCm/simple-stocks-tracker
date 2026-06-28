@@ -92,6 +92,13 @@
       "when": 1778595379054,
       "tag": "0012_late_swordsman",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1782668352826,
+      "tag": "0013_stormy_gateway",
+      "breakpoints": true
     }
   ]
 }
