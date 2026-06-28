@@ -90,6 +90,7 @@ describe("classifyImportRow", () => {
 
     assert.equal(preview.status, "matched");
     assert.equal(preview.matched?.reason, "Source row already imported");
+    assert.equal(preview.matched?.recordLabel, "2024-01-02 BUY TSLA 0.1235 @ 250.12");
   });
 
   it("matches rounded share quantities within a short date window", () => {
@@ -136,6 +137,7 @@ describe("classifyImportRow", () => {
 
     assert.equal(preview.status, "possible_match");
     assert.equal(preview.matched?.confidence, 0.75);
+    assert.equal(preview.matched?.recordLabel, "2024-01-12 BUY TSLA 0.1235 @ 250.12");
   });
 
   it("matches dividends by symbol, amount, type, and date tolerance", () => {
@@ -158,6 +160,7 @@ describe("classifyImportRow", () => {
 
     assert.equal(preview.status, "matched");
     assert.equal(preview.matched?.kind, "cash_event");
+    assert.equal(preview.matched?.recordLabel, "2024-01-05 dividend TSLA 0.42");
   });
 
   it("keeps corporate actions out of auto-import", () => {

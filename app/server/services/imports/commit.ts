@@ -16,12 +16,16 @@ function byBrokerDate(left: PreviewImportRow, right: PreviewImportRow) {
   return dateCompare || left.rowIndex - right.rowIndex;
 }
 
+function canCommit(row: PreviewImportRow, selected: Set<string>) {
+  return selected.has(row.rowHash) && (row.status === "new" || row.status === "possible_match");
+}
+
 export async function commitImport(userId: string, input: CommitInput): Promise<ImportCommitResult> {
   const preview = await buildPreview(userId, input);
   const rates = await getExchangeRates();
   const selected = new Set(input.selectedRowHashes ?? preview.rows.filter((row) => row.status === "new").map((row) => row.rowHash));
   const rowsToCommit = preview.rows
-    .filter((row) => row.status === "new" && selected.has(row.rowHash))
+    .filter((row) => canCommit(row, selected))
     .sort(byBrokerDate);
 
   let batchId = "";

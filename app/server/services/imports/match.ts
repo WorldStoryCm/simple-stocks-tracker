@@ -54,13 +54,41 @@ function sourceMatch(row: NormalizedImportRow, sourceSystem: SourceSystem, item:
   return item.sourceSystem === sourceSystem && item.sourceRowHash === row.rowHash;
 }
 
+function compactNumber(value: string | number | undefined, maxDigits = 4) {
+  if (value == null) return "-";
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return String(value);
+  return numeric.toLocaleString("en-US", {
+    maximumFractionDigits: maxDigits,
+    minimumFractionDigits: 0,
+  });
+}
+
+function tradeRecordLabel(trade: ExistingTrade) {
+  const symbol = trade.symbol?.ticker ?? "-";
+  return `${trade.tradeDate} ${trade.tradeType.toUpperCase()} ${symbol} ${compactNumber(trade.quantity)} @ ${compactNumber(trade.price, 2)}`;
+}
+
+function cashEventRecordLabel(event: ExistingCashEvent) {
+  const symbol = event.symbol?.ticker ? ` ${event.symbol.ticker}` : "";
+  return `${event.eventDate} ${event.eventType}${symbol} ${compactNumber(event.amount, 2)}`;
+}
+
 function matchTrade(
   row: NormalizedImportRow,
   sourceSystem: SourceSystem,
   trades: ExistingTrade[],
 ): PreviewMatch | undefined {
   const direct = trades.find((trade) => sourceMatch(row, sourceSystem, trade));
-  if (direct) return { id: direct.id, kind: "trade", confidence: 1, reason: "Source row already imported" };
+  if (direct) {
+    return {
+      id: direct.id,
+      kind: "trade",
+      confidence: 1,
+      reason: "Source row already imported",
+      recordLabel: tradeRecordLabel(direct),
+    };
+  }
 
   const candidates = trades
     .filter((trade) => trade.symbol?.ticker === row.ticker && trade.tradeType === row.tradeType)
@@ -81,6 +109,7 @@ function matchTrade(
     kind: "trade",
     confidence,
     reason: best.days === 0 ? "Same ticker, side, quantity, and date" : `Within ${best.days} days`,
+    recordLabel: tradeRecordLabel(best.trade),
   };
 }
 
@@ -90,7 +119,15 @@ function matchCashEvent(
   events: ExistingCashEvent[],
 ): PreviewMatch | undefined {
   const direct = events.find((event) => sourceMatch(row, sourceSystem, event));
-  if (direct) return { id: direct.id, kind: "cash_event", confidence: 1, reason: "Source row already imported" };
+  if (direct) {
+    return {
+      id: direct.id,
+      kind: "cash_event",
+      confidence: 1,
+      reason: "Source row already imported",
+      recordLabel: cashEventRecordLabel(direct),
+    };
+  }
 
   const candidates = events
     .filter((event) => event.eventType === row.eventType)
@@ -107,6 +144,7 @@ function matchCashEvent(
     kind: "cash_event",
     confidence: best.days <= 3 ? 0.95 : 0.75,
     reason: best.days === 0 ? "Same event, amount, symbol, and date" : `Within ${best.days} days`,
+    recordLabel: cashEventRecordLabel(best.event),
   };
 }
 

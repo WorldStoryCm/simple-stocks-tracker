@@ -24,7 +24,13 @@ export type ImportPreviewRow = {
   cashImpact?: number;
   currencyCode?: string;
   message?: string;
-  matched?: { id: string; kind: "trade" | "cash_event"; confidence: number; reason: string };
+  matched?: {
+    id: string;
+    kind: "trade" | "cash_event";
+    confidence: number;
+    reason: string;
+    recordLabel?: string;
+  };
   willCreateSymbol?: boolean;
 };
 

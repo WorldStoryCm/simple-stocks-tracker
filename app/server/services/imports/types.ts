@@ -36,6 +36,7 @@ export type PreviewMatch = {
   kind: "trade" | "cash_event";
   confidence: number;
   reason: string;
+  recordLabel?: string;
 };
 
 export type PreviewImportRow = NormalizedImportRow & {
