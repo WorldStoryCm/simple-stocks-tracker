@@ -45,10 +45,10 @@ describe("parseRevolutCsv", () => {
 
 describe("parseManualCsv", () => {
   it("normalizes exported trade and cash-event backup rows", () => {
-    const rows = parseManualCsv(`Kind,Date,Type,Ticker,Quantity,Price,Amount,Currency,Fee,FX Rate,Notes
-trade,2024-02-01,buy,TSLA,2,100,-201,USD,1,,manual buy
-trade,2024-02-02,sell,TSLA,1,120,119.5,USD,0.5,,manual sell
-cash_event,2024-02-03,dividend,TSLA,,,4.25,USD,,1.1,dividend
+    const rows = parseManualCsv(`Kind,Platform,Date,Type,Ticker,Quantity,Price,Amount,Currency,Fee,FX Rate,Notes
+trade,Revolut,2024-02-01,buy,TSLA,2,100,-201,USD,1,,manual buy
+trade,Revolut,2024-02-02,sell,TSLA,1,120,119.5,USD,0.5,,manual sell
+cash_event,Revolut,2024-02-03,dividend,TSLA,,,4.25,USD,,1.1,dividend
 `);
 
     assert.equal(rows.length, 3);

@@ -2,12 +2,14 @@
 
 import { useCallback, useState } from "react";
 import { getCoreRowModel, useReactTable } from "@tanstack/react-table";
-import { Upload } from "lucide-react";
+import { Download, Upload } from "lucide-react";
+import toast from "react-hot-toast";
 import { Button } from "@/components/button";
 import { AddTradeButton } from "@/components/trades/AddTradeButton";
 import { TradeDialog } from "@/components/trades/TradeDialog";
 import { trpc } from "@/lib/trpc";
 import { ImportTransactionsDialog } from "@/features/imports/ImportTransactionsDialog";
+import { downloadCsv } from "@/features/imports/downloadCsv";
 import { TradesTable } from "./components/TradesTable";
 import { TradesToolbar } from "./components/TradesToolbar";
 import type { SortDir, SortField, Trade, TradePlatformOption, TradeSymbolOption } from "./types";
@@ -42,6 +44,13 @@ export function TradesPage() {
   });
 
   const utils = trpc.useUtils();
+  const exportMutation = trpc.imports.exportLedger.useMutation({
+    onSuccess: (result) => {
+      downloadCsv(result.fileName, result.fileContent);
+      toast.success(`Exported ${result.rowCount} rows`);
+    },
+    onError: (error) => toast.error(error.message || "Export failed"),
+  });
   const deleteMutation = trpc.trades.delete.useMutation({
     onSuccess: () => {
       utils.trades.list.invalidate();
@@ -92,6 +101,14 @@ export function TradesPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Trading Ledger</h1>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            disabled={exportMutation.isPending}
+            onClick={() => exportMutation.mutate({})}
+          >
+            <Download className="mr-1.5 h-4 w-4" />
+            {exportMutation.isPending ? "Exporting..." : "Export Trades"}
+          </Button>
           <Button variant="outline" onClick={() => setIsImportOpen(true)}>
             <Upload className="mr-1.5 h-4 w-4" />
             Import

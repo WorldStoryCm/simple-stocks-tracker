@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, FileUp, Upload } from "lucide-react";
+import { FileUp, Upload } from "lucide-react";
 import { Button } from "@/components/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select";
 import type { SourceSystem } from "../types";
@@ -16,27 +16,23 @@ export function ImportControls({
   platforms,
   fileName,
   pending,
-  exporting,
   onSourceChange,
   onPlatformChange,
   onFile,
   onPreview,
-  onExport,
 }: {
   sourceSystem: SourceSystem;
   platformId: string;
   platforms?: PlatformOption[];
   fileName: string;
   pending: boolean;
-  exporting: boolean;
   onSourceChange: (source: SourceSystem) => void;
   onPlatformChange: (platformId: string) => void;
   onFile: (file?: File) => void;
   onPreview: () => void;
-  onExport: () => void;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-2 md:grid-cols-[140px_170px_minmax(220px,1fr)_120px_120px]">
+    <div className="grid grid-cols-1 gap-2 md:grid-cols-[140px_170px_minmax(220px,1fr)_136px]">
       <Select value={sourceSystem} onValueChange={(value) => onSourceChange(value as SourceSystem)}>
         <SelectTrigger className="h-9"><SelectValue placeholder="Source" /></SelectTrigger>
         <SelectContent>
@@ -80,17 +76,6 @@ export function ImportControls({
       >
         <Upload className="mr-1.5 h-4 w-4" />
         Preview
-      </Button>
-
-      <Button
-        type="button"
-        variant="outline"
-        className="h-9 px-3"
-        disabled={!platformId || exporting}
-        onClick={onExport}
-      >
-        <Download className="mr-1.5 h-4 w-4" />
-        Export
       </Button>
     </div>
   );

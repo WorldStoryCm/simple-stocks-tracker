@@ -14,29 +14,49 @@ function sanitizeFilePart(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "platform";
 }
 
-export async function exportLedger(userId: string, platformId: string) {
-  const platform = await db.query.platforms.findFirst({
-    where: and(eq(platforms.id, platformId), eq(platforms.userId, userId)),
-  });
-  if (!platform) throw new TRPCError({ code: "NOT_FOUND", message: "Platform not found" });
+export async function exportLedger(userId: string, platformId?: string) {
+  const platform = platformId
+    ? await db.query.platforms.findFirst({
+        where: and(eq(platforms.id, platformId), eq(platforms.userId, userId)),
+      })
+    : undefined;
+  if (platformId && !platform) throw new TRPCError({ code: "NOT_FOUND", message: "Platform not found" });
 
   const [platformTrades, platformCashEvents] = await Promise.all([
     db.query.trades.findMany({
-      where: and(eq(trades.userId, userId), eq(trades.platformId, platformId)),
+      where: platformId
+        ? and(eq(trades.userId, userId), eq(trades.platformId, platformId))
+        : eq(trades.userId, userId),
       orderBy: [asc(trades.tradeDate), asc(trades.createdAt)],
-      with: { symbol: true },
+      with: { platform: true, symbol: true },
     }),
     db.query.cashEvents.findMany({
-      where: and(eq(cashEvents.userId, userId), eq(cashEvents.platformId, platformId)),
+      where: platformId
+        ? and(eq(cashEvents.userId, userId), eq(cashEvents.platformId, platformId))
+        : eq(cashEvents.userId, userId),
       orderBy: [asc(cashEvents.eventDate), asc(cashEvents.createdAt)],
-      with: { symbol: true },
+      with: { platform: true, symbol: true },
     }),
   ]);
 
-  const rows = [
-    ["Kind", "Date", "Type", "Ticker", "Quantity", "Price", "Amount", "Currency", "Fee", "FX Rate", "Notes"],
+  const header = [
+    "Kind",
+    "Platform",
+    "Date",
+    "Type",
+    "Ticker",
+    "Quantity",
+    "Price",
+    "Amount",
+    "Currency",
+    "Fee",
+    "FX Rate",
+    "Notes",
+  ];
+  const dataRows = [
     ...platformTrades.map((trade) => [
       "trade",
+      trade.platform?.name ?? "",
       trade.tradeDate,
       trade.tradeType,
       trade.symbol?.ticker ?? "",
@@ -50,6 +70,7 @@ export async function exportLedger(userId: string, platformId: string) {
     ]),
     ...platformCashEvents.map((event) => [
       "cash_event",
+      event.platform?.name ?? "",
       event.eventDate,
       event.eventType,
       event.symbol?.ticker ?? "",
@@ -63,13 +84,13 @@ export async function exportLedger(userId: string, platformId: string) {
     ]),
   ];
 
-  const [, ...dataRows] = rows;
-  dataRows.sort((left, right) => String(left[1]).localeCompare(String(right[1])));
+  dataRows.sort((left, right) => String(left[2]).localeCompare(String(right[2])));
 
   const date = new Date().toISOString().slice(0, 10);
+  const scope = platform ? sanitizeFilePart(platform.name) : "trades";
   return {
-    fileName: `stock-tracker-${sanitizeFilePart(platform.name)}-backup-${date}.csv`,
-    fileContent: stringifyCsv([rows[0], ...dataRows]),
+    fileName: `stock-tracker-${scope}-backup-${date}.csv`,
+    fileContent: stringifyCsv([header, ...dataRows]),
     rowCount: dataRows.length,
   };
 }

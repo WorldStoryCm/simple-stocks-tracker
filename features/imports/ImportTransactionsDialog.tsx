@@ -10,7 +10,7 @@ import { ImportControls } from "./components/ImportControls";
 import { ImportHistoryPanel } from "./components/ImportHistoryPanel";
 import { ImportPreviewTable } from "./components/ImportPreviewTable";
 import { ImportSummaryStrip, type ImportFilter } from "./components/ImportSummaryStrip";
-import { defaultSelectedRows, downloadCsv } from "./importDialogUtils";
+import { defaultSelectedRows } from "./importDialogUtils";
 import type { ImportBatch, ImportPreview, SourceSystem } from "./types";
 
 export function ImportTransactionsDialog({
@@ -81,14 +81,6 @@ export function ImportTransactionsDialog({
     onError: (error) => toast.error(error.message || "Rollback failed"),
   });
 
-  const exportMutation = trpc.imports.exportLedger.useMutation({
-    onSuccess: (result) => {
-      downloadCsv(result.fileName, result.fileContent);
-      toast.success(`Exported ${result.rowCount} rows`);
-    },
-    onError: (error) => toast.error(error.message || "Export failed"),
-  });
-
   async function handleFile(file?: File) {
     resetFileState();
     if (!file) return;
@@ -106,14 +98,6 @@ export function ImportTransactionsDialog({
       return;
     }
     previewMutation.mutate({ sourceSystem, platformId, fileName, fileContent });
-  }
-
-  function runExport() {
-    if (!platformId) {
-      toast.error("Choose a platform first");
-      return;
-    }
-    exportMutation.mutate({ platformId });
   }
 
   function runCommit() {
@@ -167,7 +151,6 @@ export function ImportTransactionsDialog({
             platforms={platforms}
             fileName={fileName}
             pending={pending || !fileContent}
-            exporting={exportMutation.isPending}
             onSourceChange={(nextSource) => {
               if (nextSource === sourceSystem) return;
               setSourceSystem(nextSource);
@@ -180,7 +163,6 @@ export function ImportTransactionsDialog({
             }}
             onFile={handleFile}
             onPreview={runPreview}
-            onExport={runExport}
           />
 
           <label className="flex items-start gap-2 rounded-md border border-border bg-[color:var(--surface-1)] px-3 py-2 text-xs text-text-tertiary">
@@ -192,7 +174,7 @@ export function ImportTransactionsDialog({
             <span>
               <span className="font-medium text-text-primary">Replace history</span>
               {" "}deletes this platform&apos;s existing trades and cash events before importing selected rows.
-              Export a backup first.
+              Use Export on the Trading Ledger before replacing history.
             </span>
           </label>
 

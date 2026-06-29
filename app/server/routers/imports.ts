@@ -19,8 +19,8 @@ export const importsRouter = router({
     .mutation(({ ctx, input }) => importsService.preview(ctx.session.user.id, input)),
 
   exportLedger: protectedProcedure
-    .input(z.object({ platformId: z.string().min(1) }))
-    .mutation(({ ctx, input }) => importsService.exportLedger(ctx.session.user.id, input.platformId)),
+    .input(z.object({ platformId: z.string().min(1).optional() }).optional())
+    .mutation(({ ctx, input }) => importsService.exportLedger(ctx.session.user.id, input?.platformId)),
 
   commit: protectedProcedure
     .input(importPreviewInput.extend({
