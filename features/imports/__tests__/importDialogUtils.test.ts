@@ -31,6 +31,7 @@ describe("defaultSelectedRows", () => {
       row({ rowHash: "matched", status: "matched" }),
       row({ rowHash: "possible", status: "possible_match" }),
       row({ rowHash: "blocked", status: "needs_review", importable: false }),
+      row({ rowHash: "missing-values", status: "needs_review", importable: true }),
     ];
 
     assert.deepEqual(defaultSelectedRows(rows, true).map((item) => item.rowHash), ["new", "matched", "possible"]);

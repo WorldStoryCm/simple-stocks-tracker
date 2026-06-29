@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { db } from "@/db/drizzle";
 import { cashEvents, importBatches, platforms, symbols, trades, tradeLotMatches } from "@/db/schema";
+import { detectImportSourceSystem } from "@/lib/importSourceDetection";
 import { sha256 } from "./hash";
 import { classifyImportRow } from "./match";
 import { parseRevolutCsv } from "./adapters/revolut";
@@ -17,9 +18,10 @@ export type PreviewInput = {
   replaceHistory?: boolean;
 };
 
-function parseRows(sourceSystem: SourceSystem, fileContent: string): NormalizedImportRow[] {
-  if (sourceSystem === "revolut") return parseRevolutCsv(fileContent);
-  if (sourceSystem === "manual") return parseManualCsv(fileContent);
+function parseRows(input: PreviewInput): { sourceSystem: SourceSystem; rows: NormalizedImportRow[] } {
+  const sourceSystem = detectImportSourceSystem(input.fileName, input.fileContent) ?? input.sourceSystem;
+  if (sourceSystem === "revolut") return { sourceSystem, rows: parseRevolutCsv(input.fileContent) };
+  if (sourceSystem === "manual") return { sourceSystem, rows: parseManualCsv(input.fileContent) };
   throw new TRPCError({ code: "BAD_REQUEST", message: "This broker adapter is not implemented yet." });
 }
 
@@ -43,7 +45,8 @@ export async function buildPreview(userId: string, input: PreviewInput): Promise
   });
   if (!platform) throw new TRPCError({ code: "NOT_FOUND", message: "Platform not found" });
 
-  const rows = parseRows(input.sourceSystem, input.fileContent);
+  const parsed = parseRows(input);
+  const rows = parsed.rows;
   const [existingSymbols, existingTrades, existingCashEvents, existingBatches, existingMatches] = await Promise.all([
     db.query.symbols.findMany({ where: eq(symbols.userId, userId) }),
     db.query.trades.findMany({
@@ -58,7 +61,7 @@ export async function buildPreview(userId: string, input: PreviewInput): Promise
       where: and(
         eq(importBatches.userId, userId),
         eq(importBatches.platformId, input.platformId),
-        eq(importBatches.sourceSystem, input.sourceSystem),
+        eq(importBatches.sourceSystem, parsed.sourceSystem),
         eq(importBatches.status, "imported"),
       ),
       with: { rows: true },
@@ -78,7 +81,7 @@ export async function buildPreview(userId: string, input: PreviewInput): Promise
   const previewRows = rows.map((row) =>
     classifyImportRow({
       row,
-      sourceSystem: input.sourceSystem,
+      sourceSystem: parsed.sourceSystem,
       trades: matchTrades,
       cashEvents: matchCashEvents,
       symbolExists: row.ticker ? symbolTickers.has(row.ticker) : false,
@@ -88,7 +91,7 @@ export async function buildPreview(userId: string, input: PreviewInput): Promise
   const availableRows = applyQuantityAvailability(previewRows, initialOpenByTicker);
 
   return {
-    sourceSystem: input.sourceSystem,
+    sourceSystem: parsed.sourceSystem,
     fileName: input.fileName,
     fileHash: sha256(input.fileContent),
     rows: availableRows,

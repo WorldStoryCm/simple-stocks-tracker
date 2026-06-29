@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { Button } from "@/components/button";
 import { Checkbox } from "@/components/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@/components/dialog";
+import { detectImportSourceSystem } from "@/lib/importSourceDetection";
 import { trpc } from "@/lib/trpc";
 import { ImportControls } from "./components/ImportControls";
 import { ImportHistoryPanel } from "./components/ImportHistoryPanel";
@@ -89,7 +90,10 @@ export function ImportTransactionsDialog({
       toast.error("This adapter currently expects a CSV import file.");
       return;
     }
-    setFileContent(await file.text());
+    const content = await file.text();
+    const detectedSource = detectImportSourceSystem(file.name, content);
+    if (detectedSource) setSourceSystem(detectedSource);
+    setFileContent(content);
   }
 
   function runPreview(nextReplaceHistory?: boolean) {

@@ -47,7 +47,13 @@ export async function commitImport(userId: string, input: CommitInput): Promise<
     .filter((row) => canCommit(row, selected, replaceHistory))
     .sort(byBrokerDate);
   if (replaceHistory && rowsToCommit.length === 0) {
-    throw new TRPCError({ code: "BAD_REQUEST", message: "Replace history requires at least one importable selected row." });
+    const blocked = preview.rows.find((row) => row.status === "needs_review" || row.kind === "unsupported");
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: blocked
+        ? `Replace found no importable rows. First blocked row ${blocked.rowIndex}: ${blocked.message ?? blocked.sourceType}`
+        : "Replace found no importable rows in this file.",
+    });
   }
 
   let batchId = "";
@@ -79,7 +85,7 @@ export async function commitImport(userId: string, input: CommitInput): Promise<
     const [batch] = await tx.insert(importBatches).values({
       userId,
       platformId: input.platformId,
-      sourceSystem: input.sourceSystem,
+      sourceSystem: preview.sourceSystem,
       fileName: input.fileName,
       fileHash: preview.fileHash,
       rowCount: preview.rows.length,
@@ -100,7 +106,7 @@ export async function commitImport(userId: string, input: CommitInput): Promise<
           cashBalance,
           platformCurrency,
           rates,
-          sourceSystem: input.sourceSystem,
+          sourceSystem: preview.sourceSystem,
         });
         cashBalance = result.cashBalance;
         committedByIndex.set(row.rowIndex, {
@@ -119,7 +125,7 @@ export async function commitImport(userId: string, input: CommitInput): Promise<
           cashBalance,
           platformCurrency,
           rates,
-          sourceSystem: input.sourceSystem,
+          sourceSystem: preview.sourceSystem,
         });
         cashBalance = result.cashBalance;
         committedByIndex.set(row.rowIndex, { cashEventId: result.id });
@@ -137,7 +143,7 @@ export async function commitImport(userId: string, input: CommitInput): Promise<
             tx,
             userId,
             platformId: input.platformId,
-            sourceSystem: input.sourceSystem,
+            sourceSystem: preview.sourceSystem,
             rows: mergerRows,
           });
           for (const mergerRow of mergerRows) {
