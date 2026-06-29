@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { parseManualCsv } from "../adapters/manual";
 import { parseRevolutCsv } from "../adapters/revolut";
+import { buildCorporateActionAdjustments } from "../corporateActions";
 import { convertImportCashImpact } from "../currency";
 import { classifyImportRow } from "../match";
 
@@ -37,7 +38,8 @@ describe("parseRevolutCsv", () => {
     assert.equal(rows[2].cashImpact, 0.42);
     assert.equal(rows[3].eventType, "dividend_tax");
     assert.equal(rows[3].amount, -0.06);
-    assert.equal(rows[4].importable, false);
+    assert.equal(rows[4].corporateActionType, "stock_split");
+    assert.equal(rows[4].importable, true);
     assert.equal(rows[5].eventType, "deposit");
     assert.equal(rows[5].cashImpact, 100);
   });
@@ -186,7 +188,7 @@ describe("classifyImportRow", () => {
     assert.equal(preview.matched?.recordLabel, "2024-01-05 dividend TSLA 0.42");
   });
 
-  it("keeps corporate actions out of auto-import", () => {
+  it("marks corporate actions as importable lot adjustments", () => {
     const corporateAction = parseRevolutCsv(csv)[4];
     const preview = classifyImportRow({
       row: corporateAction,
@@ -196,7 +198,44 @@ describe("classifyImportRow", () => {
       symbolExists: true,
     });
 
-    assert.equal(preview.status, "needs_review");
-    assert.match(preview.message ?? "", /Corporate actions/);
+    assert.equal(preview.status, "new");
+    assert.equal(preview.importable, true);
+  });
+
+  it("matches already imported corporate action rows by source hash", () => {
+    const corporateAction = parseRevolutCsv(csv)[4];
+    const preview = classifyImportRow({
+      row: corporateAction,
+      sourceSystem: "revolut",
+      trades: [],
+      cashEvents: [],
+      symbolExists: true,
+      existingImportRowHashes: new Set([corporateAction.rowHash]),
+    });
+
+    assert.equal(preview.status, "matched");
+    assert.equal(preview.message, "Source row already imported");
+  });
+});
+
+describe("buildCorporateActionAdjustments", () => {
+  it("uses a stock split delta to expand open lots before later sells", () => {
+    const result = buildCorporateActionAdjustments(23, [
+      { tradeId: "mchp-1", quantity: "0.88016249", price: "147.7000", matchedQuantity: 0 },
+      { tradeId: "mchp-2", quantity: "1.35171668", price: "147.9600", matchedQuantity: 0 },
+      { tradeId: "mchp-3", quantity: "3.35818389", price: "148.8900", matchedQuantity: 0 },
+    ], 5.59006306);
+
+    assert.equal(result.factor, 2);
+    assert.deepEqual(result.adjustments.map((adjustment) => adjustment.newQuantity), [
+      "1.76032498",
+      "2.70343336",
+      "6.71636778",
+    ]);
+    assert.deepEqual(result.adjustments.map((adjustment) => adjustment.newPrice), [
+      "73.8500",
+      "73.9800",
+      "74.4450",
+    ]);
   });
 });

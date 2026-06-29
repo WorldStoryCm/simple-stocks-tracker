@@ -20,6 +20,7 @@ export type NormalizedImportRow = {
   date?: string;
   ticker?: string;
   tradeType?: "buy" | "sell";
+  corporateActionType?: "stock_split" | "merger_stock";
   eventType?: "dividend" | "dividend_tax" | "fee" | "fee_reversal" | "deposit" | "withdrawal" | "transfer" | "other";
   quantity?: number;
   price?: number;

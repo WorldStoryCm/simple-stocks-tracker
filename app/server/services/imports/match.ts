@@ -154,12 +154,14 @@ export function classifyImportRow({
   trades,
   cashEvents,
   symbolExists,
+  existingImportRowHashes,
 }: {
   row: NormalizedImportRow;
   sourceSystem: SourceSystem;
   trades: ExistingTrade[];
   cashEvents: ExistingCashEvent[];
   symbolExists: boolean;
+  existingImportRowHashes?: Set<string>;
 }): PreviewImportRow {
   if (!row.importable) {
     return {
@@ -167,6 +169,16 @@ export function classifyImportRow({
       status: row.kind === "ignored" ? "ignored" : "needs_review",
       confidence: 0,
     };
+  }
+
+  if (row.kind === "corporate_action") {
+    if (!row.ticker || !row.date || row.quantity == null) {
+      return { ...row, status: "needs_review", confidence: 0, message: "Corporate action row is missing required values." };
+    }
+    if (existingImportRowHashes?.has(row.rowHash)) {
+      return { ...row, status: "matched", confidence: 1, message: "Source row already imported" };
+    }
+    return { ...row, status: "new", confidence: 0 };
   }
 
   if (row.kind === "trade" && (!row.ticker || !row.tradeType || !row.date || !row.quantity || !row.price)) {

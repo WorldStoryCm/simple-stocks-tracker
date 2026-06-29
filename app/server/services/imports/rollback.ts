@@ -9,6 +9,14 @@ type BatchSummary = {
   [key: string]: unknown;
 };
 
+type StoredCorporateAdjustment = {
+  tradeId: string;
+  oldQuantity: string;
+  oldPrice: string;
+  newQuantity: string;
+  newPrice: string;
+};
+
 function parseSummary(summaryJson: string | null): BatchSummary {
   if (!summaryJson) return {};
   try {
@@ -16,6 +24,22 @@ function parseSummary(summaryJson: string | null): BatchSummary {
   } catch {
     return {};
   }
+}
+
+function parseCorporateAdjustments(normalizedJson: string | null): StoredCorporateAdjustment[] {
+  if (!normalizedJson) return [];
+  try {
+    const parsed = JSON.parse(normalizedJson) as {
+      appliedCorporateAction?: { adjustments?: StoredCorporateAdjustment[] };
+    };
+    return parsed.appliedCorporateAction?.adjustments ?? [];
+  } catch {
+    return [];
+  }
+}
+
+function numericClose(left: string | number, right: string | number) {
+  return Math.abs(Number(left) - Number(right)) <= 0.000001;
 }
 
 export async function rollback(userId: string, batchId: string) {
@@ -35,6 +59,9 @@ export async function rollback(userId: string, batchId: string) {
     const rowByCashEventId = new Map(rows.filter((row) => row.matchedCashEventId).map((row) => [row.matchedCashEventId!, row]));
     const tradeIds = [...rowByTradeId.keys()];
     const cashEventIds = [...rowByCashEventId.keys()];
+    const corporateRows = rows
+      .filter((row) => row.kind === "corporate_action")
+      .sort((left, right) => right.rowIndex - left.rowIndex);
 
     let safeTradeIds: string[] = [];
     if (tradeIds.length > 0) {
@@ -72,6 +99,24 @@ export async function rollback(userId: string, batchId: string) {
           return event.sourceSystem === batch.sourceSystem && event.sourceRowHash === row?.rowHash;
         })
         .map((event) => event.id);
+    }
+
+    for (const row of corporateRows) {
+      for (const adjustment of parseCorporateAdjustments(row.normalizedJson).reverse()) {
+        const trade = await tx.query.trades.findFirst({
+          where: and(eq(trades.id, adjustment.tradeId), eq(trades.userId, userId)),
+        });
+        if (!trade) continue;
+        if (!numericClose(trade.quantity, adjustment.newQuantity) || !numericClose(trade.price, adjustment.newPrice)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Rollback blocked because a split-adjusted trade changed after import.",
+          });
+        }
+        await tx.update(trades)
+          .set({ quantity: adjustment.oldQuantity, price: adjustment.oldPrice })
+          .where(and(eq(trades.id, adjustment.tradeId), eq(trades.userId, userId)));
+      }
     }
 
     if (safeTradeIds.length > 0) {

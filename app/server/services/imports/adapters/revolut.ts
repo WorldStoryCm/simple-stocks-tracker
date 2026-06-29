@@ -116,13 +116,25 @@ function normalizeRow(rowIndex: number, raw: Record<string, string>): Normalized
   if (type === "TRANSFER FROM REVOLUT BANK UAB TO REVOLUT SECURITIES EUROPE UAB") {
     return { ...base, kind: "cash_event", eventType: "transfer", cashImpact: total.amount, importable: true };
   }
-  if (type === "STOCK SPLIT" || type === "MERGER - STOCK") {
+  if (type === "STOCK SPLIT") {
     return {
       ...base,
       kind: "corporate_action",
+      corporateActionType: "stock_split",
+      quantity,
+      cashImpact: 0,
+      importable: true,
+      message: "Will adjust open lots by this Revolut share delta.",
+    };
+  }
+  if (type === "MERGER - STOCK") {
+    return {
+      ...base,
+      kind: "corporate_action",
+      corporateActionType: "merger_stock",
       quantity,
       importable: false,
-      message: "Corporate actions are blocked: Revolut gives only share delta here, and position-adjustment support is required before import.",
+      message: "Merger stock rows are blocked: moving cost basis across tickers needs merger support.",
     };
   }
   if (type.includes("TRANSFER")) {

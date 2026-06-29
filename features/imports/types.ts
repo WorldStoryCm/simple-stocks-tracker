@@ -20,6 +20,7 @@ export type ImportPreviewRow = {
   date?: string;
   ticker?: string;
   tradeType?: "buy" | "sell";
+  corporateActionType?: "stock_split" | "merger_stock";
   eventType?: string;
   quantity?: number;
   price?: number;

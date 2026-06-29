@@ -5,6 +5,7 @@ import { cashEvents, importBatches, importRows, platforms, trades } from "@/db/s
 import { getExchangeRates } from "@/lib/exchange-rates";
 import { buildPreview, type PreviewInput } from "./preview";
 import type { ImportCommitResult, PreviewImportRow } from "./types";
+import { applyCorporateActionRow } from "./corporateActions";
 import { insertCashEventRow, insertTradeRow } from "./writeRows";
 
 type CommitInput = PreviewInput & {
@@ -19,7 +20,7 @@ function byBrokerDate(left: PreviewImportRow, right: PreviewImportRow) {
 
 function canCommit(row: PreviewImportRow, selected: Set<string>, replaceHistory: boolean) {
   if (!selected.has(row.rowHash) || !row.importable) return false;
-  if (row.kind !== "trade" && row.kind !== "cash_event") return false;
+  if (row.kind !== "trade" && row.kind !== "cash_event" && row.kind !== "corporate_action") return false;
   if (replaceHistory) return row.status === "new" || row.status === "possible_match" || row.status === "matched";
   return row.status === "new" || row.status === "possible_match";
 }
@@ -30,7 +31,7 @@ export async function commitImport(userId: string, input: CommitInput): Promise<
   const replaceHistory = input.replaceHistory === true;
   const defaultRows = preview.rows.filter((row) =>
     replaceHistory
-      ? row.importable && (row.kind === "trade" || row.kind === "cash_event")
+      ? row.importable && (row.kind === "trade" || row.kind === "cash_event" || row.kind === "corporate_action")
       : row.status === "new",
   );
   const selected = new Set(input.selectedRowHashes ?? defaultRows.map((row) => row.rowHash));
@@ -43,7 +44,7 @@ export async function commitImport(userId: string, input: CommitInput): Promise<
 
   let batchId = "";
   let imported = 0;
-  const committedByIndex = new Map<number, { tradeId?: string; cashEventId?: string }>();
+  const committedByIndex = new Map<number, { tradeId?: string; cashEventId?: string; normalizedJson?: string }>();
   const committedHashes = new Set<string>();
 
   await db.transaction(async (tx) => {
@@ -108,6 +109,17 @@ export async function commitImport(userId: string, input: CommitInput): Promise<
         cashBalance = result.cashBalance;
         committedByIndex.set(row.rowIndex, { cashEventId: result.id });
         rowCommitted = true;
+      } else if (row.kind === "corporate_action") {
+        const result = await applyCorporateActionRow({
+          tx,
+          userId,
+          platformId: input.platformId,
+          row,
+        });
+        committedByIndex.set(row.rowIndex, {
+          normalizedJson: JSON.stringify({ ...row, appliedCorporateAction: result }),
+        });
+        rowCommitted = true;
       }
       if (rowCommitted) {
         committedHashes.add(row.rowHash);
@@ -128,7 +140,7 @@ export async function commitImport(userId: string, input: CommitInput): Promise<
           status: committed ? "imported" : row.status,
           confidence: row.confidence.toFixed(4),
           rawJson: JSON.stringify(row.raw),
-          normalizedJson: JSON.stringify(row),
+          normalizedJson: committed?.normalizedJson ?? JSON.stringify(row),
           matchedTradeId,
           matchedCashEventId,
           message: row.message ?? row.matched?.reason,

@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { db } from "@/db/drizzle";
-import { cashEvents, platforms, symbols, trades } from "@/db/schema";
+import { cashEvents, importBatches, platforms, symbols, trades } from "@/db/schema";
 import { sha256 } from "./hash";
 import { classifyImportRow } from "./match";
 import { parseRevolutCsv } from "./adapters/revolut";
@@ -42,7 +42,7 @@ export async function buildPreview(userId: string, input: PreviewInput): Promise
   if (!platform) throw new TRPCError({ code: "NOT_FOUND", message: "Platform not found" });
 
   const rows = parseRows(input.sourceSystem, input.fileContent);
-  const [existingSymbols, existingTrades, existingCashEvents] = await Promise.all([
+  const [existingSymbols, existingTrades, existingCashEvents, existingBatches] = await Promise.all([
     db.query.symbols.findMany({ where: eq(symbols.userId, userId) }),
     db.query.trades.findMany({
       where: and(eq(trades.userId, userId), eq(trades.platformId, input.platformId)),
@@ -52,9 +52,21 @@ export async function buildPreview(userId: string, input: PreviewInput): Promise
       where: and(eq(cashEvents.userId, userId), eq(cashEvents.platformId, input.platformId)),
       with: { symbol: true },
     }),
+    db.query.importBatches.findMany({
+      where: and(
+        eq(importBatches.userId, userId),
+        eq(importBatches.platformId, input.platformId),
+        eq(importBatches.sourceSystem, input.sourceSystem),
+        eq(importBatches.status, "imported"),
+      ),
+      with: { rows: true },
+    }),
   ]);
 
   const symbolTickers = new Set(existingSymbols.map((symbol) => symbol.ticker.toUpperCase()));
+  const existingImportRowHashes = new Set(
+    existingBatches.flatMap((batch) => batch.rows.filter((row) => row.status === "imported").map((row) => row.rowHash)),
+  );
   const previewRows = rows.map((row) =>
     classifyImportRow({
       row,
@@ -62,6 +74,7 @@ export async function buildPreview(userId: string, input: PreviewInput): Promise
       trades: existingTrades,
       cashEvents: existingCashEvents,
       symbolExists: row.ticker ? symbolTickers.has(row.ticker) : false,
+      existingImportRowHashes,
     }),
   );
 

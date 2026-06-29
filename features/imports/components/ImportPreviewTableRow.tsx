@@ -63,7 +63,7 @@ function quantityCell(row: ImportPreviewRow) {
 
 function canSelect(row: ImportPreviewRow, replaceHistory: boolean) {
   if (replaceHistory) {
-    return row.importable && (row.kind === "trade" || row.kind === "cash_event")
+    return row.importable && (row.kind === "trade" || row.kind === "cash_event" || row.kind === "corporate_action")
       && (row.status === "new" || row.status === "matched" || row.status === "possible_match");
   }
   return row.status === "new" || row.status === "possible_match";
@@ -107,10 +107,12 @@ function detailRow(row: ImportPreviewRow, replaceHistory: boolean, isSelected: b
   }
   if (row.kind === "corporate_action") {
     return {
-      label: "Corporate action blocked",
-      primary: row.message ?? "Position-adjustment support is required before import.",
+      label: row.status === "matched" ? "Corporate action already applied" : "Corporate action",
+      primary: row.message ?? "Will adjust open lots from broker share delta.",
       secondary: row.quantity == null ? undefined : `Revolut quantity delta: ${quantityCell(row)}`,
-      action: "This is not imported yet because changing share counts must preserve cost basis.",
+      action: row.status === "matched"
+        ? "This row is treated as duplicate and will not import."
+        : "Selected rows adjust share counts without changing cash.",
     };
   }
   return undefined;
