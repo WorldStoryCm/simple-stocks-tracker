@@ -72,7 +72,7 @@ export function ImportControls({
         variant="outline"
         className="h-9 px-3"
         disabled={!platformId || !fileName || pending}
-        onClick={onPreview}
+        onClick={() => onPreview()}
       >
         <Upload className="mr-1.5 h-4 w-4" />
         Preview

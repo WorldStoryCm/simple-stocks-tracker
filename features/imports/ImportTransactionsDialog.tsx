@@ -92,12 +92,13 @@ export function ImportTransactionsDialog({
     setFileContent(await file.text());
   }
 
-  function runPreview(nextReplaceHistory = replaceHistory) {
+  function runPreview(nextReplaceHistory?: boolean) {
     if (!platformId || !fileContent) {
       toast.error("Choose a platform and file first");
       return;
     }
-    previewMutation.mutate({ sourceSystem, platformId, fileName, fileContent, replaceHistory: nextReplaceHistory });
+    const shouldReplaceHistory = typeof nextReplaceHistory === "boolean" ? nextReplaceHistory : replaceHistory;
+    previewMutation.mutate({ sourceSystem, platformId, fileName, fileContent, replaceHistory: shouldReplaceHistory });
   }
 
   function runCommit() {
