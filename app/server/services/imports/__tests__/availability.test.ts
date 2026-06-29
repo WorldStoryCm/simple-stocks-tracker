@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { findInsufficientQuantityRows } from "../availability";
+import { analyzeQuantityAvailability, applyQuantityAvailability } from "../availability";
 import type { PreviewImportRow } from "../types";
 
 function row(values: Partial<PreviewImportRow> & Pick<PreviewImportRow, "rowHash" | "rowIndex" | "kind">): PreviewImportRow {
@@ -14,9 +14,9 @@ function row(values: Partial<PreviewImportRow> & Pick<PreviewImportRow, "rowHash
   } as PreviewImportRow;
 }
 
-describe("findInsufficientQuantityRows", () => {
-  it("blocks an orphan GEHC sell from a missing spin-off lot", () => {
-    const blocked = findInsufficientQuantityRows([
+describe("applyQuantityAvailability", () => {
+  it("adds a non-cash position adjustment for an orphan sell", () => {
+    const rows = applyQuantityAvailability([
       row({
         rowHash: "gehc-sell",
         rowIndex: 186,
@@ -24,15 +24,20 @@ describe("findInsufficientQuantityRows", () => {
         tradeType: "sell",
         ticker: "GEHC",
         quantity: 18.96095554,
+        price: 61.94,
         date: "2023-01-11",
       }),
     ], new Map());
 
-    assert.match(blocked.get("gehc-sell") ?? "", /Short by 18\.96095554/);
+    assert.equal(rows[0].status, "new");
+    assert.equal(rows[0].importable, true);
+    assert.equal(rows[0].positionAdjustment?.quantity, 18.96095554);
+    assert.equal(rows[0].positionAdjustment?.price, 61.94);
+    assert.match(rows[0].message ?? "", /non-cash position adjustment/);
   });
 
   it("ignores matched duplicate rows during availability simulation", () => {
-    const blocked = findInsufficientQuantityRows([
+    const { blocked } = analyzeQuantityAvailability([
       row({
         rowHash: "old-sell",
         rowIndex: 1,
@@ -58,7 +63,7 @@ describe("findInsufficientQuantityRows", () => {
   });
 
   it("uses merger target quantity before a later sell", () => {
-    const blocked = findInsufficientQuantityRows([
+    const { blocked } = analyzeQuantityAvailability([
       row({
         rowHash: "crgy-merger",
         rowIndex: 496,
@@ -82,5 +87,33 @@ describe("findInsufficientQuantityRows", () => {
     ], new Map([["VTLE", 47.98959379]]));
 
     assert.equal(blocked.size, 0);
+  });
+
+  it("adds a position adjustment for a small final source-file shortfall", () => {
+    const rows = applyQuantityAvailability([
+      row({
+        rowHash: "buy",
+        rowIndex: 1,
+        kind: "trade",
+        tradeType: "buy",
+        ticker: "GGB",
+        quantity: 2252.5487474,
+        price: 3,
+        date: "2026-05-01",
+      }),
+      row({
+        rowHash: "sell",
+        rowIndex: 2,
+        kind: "trade",
+        tradeType: "sell",
+        ticker: "GGB",
+        quantity: 2276.58772756,
+        price: 4.66,
+        date: "2026-05-28",
+      }),
+    ], new Map());
+
+    assert.equal(rows[1].importable, true);
+    assert.equal(rows[1].positionAdjustment?.quantity.toFixed(8), "24.03898016");
   });
 });

@@ -4,6 +4,7 @@ import { Checkbox } from "@/components/checkbox";
 import { cn } from "@/components/component.utils";
 import { formatAmount, formatPrice } from "@/lib/currency";
 import type { ImportPreviewRow, ImportStatus } from "../types";
+import { hasImportPreviewRowDetail, ImportPreviewRowDetail } from "./ImportPreviewRowDetail";
 
 const TYPE_LABELS: Record<string, string> = {
   buy: "buy",
@@ -90,35 +91,6 @@ function actionTitle(row: ImportPreviewRow, isSelected: boolean, replaceHistory:
   return row.status;
 }
 
-function detailRow(row: ImportPreviewRow, replaceHistory: boolean, isSelected: boolean) {
-  if (row.matched?.recordLabel) {
-    const kind = row.matched.kind === "cash_event" ? "cash event" : "trade";
-    const action = replaceHistory && isSelected
-      ? "Replace mode: this row will be re-imported after existing history is deleted."
-      : row.status === "possible_match"
-      ? "Default: D skips as duplicate. Choose A only when this is a different transaction."
-      : "This row is treated as duplicate and will not import.";
-    return {
-      label: `Matched existing ${kind}`,
-      primary: row.matched.recordLabel,
-      secondary: row.matched.reason,
-      action,
-    };
-  }
-  if (row.kind === "corporate_action") {
-    const isMerger = row.corporateActionType === "merger_stock";
-    return {
-      label: row.status === "matched" ? "Corporate action already applied" : "Corporate action",
-      primary: row.message ?? (isMerger ? "Will transfer lots between merger tickers." : "Will adjust open lots from broker share delta."),
-      secondary: row.quantity == null ? undefined : `Revolut quantity delta: ${quantityCell(row)}`,
-      action: row.status === "matched"
-        ? "This row is treated as duplicate and will not import."
-        : isMerger ? "Selected merger rows move cost basis without changing cash." : "Selected rows adjust share counts without changing cash.",
-    };
-  }
-  return undefined;
-}
-
 function PossibleMatchActions({
   row,
   selected,
@@ -166,11 +138,11 @@ export function ImportPreviewTableRow({
 }) {
   const selectable = canSelect(row, replaceHistory);
   const isSelected = selected.has(row.rowHash);
-  const detail = detailRow(row, replaceHistory, isSelected);
+  const hasDetail = hasImportPreviewRowDetail(row);
 
   return (
     <>
-      <tr className={cn("border-b border-border/60 hover:bg-[color:var(--surface-2)]/40", detail && "border-b-0")}>
+      <tr className={cn("border-b border-border/60 hover:bg-[color:var(--surface-2)]/40", hasDetail && "border-b-0")}>
         <td className="px-2 py-2">
           <Checkbox
             checked={isSelected}
@@ -223,22 +195,7 @@ export function ImportPreviewTableRow({
           <div className="truncate">{row.message ?? row.matched?.reason ?? "-"}</div>
         </td>
       </tr>
-      {detail && (
-        <tr className="border-b border-border/60 bg-[color:var(--surface-1)]/35">
-          <td colSpan={11} className="px-2 pb-2 pl-[7.25rem] pr-3 pt-0">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-l-2 border-[color:var(--info)]/60 py-2 pl-3 text-xs text-text-secondary">
-              <span className="font-medium text-text-primary">{detail.label}</span>
-              <span className="min-w-0 truncate font-tabular" title={detail.primary}>{detail.primary}</span>
-              <span className="text-text-tertiary">{detail.action}</span>
-              {detail.secondary && (
-                <span className="basis-full truncate text-text-tertiary" title={detail.secondary}>
-                  Reason: {detail.secondary}
-                </span>
-              )}
-            </div>
-          </td>
-        </tr>
-      )}
+      <ImportPreviewRowDetail row={row} replaceHistory={replaceHistory} isSelected={isSelected} />
     </>
   );
 }

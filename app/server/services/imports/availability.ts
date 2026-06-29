@@ -7,6 +7,7 @@ type OpenQuantityInput = {
   tradeType?: "buy" | "sell";
   kind: string;
   quantity?: number;
+  price?: number;
   date?: string;
   rowIndex: number;
   rowHash: string;
@@ -15,12 +16,19 @@ type OpenQuantityInput = {
   status?: string;
 };
 
-export function findInsufficientQuantityRows(
+type PositionAdjustment = {
+  quantity: number;
+  price: number;
+  reason: string;
+};
+
+export function analyzeQuantityAvailability(
   rows: OpenQuantityInput[],
   initialOpenByTicker: Map<string, number>,
 ) {
   const openByTicker = new Map(initialOpenByTicker);
   const blocked = new Map<string, string>();
+  const adjustments = new Map<string, PositionAdjustment>();
   const orderedRows = [...rows].sort((left, right) =>
     (left.date ?? "").localeCompare(right.date ?? "") || left.rowIndex - right.rowIndex,
   );
@@ -62,28 +70,55 @@ export function findInsufficientQuantityRows(
     if (row.tradeType === "sell") {
       const shortBy = row.quantity - currentOpen;
       if (shortBy > ZERO_EPSILON) {
-        blocked.set(
-          row.rowHash,
-          `Insufficient open quantity for ${row.ticker}. Short by ${shortBy.toFixed(8)}. Missing opening lot or corporate action in source file.`,
-        );
+        if (row.price == null) {
+          blocked.set(
+            row.rowHash,
+            `Insufficient open quantity for ${row.ticker}. Short by ${shortBy.toFixed(8)}. Missing opening lot or corporate action in source file.`,
+          );
+        } else {
+          adjustments.set(row.rowHash, {
+            quantity: shortBy,
+            price: row.price,
+            reason: currentOpen <= ZERO_EPSILON
+              ? "No opening lot exists in the source file before this sell."
+              : `Source file is short by ${shortBy.toFixed(8)} shares before this sell.`,
+          });
+          openByTicker.set(row.ticker, 0);
+        }
       } else {
         openByTicker.set(row.ticker, currentOpen - row.quantity);
       }
     }
   }
 
-  return blocked;
+  return { blocked, adjustments };
+}
+
+export function findInsufficientQuantityRows(
+  rows: OpenQuantityInput[],
+  initialOpenByTicker: Map<string, number>,
+) {
+  return analyzeQuantityAvailability(rows, initialOpenByTicker).blocked;
 }
 
 export function applyQuantityAvailability(
   rows: PreviewImportRow[],
   initialOpenByTicker: Map<string, number>,
 ) {
-  const blocked = findInsufficientQuantityRows(rows, initialOpenByTicker);
-  if (blocked.size === 0) return rows;
+  const { blocked, adjustments } = analyzeQuantityAvailability(rows, initialOpenByTicker);
+  if (blocked.size === 0 && adjustments.size === 0) return rows;
 
   return rows.map((row) => {
     const message = blocked.get(row.rowHash);
+    const adjustment = adjustments.get(row.rowHash);
+    if (adjustment && row.status !== "matched" && row.status !== "ignored") {
+      return {
+        ...row,
+        importable: true,
+        message: `Will add a non-cash position adjustment for ${adjustment.quantity.toFixed(8)} ${row.ticker} shares before this sell.`,
+        positionAdjustment: adjustment,
+      };
+    }
     if (!message || row.status === "matched" || row.status === "ignored") return row;
     return {
       ...row,

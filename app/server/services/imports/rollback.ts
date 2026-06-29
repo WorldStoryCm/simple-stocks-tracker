@@ -17,6 +17,10 @@ type StoredCorporateAdjustment = {
   newPrice: string;
 };
 
+type StoredPositionAdjustment = {
+  tradeId: string;
+};
+
 function parseSummary(summaryJson: string | null): BatchSummary {
   if (!summaryJson) return {};
   try {
@@ -38,6 +42,18 @@ function parseCorporateAdjustments(normalizedJson: string | null): StoredCorpora
   }
 }
 
+function parsePositionAdjustment(normalizedJson: string | null): StoredPositionAdjustment | undefined {
+  if (!normalizedJson) return undefined;
+  try {
+    const parsed = JSON.parse(normalizedJson) as {
+      appliedPositionAdjustment?: StoredPositionAdjustment;
+    };
+    return parsed.appliedPositionAdjustment;
+  } catch {
+    return undefined;
+  }
+}
+
 function numericClose(left: string | number, right: string | number) {
   return Math.abs(Number(left) - Number(right)) <= 0.000001;
 }
@@ -56,8 +72,14 @@ export async function rollback(userId: string, batchId: string) {
       where: and(eq(importRows.batchId, batchId), eq(importRows.status, "imported")),
     });
     const rowByTradeId = new Map(rows.filter((row) => row.matchedTradeId).map((row) => [row.matchedTradeId!, row]));
+    const rowByPositionAdjustmentId = new Map(
+      rows.flatMap((row) => {
+        const adjustment = parsePositionAdjustment(row.normalizedJson);
+        return adjustment?.tradeId ? [[adjustment.tradeId, row] as const] : [];
+      }),
+    );
     const rowByCashEventId = new Map(rows.filter((row) => row.matchedCashEventId).map((row) => [row.matchedCashEventId!, row]));
-    const tradeIds = [...rowByTradeId.keys()];
+    const tradeIds = [...rowByTradeId.keys(), ...rowByPositionAdjustmentId.keys()];
     const cashEventIds = [...rowByCashEventId.keys()];
     const corporateRows = rows
       .filter((row) => row.kind === "corporate_action")
@@ -71,7 +93,10 @@ export async function rollback(userId: string, batchId: string) {
       safeTradeIds = importedTrades
         .filter((trade) => {
           const row = rowByTradeId.get(trade.id);
-          return trade.sourceSystem === batch.sourceSystem && trade.sourceRowHash === row?.rowHash;
+          if (row) return trade.sourceSystem === batch.sourceSystem && trade.sourceRowHash === row.rowHash;
+          const adjustmentRow = rowByPositionAdjustmentId.get(trade.id);
+          return trade.sourceSystem === batch.sourceSystem
+            && trade.sourceRowHash === `${adjustmentRow?.rowHash}:position-adjustment`;
         })
         .map((trade) => trade.id);
 

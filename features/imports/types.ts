@@ -29,6 +29,11 @@ export type ImportPreviewRow = {
   cashImpact?: number;
   currencyCode?: string;
   message?: string;
+  positionAdjustment?: {
+    quantity: number;
+    price: number;
+    reason: string;
+  };
   matched?: {
     id: string;
     kind: "trade" | "cash_event";

@@ -103,7 +103,12 @@ export async function commitImport(userId: string, input: CommitInput): Promise<
           sourceSystem: input.sourceSystem,
         });
         cashBalance = result.cashBalance;
-        committedByIndex.set(row.rowIndex, { tradeId: result.id });
+        committedByIndex.set(row.rowIndex, {
+          tradeId: result.id,
+          normalizedJson: result.positionAdjustmentTradeId
+            ? JSON.stringify({ ...row, appliedPositionAdjustment: { tradeId: result.positionAdjustmentTradeId } })
+            : undefined,
+        });
         rowCommitted = true;
       } else if (row.kind === "cash_event") {
         const result = await insertCashEventRow({

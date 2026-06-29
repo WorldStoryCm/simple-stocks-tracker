@@ -31,6 +31,11 @@ export type NormalizedImportRow = {
   fxRate?: number;
   importable: boolean;
   message?: string;
+  positionAdjustment?: {
+    quantity: number;
+    price: number;
+    reason: string;
+  };
 };
 
 export type PreviewMatch = {

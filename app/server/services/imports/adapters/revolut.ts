@@ -32,20 +32,6 @@ function rowHash(raw: Record<string, string>) {
   })}`);
 }
 
-function ignored(rowIndex: number, raw: Record<string, string>, message: string): NormalizedImportRow {
-  return {
-    rowIndex,
-    rowHash: rowHash(raw),
-    raw,
-    kind: "ignored",
-    sourceType: raw.Type,
-    date: raw.Date?.slice(0, 10),
-    ticker: raw.Ticker?.trim().toUpperCase() || undefined,
-    importable: false,
-    message,
-  };
-}
-
 function signedAmount(value: number | undefined, direction: "positive" | "negative") {
   if (value == null) return undefined;
   const absolute = Math.abs(value);
@@ -139,7 +125,13 @@ function normalizeRow(rowIndex: number, raw: Record<string, string>): Normalized
     };
   }
   if (type.includes("TRANSFER")) {
-    return ignored(rowIndex, raw, "Internal securities transfer rows do not change cash balance and need position-transfer support.");
+    return {
+      ...base,
+      kind: "ignored",
+      quantity,
+      importable: false,
+      message: "Internal Revolut custody migration; ignored because it does not change cash or net holdings.",
+    };
   }
 
   return {

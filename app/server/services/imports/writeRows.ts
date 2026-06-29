@@ -36,6 +36,37 @@ type WriteRowParams = {
   sourceSystem: string;
 };
 
+type PositionAdjustmentLotParams = Pick<WriteRowParams, "tx" | "userId" | "platformId" | "row" | "sourceSystem"> & {
+  symbolId: string;
+};
+
+async function insertPositionAdjustmentLot({
+  tx,
+  userId,
+  platformId,
+  symbolId,
+  row,
+  sourceSystem,
+}: PositionAdjustmentLotParams) {
+  if (!row.positionAdjustment || !row.date || !row.ticker) return;
+  const [trade] = await tx.insert(trades).values({
+    userId,
+    platformId,
+    symbolId,
+    tradeType: "buy",
+    tradeDate: row.date,
+    quantity: row.positionAdjustment.quantity.toFixed(8),
+    price: row.positionAdjustment.price.toFixed(4),
+    fee: "0.0000",
+    currencyCode: row.currencyCode ?? "USD",
+    notes: `Imported from ${sourceSystem}: non-cash position adjustment before ${row.sourceType}. ${row.positionAdjustment.reason}`,
+    sourceSystem,
+    sourceRowHash: `${row.rowHash}:position-adjustment`,
+    importedAt: new Date(),
+  }).returning();
+  return trade.id;
+}
+
 export async function insertTradeRow({
   tx,
   userId,
@@ -51,6 +82,17 @@ export async function insertTradeRow({
   }
 
   const symbol = await ensureSymbol(tx, userId, row.ticker, row.currencyCode ?? "USD");
+  const positionAdjustmentTradeId = row.tradeType === "sell"
+    ? await insertPositionAdjustmentLot({
+      tx,
+      userId,
+      platformId,
+      row,
+      sourceSystem,
+      symbolId: symbol.id,
+    })
+    : undefined;
+
   const fee = row.fee ?? 0;
   const [trade] = await tx.insert(trades).values({
     userId,
@@ -102,7 +144,7 @@ export async function insertTradeRow({
     }
   }
 
-  return { id: trade.id, cashBalance: newBalance };
+  return { id: trade.id, cashBalance: newBalance, positionAdjustmentTradeId };
 }
 
 export async function insertCashEventRow({

@@ -14,13 +14,14 @@ const csv = `Date,Ticker,Type,Quantity,Price per share,Total Amount,Currency,FX 
 2024-01-05T04:00:00Z,TSLA,STOCK SPLIT,-1.0000,,USD 0,USD,1.10
 2024-01-06T04:00:00Z,,CASH TOP-UP,,,USD 100,USD,1.10
 2024-01-07T04:00:00Z,NEWC,MERGER - STOCK,2.0000,,USD 0,USD,1.10
+2024-01-08T04:00:00Z,TSLA,TRANSFER FROM REVOLUT TRADING LTD TO REVOLUT SECURITIES EUROPE UAB,3.0000,,USD 0,USD,1.10
 `;
 
 describe("parseRevolutCsv", () => {
   it("normalizes trades, dividends, taxes, corporate actions, and cash rows", () => {
     const rows = parseRevolutCsv(csv);
 
-    assert.equal(rows.length, 7);
+    assert.equal(rows.length, 8);
     assert.deepEqual(rows.map((row) => row.kind), [
       "trade",
       "trade",
@@ -29,6 +30,7 @@ describe("parseRevolutCsv", () => {
       "corporate_action",
       "cash_event",
       "corporate_action",
+      "ignored",
     ]);
     assert.equal(rows[0].tradeType, "buy");
     assert.equal(rows[0].quantity, 0.12345678);
@@ -46,6 +48,8 @@ describe("parseRevolutCsv", () => {
     assert.equal(rows[5].cashImpact, 100);
     assert.equal(rows[6].corporateActionType, "merger_stock");
     assert.equal(rows[6].importable, true);
+    assert.equal(rows[7].quantity, 3);
+    assert.equal(rows[7].message, "Internal Revolut custody migration; ignored because it does not change cash or net holdings.");
   });
 });
 
