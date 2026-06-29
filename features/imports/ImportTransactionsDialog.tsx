@@ -41,10 +41,10 @@ export function ImportTransactionsDialog({
   }
 
   const previewMutation = trpc.imports.preview.useMutation({
-    onSuccess: (result) => {
+    onSuccess: (result, variables) => {
       const nextPreview = result as ImportPreview;
       setPreview(nextPreview);
-      setSelected(new Set(defaultSelectedRows(nextPreview.rows, replaceHistory).map((row) => row.rowHash)));
+      setSelected(new Set(defaultSelectedRows(nextPreview.rows, variables.replaceHistory === true).map((row) => row.rowHash)));
       setStatusFilter("all");
     },
     onError: (error) => toast.error(error.message || "Import preview failed"),
@@ -92,12 +92,12 @@ export function ImportTransactionsDialog({
     setFileContent(await file.text());
   }
 
-  function runPreview() {
+  function runPreview(nextReplaceHistory = replaceHistory) {
     if (!platformId || !fileContent) {
       toast.error("Choose a platform and file first");
       return;
     }
-    previewMutation.mutate({ sourceSystem, platformId, fileName, fileContent });
+    previewMutation.mutate({ sourceSystem, platformId, fileName, fileContent, replaceHistory: nextReplaceHistory });
   }
 
   function runCommit() {
@@ -114,7 +114,9 @@ export function ImportTransactionsDialog({
 
   function handleReplaceHistory(checked: boolean) {
     setReplaceHistory(checked);
-    if (preview) {
+    if (preview && platformId && fileContent) {
+      runPreview(checked);
+    } else if (preview) {
       setSelected(new Set(defaultSelectedRows(preview.rows, checked).map((row) => row.rowHash)));
     }
   }
@@ -172,9 +174,9 @@ export function ImportTransactionsDialog({
               aria-label="Replace existing platform history before import"
             />
             <span>
-              <span className="font-medium text-text-primary">Replace history</span>
-              {" "}deletes this platform&apos;s existing trades and cash events before importing selected rows.
-              Use Export on the Trading Ledger before replacing history.
+              <span className="font-medium text-text-primary">Replace platform data</span>
+              {" "}deletes this platform&apos;s existing trades, cash events, and import history, then imports all importable rows from this file.
+              Use Export Trades before replacing data.
             </span>
           </label>
 
@@ -208,7 +210,7 @@ export function ImportTransactionsDialog({
           <Button type="button" disabled={selected.size === 0 || pending} onClick={runCommit}>
             {commitMutation.isPending
               ? "Importing..."
-              : replaceHistory ? `Replace With ${selected.size} Rows` : `Import ${selected.size} Rows`}
+              : replaceHistory ? `Replace Data With ${selected.size} Rows` : `Import ${selected.size} Rows`}
           </Button>
         </DialogFooter>
       </DialogContent>

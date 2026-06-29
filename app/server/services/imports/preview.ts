@@ -68,15 +68,19 @@ export async function buildPreview(userId: string, input: PreviewInput): Promise
 
   const symbolTickers = new Set(existingSymbols.map((symbol) => symbol.ticker.toUpperCase()));
   const initialOpenByTicker = buildInitialOpenByTicker(input.replaceHistory === true ? [] : existingTrades, existingMatches);
-  const existingImportRowHashes = new Set(
-    existingBatches.flatMap((batch) => batch.rows.filter((row) => row.status === "imported").map((row) => row.rowHash)),
-  );
+  const existingImportRowHashes = input.replaceHistory === true
+    ? new Set<string>()
+    : new Set(
+      existingBatches.flatMap((batch) => batch.rows.filter((row) => row.status === "imported").map((row) => row.rowHash)),
+    );
+  const matchTrades = input.replaceHistory === true ? [] : existingTrades;
+  const matchCashEvents = input.replaceHistory === true ? [] : existingCashEvents;
   const previewRows = rows.map((row) =>
     classifyImportRow({
       row,
       sourceSystem: input.sourceSystem,
-      trades: existingTrades,
-      cashEvents: existingCashEvents,
+      trades: matchTrades,
+      cashEvents: matchCashEvents,
       symbolExists: row.ticker ? symbolTickers.has(row.ticker) : false,
       existingImportRowHashes,
     }),

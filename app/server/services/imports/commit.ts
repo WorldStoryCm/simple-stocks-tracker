@@ -36,14 +36,12 @@ export async function commitImport(userId: string, input: CommitInput): Promise<
   const replaceHistory = input.replaceHistory === true;
   const defaultRows = preview.rows.filter((row) =>
     replaceHistory
-      ? row.status === "new"
-        && row.importable
-        && (row.kind === "trade" || row.kind === "cash_event" || row.kind === "corporate_action")
+      ? row.importable && (row.kind === "trade" || row.kind === "cash_event" || row.kind === "corporate_action")
       : row.status === "new",
   );
   const selected = expandSelectedRowsWithRequiredCorporateActions(
     preview.rows,
-    input.selectedRowHashes ?? defaultRows.map((row) => row.rowHash),
+    replaceHistory ? defaultRows.map((row) => row.rowHash) : input.selectedRowHashes ?? defaultRows.map((row) => row.rowHash),
   );
   const rowsToCommit = preview.rows
     .filter((row) => canCommit(row, selected, replaceHistory))
@@ -64,6 +62,20 @@ export async function commitImport(userId: string, input: CommitInput): Promise<
     });
     if (!platform) throw new TRPCError({ code: "NOT_FOUND", message: "Platform not found" });
 
+    let cashBalance = Number(platform.cashBalance);
+    const platformCurrency = platform.currencyCode;
+    const cashBalanceBefore = cashBalance;
+
+    if (replaceHistory) {
+      await tx.delete(importBatches).where(and(eq(importBatches.userId, userId), eq(importBatches.platformId, input.platformId)));
+      await tx.delete(cashEvents).where(and(eq(cashEvents.userId, userId), eq(cashEvents.platformId, input.platformId)));
+      await tx.delete(trades).where(and(eq(trades.userId, userId), eq(trades.platformId, input.platformId)));
+      cashBalance = 0;
+      await tx.update(platforms)
+        .set({ cashBalance: "0.00" })
+        .where(and(eq(platforms.id, input.platformId), eq(platforms.userId, userId)));
+    }
+
     const [batch] = await tx.insert(importBatches).values({
       userId,
       platformId: input.platformId,
@@ -75,19 +87,6 @@ export async function commitImport(userId: string, input: CommitInput): Promise<
       summaryJson: JSON.stringify({ preview: preview.summary }),
     }).returning();
     batchId = batch.id;
-
-    let cashBalance = Number(platform.cashBalance);
-    const platformCurrency = platform.currencyCode;
-    const cashBalanceBefore = cashBalance;
-
-    if (replaceHistory) {
-      await tx.delete(cashEvents).where(and(eq(cashEvents.userId, userId), eq(cashEvents.platformId, input.platformId)));
-      await tx.delete(trades).where(and(eq(trades.userId, userId), eq(trades.platformId, input.platformId)));
-      cashBalance = 0;
-      await tx.update(platforms)
-        .set({ cashBalance: "0.00" })
-        .where(and(eq(platforms.id, input.platformId), eq(platforms.userId, userId)));
-    }
 
     for (const row of rowsToCommit) {
       if (committedHashes.has(row.rowHash)) continue;

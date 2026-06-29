@@ -7,6 +7,7 @@ const importPreviewInput = z.object({
   platformId: z.string().min(1),
   fileName: z.string().min(1),
   fileContent: z.string().min(1).max(8_000_000),
+  replaceHistory: z.boolean().optional(),
 });
 
 export const importsRouter = router({
