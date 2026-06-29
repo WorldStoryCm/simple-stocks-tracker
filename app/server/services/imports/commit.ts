@@ -31,7 +31,9 @@ export async function commitImport(userId: string, input: CommitInput): Promise<
   const replaceHistory = input.replaceHistory === true;
   const defaultRows = preview.rows.filter((row) =>
     replaceHistory
-      ? row.importable && (row.kind === "trade" || row.kind === "cash_event" || row.kind === "corporate_action")
+      ? row.status === "new"
+        && row.importable
+        && (row.kind === "trade" || row.kind === "cash_event" || row.kind === "corporate_action")
       : row.status === "new",
   );
   const selected = new Set(input.selectedRowHashes ?? defaultRows.map((row) => row.rowHash));
