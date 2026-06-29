@@ -84,7 +84,7 @@ export function ImportTransactionsDialog({
     if (!file) return;
     setFileName(file.name);
     if (!file.name.toLowerCase().endsWith(".csv")) {
-      toast.error("This adapter currently expects a CSV export.");
+      toast.error("This adapter currently expects a CSV import file.");
       return;
     }
     setFileContent(await file.text());
@@ -139,7 +139,9 @@ export function ImportTransactionsDialog({
             <Select
               value={sourceSystem}
               onValueChange={(value) => {
-                setSourceSystem(value as "revolut" | "ibkr" | "n26");
+                const nextSource = value as "revolut" | "ibkr" | "n26";
+                if (nextSource === sourceSystem) return;
+                setSourceSystem(nextSource);
                 resetFileState();
               }}
             >
@@ -169,12 +171,16 @@ export function ImportTransactionsDialog({
 
             <label className="flex h-9 min-w-0 cursor-pointer items-center gap-2 rounded-md border border-dashed border-border bg-[color:var(--surface-1)] px-3 text-sm hover:bg-[color:var(--surface-2)]/60">
               <FileUp className="h-4 w-4 shrink-0 text-text-tertiary" />
-              <span className="min-w-0 flex-1 truncate text-text-primary">{fileName || "Choose CSV export"}</span>
+              <span className="min-w-0 flex-1 truncate text-text-primary">{fileName || "Choose CSV import"}</span>
               <input
                 type="file"
                 accept=".csv,.txt,.xlsx,.xls,.pdf"
-                className="hidden"
-                onChange={(event) => handleFile(event.target.files?.[0])}
+                className="sr-only"
+                onChange={(event) => {
+                  const file = event.currentTarget.files?.[0];
+                  event.currentTarget.value = "";
+                  handleFile(file);
+                }}
               />
             </label>
 
