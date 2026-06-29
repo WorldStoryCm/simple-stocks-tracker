@@ -130,18 +130,29 @@ export async function symbolPnl(
     }
   }
 
-  // One data point per sell event: session P/L bar + cumulative line
+  // One data point per day: session P/L bar + cumulative line.
   const sellTrades = symbolTrades.filter((t) => t.tradeType === "sell");
   let cumulative = 0;
-  const chartData = sellTrades.map((t) => {
-    const pnl = parseFloat((pnlBySell.get(t.id) ?? 0).toFixed(2));
+  const dailyPnl = new Map<string, { pnl: number; quantity: number; proceeds: number }>();
+  for (const trade of sellTrades) {
+    const pnl = pnlBySell.get(trade.id) ?? 0;
+    const quantity = Number(trade.quantity);
+    const existing = dailyPnl.get(trade.tradeDate) ?? { pnl: 0, quantity: 0, proceeds: 0 };
+    existing.pnl += pnl;
+    existing.quantity += quantity;
+    existing.proceeds += quantity * Number(trade.price);
+    dailyPnl.set(trade.tradeDate, existing);
+  }
+
+  const chartData = Array.from(dailyPnl.entries()).map(([date, day]) => {
+    const pnl = parseFloat(day.pnl.toFixed(2));
     cumulative = parseFloat((cumulative + pnl).toFixed(2));
     return {
-      date: t.tradeDate,
+      date,
       pnl,
       cumulative,
-      quantity: Number(t.quantity),
-      price: Number(t.price),
+      quantity: day.quantity,
+      price: day.quantity > 0 ? day.proceeds / day.quantity : 0,
     };
   });
 

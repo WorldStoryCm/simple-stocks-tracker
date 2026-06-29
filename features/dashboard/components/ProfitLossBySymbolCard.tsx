@@ -171,6 +171,8 @@ export function ProfitLossBySymbolCard({ filters }: { filters: DashboardFilters 
                         color: text.primary,
                         fontSize: 12,
                       }}
+                      labelStyle={{ color: text.primary, fontWeight: 600, marginBottom: 4 }}
+                      itemStyle={{ color: text.primary }}
                       formatter={(value, name) => {
                         if (value == null) return ["", ""];
                         if (name === "pnl") return [fmtMoney(Number(value)), "Session P/L"];
@@ -178,7 +180,7 @@ export function ProfitLossBySymbolCard({ filters }: { filters: DashboardFilters 
                         return [String(value), String(name)];
                       }}
                     />
-                    <Bar dataKey="pnl" name="pnl" maxBarSize={40} radius={[3, 3, 0, 0]}>
+                    <Bar dataKey="pnl" name="pnl" fill={status.positive} maxBarSize={40} radius={[3, 3, 0, 0]}>
                       {chartData.map((entry, index) => (
                         <Cell
                           key={index}
