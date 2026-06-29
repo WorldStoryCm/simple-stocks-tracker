@@ -6,6 +6,7 @@ import { getExchangeRates } from "@/lib/exchange-rates";
 import { buildPreview, type PreviewInput } from "./preview";
 import type { ImportCommitResult, PreviewImportRow } from "./types";
 import { applyCorporateActionRow } from "./corporateActions";
+import { expandSelectedRowsWithRequiredCorporateActions } from "./selection";
 import { insertCashEventRow, insertTradeRow } from "./writeRows";
 
 type CommitInput = PreviewInput & {
@@ -36,7 +37,10 @@ export async function commitImport(userId: string, input: CommitInput): Promise<
         && (row.kind === "trade" || row.kind === "cash_event" || row.kind === "corporate_action")
       : row.status === "new",
   );
-  const selected = new Set(input.selectedRowHashes ?? defaultRows.map((row) => row.rowHash));
+  const selected = expandSelectedRowsWithRequiredCorporateActions(
+    preview.rows,
+    input.selectedRowHashes ?? defaultRows.map((row) => row.rowHash),
+  );
   const rowsToCommit = preview.rows
     .filter((row) => canCommit(row, selected, replaceHistory))
     .sort(byBrokerDate);
