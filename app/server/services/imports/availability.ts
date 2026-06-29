@@ -42,6 +42,18 @@ export function findInsufficientQuantityRows(
       openByTicker.set(row.ticker, currentOpen + row.quantity);
       continue;
     }
+    if (row.kind === "corporate_action" && row.corporateActionType === "merger_stock") {
+      const nextOpen = currentOpen + row.quantity;
+      if (nextOpen < -ZERO_EPSILON) {
+        blocked.set(
+          row.rowHash,
+          `Insufficient open quantity for ${row.ticker} merger. Short by ${Math.abs(nextOpen).toFixed(8)}.`,
+        );
+      } else {
+        openByTicker.set(row.ticker, Math.max(0, nextOpen));
+      }
+      continue;
+    }
     if (row.kind !== "trade") continue;
     if (row.tradeType === "buy") {
       openByTicker.set(row.ticker, currentOpen + row.quantity);

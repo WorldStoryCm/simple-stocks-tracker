@@ -106,13 +106,14 @@ function detailRow(row: ImportPreviewRow, replaceHistory: boolean, isSelected: b
     };
   }
   if (row.kind === "corporate_action") {
+    const isMerger = row.corporateActionType === "merger_stock";
     return {
       label: row.status === "matched" ? "Corporate action already applied" : "Corporate action",
-      primary: row.message ?? "Will adjust open lots from broker share delta.",
+      primary: row.message ?? (isMerger ? "Will transfer lots between merger tickers." : "Will adjust open lots from broker share delta."),
       secondary: row.quantity == null ? undefined : `Revolut quantity delta: ${quantityCell(row)}`,
       action: row.status === "matched"
         ? "This row is treated as duplicate and will not import."
-        : "Selected rows adjust share counts without changing cash.",
+        : isMerger ? "Selected merger rows move cost basis without changing cash." : "Selected rows adjust share counts without changing cash.",
     };
   }
   return undefined;

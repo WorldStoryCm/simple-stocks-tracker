@@ -5,7 +5,7 @@ import { cashEvents, importBatches, importRows, platforms, trades } from "@/db/s
 import { getExchangeRates } from "@/lib/exchange-rates";
 import { buildPreview, type PreviewInput } from "./preview";
 import type { ImportCommitResult, PreviewImportRow } from "./types";
-import { applyCorporateActionRow } from "./corporateActions";
+import { applyCorporateActionRow, applyMergerStockRows } from "./corporateActions";
 import { expandSelectedRowsWithRequiredCorporateActions } from "./selection";
 import { insertCashEventRow, insertTradeRow } from "./writeRows";
 
@@ -24,6 +24,10 @@ function canCommit(row: PreviewImportRow, selected: Set<string>, replaceHistory:
   if (row.kind !== "trade" && row.kind !== "cash_event" && row.kind !== "corporate_action") return false;
   if (replaceHistory) return row.status === "new" || row.status === "possible_match" || row.status === "matched";
   return row.status === "new" || row.status === "possible_match";
+}
+
+function mergerKey(row: PreviewImportRow) {
+  return row.date || row.raw.Date || "";
 }
 
 export async function commitImport(userId: string, input: CommitInput): Promise<ImportCommitResult> {
@@ -52,6 +56,7 @@ export async function commitImport(userId: string, input: CommitInput): Promise<
   let imported = 0;
   const committedByIndex = new Map<number, { tradeId?: string; cashEventId?: string; normalizedJson?: string }>();
   const committedHashes = new Set<string>();
+  const committedMergerKeys = new Set<string>();
 
   await db.transaction(async (tx) => {
     const platform = await tx.query.platforms.findFirst({
@@ -116,6 +121,36 @@ export async function commitImport(userId: string, input: CommitInput): Promise<
         committedByIndex.set(row.rowIndex, { cashEventId: result.id });
         rowCommitted = true;
       } else if (row.kind === "corporate_action") {
+        if (row.corporateActionType === "merger_stock") {
+          const key = mergerKey(row);
+          if (committedMergerKeys.has(key)) continue;
+          const mergerRows = rowsToCommit.filter((candidate) =>
+            candidate.kind === "corporate_action"
+            && candidate.corporateActionType === "merger_stock"
+            && mergerKey(candidate) === key,
+          );
+          const result = await applyMergerStockRows({
+            tx,
+            userId,
+            platformId: input.platformId,
+            sourceSystem: input.sourceSystem,
+            rows: mergerRows,
+          });
+          for (const mergerRow of mergerRows) {
+            const createdTrade = result.createdTrades.find((trade) => trade.rowHash === mergerRow.rowHash);
+            const normalizedResult = (mergerRow.quantity ?? 0) < 0
+              ? { transferredCost: result.transferredCost, adjustments: result.adjustments }
+              : { transferredCost: result.transferredCost, unitCost: result.unitCost, createdTrades: result.createdTrades };
+            committedByIndex.set(mergerRow.rowIndex, {
+              tradeId: createdTrade?.tradeId,
+              normalizedJson: JSON.stringify({ ...mergerRow, appliedCorporateAction: normalizedResult }),
+            });
+            committedHashes.add(mergerRow.rowHash);
+            imported++;
+          }
+          committedMergerKeys.add(key);
+          continue;
+        }
         const result = await applyCorporateActionRow({
           tx,
           userId,

@@ -56,4 +56,31 @@ describe("findInsufficientQuantityRows", () => {
 
     assert.equal(blocked.size, 0);
   });
+
+  it("uses merger target quantity before a later sell", () => {
+    const blocked = findInsufficientQuantityRows([
+      row({
+        rowHash: "crgy-merger",
+        rowIndex: 496,
+        kind: "corporate_action",
+        corporateActionType: "merger_stock",
+        ticker: "CRGY",
+        quantity: 91.47776368,
+        date: "2025-12-16",
+      }),
+      row({
+        rowHash: "vtle-merger",
+        rowIndex: 497,
+        kind: "corporate_action",
+        corporateActionType: "merger_stock",
+        ticker: "VTLE",
+        quantity: -47.98959379,
+        date: "2025-12-16",
+      }),
+      row({ rowHash: "buy-1", rowIndex: 519, kind: "trade", tradeType: "buy", ticker: "CRGY", quantity: 272.91954834, date: "2026-02-23" }),
+      row({ rowHash: "sell", rowIndex: 560, kind: "trade", tradeType: "sell", ticker: "CRGY", quantity: 364.39731202, date: "2026-03-24" }),
+    ], new Map([["VTLE", 47.98959379]]));
+
+    assert.equal(blocked.size, 0);
+  });
 });

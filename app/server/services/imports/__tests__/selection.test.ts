@@ -58,4 +58,34 @@ describe("expandSelectedRowsWithRequiredCorporateActions", () => {
 
     assert.deepEqual([...selected], ["sell"]);
   });
+
+  it("adds paired merger rows needed by a later target ticker sell", () => {
+    const rows = [
+      row({
+        rowHash: "crgy-merger",
+        rowIndex: 496,
+        kind: "corporate_action",
+        corporateActionType: "merger_stock",
+        ticker: "CRGY",
+        quantity: 91.47776368,
+        date: "2025-12-16",
+        raw: { Date: "2025-12-16T15:26:56.816694Z" },
+      }),
+      row({
+        rowHash: "vtle-merger",
+        rowIndex: 497,
+        kind: "corporate_action",
+        corporateActionType: "merger_stock",
+        ticker: "VTLE",
+        quantity: -47.98959379,
+        date: "2025-12-16",
+        raw: { Date: "2025-12-16T15:26:56.909757Z" },
+      }),
+      row({ rowHash: "sell", rowIndex: 560, kind: "trade", tradeType: "sell", ticker: "CRGY", date: "2026-03-24" }),
+    ];
+
+    const selected = expandSelectedRowsWithRequiredCorporateActions(rows, ["sell"]);
+
+    assert.deepEqual([...selected].sort(), ["crgy-merger", "sell", "vtle-merger"]);
+  });
 });

@@ -133,8 +133,9 @@ function normalizeRow(rowIndex: number, raw: Record<string, string>): Normalized
       kind: "corporate_action",
       corporateActionType: "merger_stock",
       quantity,
-      importable: false,
-      message: "Merger stock rows are blocked: moving cost basis across tickers needs merger support.",
+      cashImpact: 0,
+      importable: true,
+      message: "Will transfer open lots between merger tickers.",
     };
   }
   if (type.includes("TRANSFER")) {
