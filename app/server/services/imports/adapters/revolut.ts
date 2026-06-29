@@ -154,7 +154,7 @@ function normalizeRow(rowIndex: number, raw: Record<string, string>): Normalized
       kind: "corporate_action",
       quantity,
       importable: false,
-      message: "Corporate actions need explicit position-adjustment support before import.",
+      message: "Corporate actions are blocked: Revolut gives only share delta here, and position-adjustment support is required before import.",
     };
   }
   if (type.includes("TRANSFER")) {
