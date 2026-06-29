@@ -1,4 +1,4 @@
-export type SourceSystem = "revolut" | "ibkr" | "n26";
+export type SourceSystem = "revolut" | "ibkr" | "n26" | "manual";
 
 export type ImportKind = "trade" | "cash_event" | "corporate_action" | "ignored" | "unsupported";
 
@@ -23,6 +23,7 @@ export type NormalizedImportRow = {
   eventType?: "dividend" | "dividend_tax" | "fee" | "fee_reversal" | "deposit" | "withdrawal" | "transfer" | "other";
   quantity?: number;
   price?: number;
+  fee?: number;
   amount?: number;
   cashImpact?: number;
   currencyCode?: string;

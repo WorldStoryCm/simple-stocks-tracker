@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { db } from "@/db/drizzle";
-import { importBatches, importRows, platforms } from "@/db/schema";
+import { cashEvents, importBatches, importRows, platforms, trades } from "@/db/schema";
 import { getExchangeRates } from "@/lib/exchange-rates";
 import { buildPreview, type PreviewInput } from "./preview";
 import type { ImportCommitResult, PreviewImportRow } from "./types";
@@ -9,6 +9,7 @@ import { insertCashEventRow, insertTradeRow } from "./writeRows";
 
 type CommitInput = PreviewInput & {
   selectedRowHashes?: string[];
+  replaceHistory?: boolean;
 };
 
 function byBrokerDate(left: PreviewImportRow, right: PreviewImportRow) {
@@ -16,17 +17,29 @@ function byBrokerDate(left: PreviewImportRow, right: PreviewImportRow) {
   return dateCompare || left.rowIndex - right.rowIndex;
 }
 
-function canCommit(row: PreviewImportRow, selected: Set<string>) {
-  return selected.has(row.rowHash) && (row.status === "new" || row.status === "possible_match");
+function canCommit(row: PreviewImportRow, selected: Set<string>, replaceHistory: boolean) {
+  if (!selected.has(row.rowHash) || !row.importable) return false;
+  if (row.kind !== "trade" && row.kind !== "cash_event") return false;
+  if (replaceHistory) return row.status === "new" || row.status === "possible_match" || row.status === "matched";
+  return row.status === "new" || row.status === "possible_match";
 }
 
 export async function commitImport(userId: string, input: CommitInput): Promise<ImportCommitResult> {
   const preview = await buildPreview(userId, input);
   const rates = await getExchangeRates();
-  const selected = new Set(input.selectedRowHashes ?? preview.rows.filter((row) => row.status === "new").map((row) => row.rowHash));
+  const replaceHistory = input.replaceHistory === true;
+  const defaultRows = preview.rows.filter((row) =>
+    replaceHistory
+      ? row.importable && (row.kind === "trade" || row.kind === "cash_event")
+      : row.status === "new",
+  );
+  const selected = new Set(input.selectedRowHashes ?? defaultRows.map((row) => row.rowHash));
   const rowsToCommit = preview.rows
-    .filter((row) => canCommit(row, selected))
+    .filter((row) => canCommit(row, selected, replaceHistory))
     .sort(byBrokerDate);
+  if (replaceHistory && rowsToCommit.length === 0) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Replace history requires at least one importable selected row." });
+  }
 
   let batchId = "";
   let imported = 0;
@@ -54,6 +67,16 @@ export async function commitImport(userId: string, input: CommitInput): Promise<
     let cashBalance = Number(platform.cashBalance);
     const platformCurrency = platform.currencyCode;
     const cashBalanceBefore = cashBalance;
+
+    if (replaceHistory) {
+      await tx.delete(cashEvents).where(and(eq(cashEvents.userId, userId), eq(cashEvents.platformId, input.platformId)));
+      await tx.delete(trades).where(and(eq(trades.userId, userId), eq(trades.platformId, input.platformId)));
+      cashBalance = 0;
+      await tx.update(platforms)
+        .set({ cashBalance: "0.00" })
+        .where(and(eq(platforms.id, input.platformId), eq(platforms.userId, userId)));
+    }
+
     for (const row of rowsToCommit) {
       if (committedHashes.has(row.rowHash)) continue;
       let rowCommitted = false;
@@ -119,6 +142,7 @@ export async function commitImport(userId: string, input: CommitInput): Promise<
         skippedCount: preview.rows.length - imported,
         summaryJson: JSON.stringify({
           preview: preview.summary,
+          replaceHistory,
           cashBalanceBefore,
           cashBalanceAfter: cashBalance,
           cashBalanceDelta: cashBalance - cashBalanceBefore,

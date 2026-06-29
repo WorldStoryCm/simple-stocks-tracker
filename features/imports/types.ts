@@ -7,6 +7,8 @@ export type ImportStatus =
   | "imported"
   | "error";
 
+export type SourceSystem = "revolut" | "ibkr" | "n26" | "manual";
+
 export type ImportPreviewRow = {
   rowIndex: number;
   rowHash: string;
@@ -14,12 +16,14 @@ export type ImportPreviewRow = {
   status: ImportStatus;
   confidence: number;
   sourceType: string;
+  importable: boolean;
   date?: string;
   ticker?: string;
   tradeType?: "buy" | "sell";
   eventType?: string;
   quantity?: number;
   price?: number;
+  fee?: number;
   amount?: number;
   cashImpact?: number;
   currencyCode?: string;
@@ -35,7 +39,7 @@ export type ImportPreviewRow = {
 };
 
 export type ImportPreview = {
-  sourceSystem: "revolut" | "ibkr" | "n26";
+  sourceSystem: SourceSystem;
   fileName: string;
   fileHash: string;
   rows: ImportPreviewRow[];
@@ -44,7 +48,7 @@ export type ImportPreview = {
 
 export type ImportBatch = {
   id: string;
-  sourceSystem: "revolut" | "ibkr" | "n26";
+  sourceSystem: SourceSystem;
   fileName: string;
   rowCount: number;
   importedCount: number;

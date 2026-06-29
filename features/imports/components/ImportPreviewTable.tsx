@@ -8,11 +8,13 @@ export function ImportPreviewTable({
   rows,
   selected,
   toggle,
+  replaceHistory,
   className,
 }: {
   rows: ImportPreviewRow[];
   selected: Set<string>;
   toggle: (rowHash: string, checked: boolean) => void;
+  replaceHistory?: boolean;
   className?: string;
 }) {
   return (
@@ -68,6 +70,7 @@ export function ImportPreviewTable({
                 row={row}
                 selected={selected}
                 toggle={toggle}
+                replaceHistory={replaceHistory === true}
               />
             ))
           )}

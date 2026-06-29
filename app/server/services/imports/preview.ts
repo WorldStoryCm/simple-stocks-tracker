@@ -5,6 +5,7 @@ import { cashEvents, platforms, symbols, trades } from "@/db/schema";
 import { sha256 } from "./hash";
 import { classifyImportRow } from "./match";
 import { parseRevolutCsv } from "./adapters/revolut";
+import { parseManualCsv } from "./adapters/manual";
 import type { ImportPreview, ImportStatus, NormalizedImportRow, SourceSystem } from "./types";
 
 export type PreviewInput = {
@@ -16,6 +17,7 @@ export type PreviewInput = {
 
 function parseRows(sourceSystem: SourceSystem, fileContent: string): NormalizedImportRow[] {
   if (sourceSystem === "revolut") return parseRevolutCsv(fileContent);
+  if (sourceSystem === "manual") return parseManualCsv(fileContent);
   throw new TRPCError({ code: "BAD_REQUEST", message: "This broker adapter is not implemented yet." });
 }
 

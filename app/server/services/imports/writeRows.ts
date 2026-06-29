@@ -51,6 +51,7 @@ export async function insertTradeRow({
   }
 
   const symbol = await ensureSymbol(tx, userId, row.ticker, row.currencyCode ?? "USD");
+  const fee = row.fee ?? 0;
   const [trade] = await tx.insert(trades).values({
     userId,
     platformId,
@@ -59,7 +60,7 @@ export async function insertTradeRow({
     tradeDate: row.date,
     quantity: row.quantity.toFixed(8),
     price: row.price.toFixed(4),
-    fee: "0",
+    fee: fee.toFixed(4),
     currencyCode: row.currencyCode ?? "USD",
     notes: `Imported from ${sourceSystem}: ${row.sourceType}`,
     sourceSystem,
@@ -69,7 +70,7 @@ export async function insertTradeRow({
 
   const quantity = Number(row.quantity);
   const price = Number(row.price);
-  const fallbackImpact = row.tradeType === "buy" ? -(quantity * price) : quantity * price;
+  const fallbackImpact = row.tradeType === "buy" ? -(quantity * price + fee) : quantity * price - fee;
   const cashImpact = convertImportCashImpact({
     amount: row.cashImpact ?? fallbackImpact,
     fromCurrency: row.currencyCode ?? platformCurrency,
@@ -91,7 +92,7 @@ export async function insertTradeRow({
       symbolId: symbol.id,
       quantity,
       sellPrice: price,
-      sellFee: 0,
+      sellFee: fee,
     });
     if (remaining > ZERO_EPSILON) {
       throw new TRPCError({

@@ -10,7 +10,7 @@ export const importBatches = pgTable(
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
     platformId: text("platform_id").notNull().references(() => platforms.id, { onDelete: "restrict" }),
-    sourceSystem: text("source_system", { enum: ["revolut", "ibkr", "n26"] }).notNull(),
+    sourceSystem: text("source_system", { enum: ["revolut", "ibkr", "n26", "manual"] }).notNull(),
     fileName: text("file_name").notNull(),
     fileHash: text("file_hash").notNull(),
     rowCount: integer("row_count").notNull().default(0),

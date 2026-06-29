@@ -1,16 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { FileUp, Upload } from "lucide-react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/button";
+import { Checkbox } from "@/components/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@/components/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select";
 import { trpc } from "@/lib/trpc";
+import { ImportControls } from "./components/ImportControls";
 import { ImportHistoryPanel } from "./components/ImportHistoryPanel";
 import { ImportPreviewTable } from "./components/ImportPreviewTable";
 import { ImportSummaryStrip, type ImportFilter } from "./components/ImportSummaryStrip";
-import type { ImportBatch, ImportPreview } from "./types";
+import { defaultSelectedRows, downloadCsv } from "./importDialogUtils";
+import type { ImportBatch, ImportPreview, SourceSystem } from "./types";
 
 export function ImportTransactionsDialog({
   open,
@@ -19,13 +20,14 @@ export function ImportTransactionsDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const [sourceSystem, setSourceSystem] = useState<"revolut" | "ibkr" | "n26">("revolut");
+  const [sourceSystem, setSourceSystem] = useState<SourceSystem>("revolut");
   const [platformId, setPlatformId] = useState("");
   const [fileName, setFileName] = useState("");
   const [fileContent, setFileContent] = useState("");
   const [preview, setPreview] = useState<ImportPreview | undefined>();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = useState<ImportFilter>("all");
+  const [replaceHistory, setReplaceHistory] = useState(false);
   const { data: platforms } = trpc.platforms.list.useQuery();
   const { data: history, isLoading: historyLoading } = trpc.imports.history.useQuery(undefined, { enabled: open });
   const utils = trpc.useUtils();
@@ -42,7 +44,7 @@ export function ImportTransactionsDialog({
     onSuccess: (result) => {
       const nextPreview = result as ImportPreview;
       setPreview(nextPreview);
-      setSelected(new Set(nextPreview.rows.filter((row) => row.status === "new").map((row) => row.rowHash)));
+      setSelected(new Set(defaultSelectedRows(nextPreview.rows, replaceHistory).map((row) => row.rowHash)));
       setStatusFilter("all");
     },
     onError: (error) => toast.error(error.message || "Import preview failed"),
@@ -79,6 +81,14 @@ export function ImportTransactionsDialog({
     onError: (error) => toast.error(error.message || "Rollback failed"),
   });
 
+  const exportMutation = trpc.imports.exportLedger.useMutation({
+    onSuccess: (result) => {
+      downloadCsv(result.fileName, result.fileContent);
+      toast.success(`Exported ${result.rowCount} rows`);
+    },
+    onError: (error) => toast.error(error.message || "Export failed"),
+  });
+
   async function handleFile(file?: File) {
     resetFileState();
     if (!file) return;
@@ -98,6 +108,14 @@ export function ImportTransactionsDialog({
     previewMutation.mutate({ sourceSystem, platformId, fileName, fileContent });
   }
 
+  function runExport() {
+    if (!platformId) {
+      toast.error("Choose a platform first");
+      return;
+    }
+    exportMutation.mutate({ platformId });
+  }
+
   function runCommit() {
     if (!platformId || !fileContent || selected.size === 0) return;
     commitMutation.mutate({
@@ -106,7 +124,15 @@ export function ImportTransactionsDialog({
       fileName,
       fileContent,
       selectedRowHashes: [...selected],
+      replaceHistory,
     });
+  }
+
+  function handleReplaceHistory(checked: boolean) {
+    setReplaceHistory(checked);
+    if (preview) {
+      setSelected(new Set(defaultSelectedRows(preview.rows, checked).map((row) => row.rowHash)));
+    }
   }
 
   function toggle(rowHash: string, checked: boolean) {
@@ -135,66 +161,40 @@ export function ImportTransactionsDialog({
       >
         <DialogHeader title="Import Activity" className="shrink-0 pb-3" />
         <div className="flex min-h-0 flex-1 flex-col gap-3">
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-[140px_170px_minmax(220px,1fr)_136px]">
-            <Select
-              value={sourceSystem}
-              onValueChange={(value) => {
-                const nextSource = value as "revolut" | "ibkr" | "n26";
-                if (nextSource === sourceSystem) return;
-                setSourceSystem(nextSource);
-                resetFileState();
-              }}
-            >
-              <SelectTrigger className="h-9"><SelectValue placeholder="Source" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="revolut">Revolut</SelectItem>
-                <SelectItem value="ibkr">IBKR</SelectItem>
-                <SelectItem value="n26">N26</SelectItem>
-              </SelectContent>
-            </Select>
+          <ImportControls
+            sourceSystem={sourceSystem}
+            platformId={platformId}
+            platforms={platforms}
+            fileName={fileName}
+            pending={pending || !fileContent}
+            exporting={exportMutation.isPending}
+            onSourceChange={(nextSource) => {
+              if (nextSource === sourceSystem) return;
+              setSourceSystem(nextSource);
+              resetFileState();
+            }}
+            onPlatformChange={(value) => {
+              setPlatformId(value);
+              setPreview(undefined);
+              setSelected(new Set());
+            }}
+            onFile={handleFile}
+            onPreview={runPreview}
+            onExport={runExport}
+          />
 
-            <Select
-              value={platformId}
-              onValueChange={(value) => {
-                setPlatformId(value);
-                setPreview(undefined);
-                setSelected(new Set());
-              }}
-            >
-              <SelectTrigger className="h-9"><SelectValue placeholder="Platform" /></SelectTrigger>
-              <SelectContent>
-                {platforms?.map((platform) => (
-                  <SelectItem key={platform.id} value={platform.id}>{platform.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <label className="flex h-9 min-w-0 cursor-pointer items-center gap-2 rounded-md border border-dashed border-border bg-[color:var(--surface-1)] px-3 text-sm hover:bg-[color:var(--surface-2)]/60">
-              <FileUp className="h-4 w-4 shrink-0 text-text-tertiary" />
-              <span className="min-w-0 flex-1 truncate text-text-primary">{fileName || "Choose CSV import"}</span>
-              <input
-                type="file"
-                accept=".csv,.txt,.xlsx,.xls,.pdf"
-                className="sr-only"
-                onChange={(event) => {
-                  const file = event.currentTarget.files?.[0];
-                  event.currentTarget.value = "";
-                  handleFile(file);
-                }}
-              />
-            </label>
-
-            <Button
-              type="button"
-              variant="outline"
-              className="h-9 px-3"
-              disabled={!platformId || !fileContent || pending}
-              onClick={runPreview}
-            >
-              <Upload className="mr-1.5 h-4 w-4" />
-              Preview
-            </Button>
-          </div>
+          <label className="flex items-start gap-2 rounded-md border border-border bg-[color:var(--surface-1)] px-3 py-2 text-xs text-text-tertiary">
+            <Checkbox
+              checked={replaceHistory}
+              onCheckedChange={(value) => handleReplaceHistory(value === true)}
+              aria-label="Replace existing platform history before import"
+            />
+            <span>
+              <span className="font-medium text-text-primary">Replace history</span>
+              {" "}deletes this platform&apos;s existing trades and cash events before importing selected rows.
+              Export a backup first.
+            </span>
+          </label>
 
           <ImportSummaryStrip
             preview={preview}
@@ -202,7 +202,13 @@ export function ImportTransactionsDialog({
             activeFilter={statusFilter}
             onFilterChange={setStatusFilter}
           />
-          <ImportPreviewTable rows={visibleRows} selected={selected} toggle={toggle} className="min-h-[360px] flex-1" />
+          <ImportPreviewTable
+            rows={visibleRows}
+            selected={selected}
+            toggle={toggle}
+            replaceHistory={replaceHistory}
+            className="min-h-[360px] flex-1"
+          />
           {showHistory && (
             <ImportHistoryPanel
               batches={historyBatches}
@@ -218,7 +224,9 @@ export function ImportTransactionsDialog({
             Cancel
           </Button>
           <Button type="button" disabled={selected.size === 0 || pending} onClick={runCommit}>
-            {commitMutation.isPending ? "Importing..." : `Import ${selected.size} Rows`}
+            {commitMutation.isPending
+              ? "Importing..."
+              : replaceHistory ? `Replace With ${selected.size} Rows` : `Import ${selected.size} Rows`}
           </Button>
         </DialogFooter>
       </DialogContent>

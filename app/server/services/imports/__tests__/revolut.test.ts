@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { parseManualCsv } from "../adapters/manual";
 import { parseRevolutCsv } from "../adapters/revolut";
 import { convertImportCashImpact } from "../currency";
 import { classifyImportRow } from "../match";
@@ -39,6 +40,28 @@ describe("parseRevolutCsv", () => {
     assert.equal(rows[4].importable, false);
     assert.equal(rows[5].eventType, "deposit");
     assert.equal(rows[5].cashImpact, 100);
+  });
+});
+
+describe("parseManualCsv", () => {
+  it("normalizes exported trade and cash-event backup rows", () => {
+    const rows = parseManualCsv(`Kind,Date,Type,Ticker,Quantity,Price,Amount,Currency,Fee,FX Rate,Notes
+trade,2024-02-01,buy,TSLA,2,100,-201,USD,1,,manual buy
+trade,2024-02-02,sell,TSLA,1,120,119.5,USD,0.5,,manual sell
+cash_event,2024-02-03,dividend,TSLA,,,4.25,USD,,1.1,dividend
+`);
+
+    assert.equal(rows.length, 3);
+    assert.equal(rows[0].kind, "trade");
+    assert.equal(rows[0].tradeType, "buy");
+    assert.equal(rows[0].fee, 1);
+    assert.equal(rows[0].cashImpact, -201);
+    assert.equal(rows[1].tradeType, "sell");
+    assert.equal(rows[1].fee, 0.5);
+    assert.equal(rows[1].cashImpact, 119.5);
+    assert.equal(rows[2].kind, "cash_event");
+    assert.equal(rows[2].eventType, "dividend");
+    assert.equal(rows[2].fxRate, 1.1);
   });
 });
 

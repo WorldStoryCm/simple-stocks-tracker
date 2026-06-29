@@ -61,21 +61,28 @@ function quantityCell(row: ImportPreviewRow) {
   return row.quantity.toLocaleString("en-US", { maximumFractionDigits: 4 });
 }
 
-function canSelect(row: ImportPreviewRow) {
+function canSelect(row: ImportPreviewRow, replaceHistory: boolean) {
+  if (replaceHistory) {
+    return row.importable && (row.kind === "trade" || row.kind === "cash_event")
+      && (row.status === "new" || row.status === "matched" || row.status === "possible_match");
+  }
   return row.status === "new" || row.status === "possible_match";
 }
 
-function actionLetter(row: ImportPreviewRow, isSelected: boolean) {
+function actionLetter(row: ImportPreviewRow, isSelected: boolean, replaceHistory: boolean) {
   if (row.status === "new") return "A";
-  if (row.status === "matched") return "D";
+  if (row.status === "matched") return replaceHistory && isSelected ? "A" : "D";
   if (row.status === "possible_match") return isSelected ? "A" : "D";
   if (row.status === "needs_review") return "R";
   if (row.status === "ignored") return "I";
   return "!";
 }
 
-function actionTitle(row: ImportPreviewRow, isSelected: boolean) {
+function actionTitle(row: ImportPreviewRow, isSelected: boolean, replaceHistory: boolean) {
   if (row.status === "new") return "A: add/import this row";
+  if (row.status === "matched" && replaceHistory && isSelected) {
+    return "A: replace mode will re-import this matched row";
+  }
   if (row.status === "matched") return "D: duplicate, already matched and skipped";
   if (row.status === "possible_match") return isSelected ? "A: not duplicate, import this row" : "D: duplicate, skip this row";
   if (row.status === "needs_review") return "R: review required before import";
@@ -83,10 +90,12 @@ function actionTitle(row: ImportPreviewRow, isSelected: boolean) {
   return row.status;
 }
 
-function detailRow(row: ImportPreviewRow) {
+function detailRow(row: ImportPreviewRow, replaceHistory: boolean, isSelected: boolean) {
   if (row.matched?.recordLabel) {
     const kind = row.matched.kind === "cash_event" ? "cash event" : "trade";
-    const action = row.status === "possible_match"
+    const action = replaceHistory && isSelected
+      ? "Replace mode: this row will be re-imported after existing history is deleted."
+      : row.status === "possible_match"
       ? "Default: D skips as duplicate. Choose A only when this is a different transaction."
       : "This row is treated as duplicate and will not import.";
     return {
@@ -145,14 +154,16 @@ export function ImportPreviewTableRow({
   row,
   selected,
   toggle,
+  replaceHistory,
 }: {
   row: ImportPreviewRow;
   selected: Set<string>;
   toggle: (rowHash: string, checked: boolean) => void;
+  replaceHistory: boolean;
 }) {
-  const selectable = canSelect(row);
+  const selectable = canSelect(row, replaceHistory);
   const isSelected = selected.has(row.rowHash);
-  const detail = detailRow(row);
+  const detail = detailRow(row, replaceHistory, isSelected);
 
   return (
     <>
@@ -175,12 +186,12 @@ export function ImportPreviewTableRow({
             {statusLabel(row.status)}
           </span>
         </td>
-        <td className="px-2 py-2 font-medium text-text-primary" title={actionTitle(row, isSelected)}>
+        <td className="px-2 py-2 font-medium text-text-primary" title={actionTitle(row, isSelected, replaceHistory)}>
           {row.status === "possible_match" ? (
             <PossibleMatchActions row={row} selected={isSelected} toggle={toggle} />
           ) : (
             <span className="inline-flex h-6 w-6 items-center justify-center rounded border border-border bg-[color:var(--surface-1)] text-[11px]">
-              {actionLetter(row, isSelected)}
+              {actionLetter(row, isSelected, replaceHistory)}
             </span>
           )}
         </td>
