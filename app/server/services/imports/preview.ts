@@ -1,11 +1,12 @@
 import { and, eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { db } from "@/db/drizzle";
-import { cashEvents, importBatches, platforms, symbols, trades } from "@/db/schema";
+import { cashEvents, importBatches, platforms, symbols, trades, tradeLotMatches } from "@/db/schema";
 import { sha256 } from "./hash";
 import { classifyImportRow } from "./match";
 import { parseRevolutCsv } from "./adapters/revolut";
 import { parseManualCsv } from "./adapters/manual";
+import { applyQuantityAvailability } from "./availability";
 import type { ImportPreview, ImportStatus, NormalizedImportRow, SourceSystem } from "./types";
 
 export type PreviewInput = {
@@ -13,6 +14,7 @@ export type PreviewInput = {
   platformId: string;
   fileName: string;
   fileContent: string;
+  replaceHistory?: boolean;
 };
 
 function parseRows(sourceSystem: SourceSystem, fileContent: string): NormalizedImportRow[] {
@@ -42,7 +44,7 @@ export async function buildPreview(userId: string, input: PreviewInput): Promise
   if (!platform) throw new TRPCError({ code: "NOT_FOUND", message: "Platform not found" });
 
   const rows = parseRows(input.sourceSystem, input.fileContent);
-  const [existingSymbols, existingTrades, existingCashEvents, existingBatches] = await Promise.all([
+  const [existingSymbols, existingTrades, existingCashEvents, existingBatches, existingMatches] = await Promise.all([
     db.query.symbols.findMany({ where: eq(symbols.userId, userId) }),
     db.query.trades.findMany({
       where: and(eq(trades.userId, userId), eq(trades.platformId, input.platformId)),
@@ -61,9 +63,11 @@ export async function buildPreview(userId: string, input: PreviewInput): Promise
       ),
       with: { rows: true },
     }),
+    db.query.tradeLotMatches.findMany({ where: eq(tradeLotMatches.userId, userId) }),
   ]);
 
   const symbolTickers = new Set(existingSymbols.map((symbol) => symbol.ticker.toUpperCase()));
+  const initialOpenByTicker = buildInitialOpenByTicker(input.replaceHistory === true ? [] : existingTrades, existingMatches);
   const existingImportRowHashes = new Set(
     existingBatches.flatMap((batch) => batch.rows.filter((row) => row.status === "imported").map((row) => row.rowHash)),
   );
@@ -77,12 +81,38 @@ export async function buildPreview(userId: string, input: PreviewInput): Promise
       existingImportRowHashes,
     }),
   );
+  const availableRows = applyQuantityAvailability(previewRows, initialOpenByTicker);
 
   return {
     sourceSystem: input.sourceSystem,
     fileName: input.fileName,
     fileHash: sha256(input.fileContent),
-    rows: previewRows,
-    summary: summarize(previewRows),
+    rows: availableRows,
+    summary: summarize(availableRows),
   };
+}
+
+function buildInitialOpenByTicker(
+  existingTrades: {
+    id: string;
+    tradeType: "buy" | "sell";
+    quantity: string | number;
+    symbol?: { ticker: string } | null;
+  }[],
+  existingMatches: { buyTradeId: string; matchedQuantity: string | number }[],
+) {
+  const matchedByBuyId = new Map<string, number>();
+  for (const match of existingMatches) {
+    matchedByBuyId.set(match.buyTradeId, (matchedByBuyId.get(match.buyTradeId) ?? 0) + Number(match.matchedQuantity));
+  }
+
+  const openByTicker = new Map<string, number>();
+  for (const trade of existingTrades) {
+    if (trade.tradeType !== "buy") continue;
+    const ticker = trade.symbol?.ticker;
+    if (!ticker) continue;
+    const open = Number(trade.quantity) - (matchedByBuyId.get(trade.id) ?? 0);
+    openByTicker.set(ticker, (openByTicker.get(ticker) ?? 0) + Math.max(0, open));
+  }
+  return openByTicker;
 }
