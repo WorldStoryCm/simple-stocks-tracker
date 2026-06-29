@@ -1,6 +1,7 @@
 import { db } from "@/db/drizzle";
 import { symbols } from "@/db/schema";
-import { and, count, eq, ilike, or } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
+import { and, count, eq, ilike, or, type SQL } from "drizzle-orm";
 import YahooFinance from "yahoo-finance2";
 
 const yahooFinance = new YahooFinance();
@@ -24,10 +25,17 @@ export type SymbolCreateInput = {
 
 export type SymbolUpdateInput = SymbolCreateInput & { id: string };
 
+type AssetProfileSummary = {
+  assetProfile?: {
+    sector?: string;
+    industry?: string;
+  };
+};
+
 /** Pull sector/industry for a ticker from Yahoo's assetProfile module. */
 async function fetchAssetProfile(ticker: string): Promise<{ sector: string | null; industry: string | null }> {
   try {
-    const summary = (await yahooFinance.quoteSummary(ticker, { modules: ["assetProfile"] })) as any;
+    const summary = (await yahooFinance.quoteSummary(ticker, { modules: ["assetProfile"] })) as AssetProfileSummary;
     const profile = summary?.assetProfile;
     return {
       sector: profile?.sector || null,
@@ -36,6 +44,22 @@ async function fetchAssetProfile(ticker: string): Promise<{ sector: string | nul
   } catch (err) {
     console.error(`Failed to fetch assetProfile for ${ticker}`, err);
     return { sector: null, industry: null };
+  }
+}
+
+function normalizeTicker(ticker: string) {
+  return ticker.trim().toUpperCase();
+}
+
+async function assertTickerAvailable(userId: string, ticker: string, exceptId?: string) {
+  const existing = await db.query.symbols.findFirst({
+    where: and(eq(symbols.userId, userId), eq(symbols.ticker, ticker)),
+  });
+  if (existing && existing.id !== exceptId) {
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: `Symbol ${ticker} already exists.`,
+    });
   }
 }
 
@@ -50,10 +74,11 @@ async function listPaged(userId: string, input: SymbolListInput) {
   const { page, limit, q } = input;
   const offset = (page - 1) * limit;
 
-  const conditions = [eq(symbols.userId, userId)] as any[];
+  const conditions: SQL[] = [eq(symbols.userId, userId)];
   if (q && q.trim()) {
     const term = `%${q.trim()}%`;
-    conditions.push(or(ilike(symbols.ticker, term), ilike(symbols.displayName, term)));
+    const searchCondition = or(ilike(symbols.ticker, term), ilike(symbols.displayName, term));
+    if (searchCondition) conditions.push(searchCondition);
   }
   const where = and(...conditions);
 
@@ -61,14 +86,14 @@ async function listPaged(userId: string, input: SymbolListInput) {
     db
       .select()
       .from(symbols)
-      .where(where as any)
+      .where(where)
       .orderBy(symbols.ticker)
       .limit(limit)
       .offset(offset),
     db
       .select({ value: count() })
       .from(symbols)
-      .where(where as any),
+      .where(where),
   ]);
 
   const totalCount = Number(totalRow[0]?.value ?? 0);
@@ -82,6 +107,9 @@ async function listPaged(userId: string, input: SymbolListInput) {
 }
 
 async function create(userId: string, input: SymbolCreateInput) {
+  const ticker = normalizeTicker(input.ticker);
+  await assertTickerAvailable(userId, ticker);
+
   // If user supplied sector/industry manually, respect it. Otherwise fall
   // back to Yahoo assetProfile so the Dashboard pie is populated immediately.
   const userSector = input.sector?.trim();
@@ -90,14 +118,14 @@ async function create(userId: string, input: SymbolCreateInput) {
   let industry: string | null = userIndustry || null;
   let fromYahoo = false;
   if (!userSector && !userIndustry) {
-    const profile = await fetchAssetProfile(input.ticker);
+    const profile = await fetchAssetProfile(ticker);
     sector = profile.sector;
     industry = profile.industry;
     fromYahoo = !!(profile.sector || profile.industry);
   }
   const [symbol] = await db.insert(symbols).values({
     userId,
-    ticker: input.ticker,
+    ticker,
     displayName: input.displayName,
     exchange: input.exchange,
     currencyCode: input.currencyCode,
@@ -111,9 +139,12 @@ async function create(userId: string, input: SymbolCreateInput) {
 }
 
 async function update(userId: string, input: SymbolUpdateInput) {
+  const ticker = normalizeTicker(input.ticker);
+  await assertTickerAvailable(userId, ticker, input.id);
+
   const [symbol] = await db.update(symbols)
     .set({
-      ticker: input.ticker,
+      ticker,
       displayName: input.displayName,
       exchange: input.exchange,
       currencyCode: input.currencyCode,
