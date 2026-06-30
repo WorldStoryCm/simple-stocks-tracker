@@ -96,7 +96,7 @@ Indexes:
 ---
 
 ## 6. trade_lot_matches
-Purpose: store FIFO matches between sell trades and buy trades for auditability.
+Purpose: store cost-basis matches between sell trades and buy trades for auditability.
 
 Fields:
 - id
@@ -114,7 +114,7 @@ Fields:
 Why this table matters:
 - makes realized P/L explainable
 - supports edit/delete recalculation
-- allows users to inspect which buys were matched to a sell
+- allows users to inspect which buy quantities carried the sold average-cost basis
 
 ---
 

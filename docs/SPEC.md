@@ -11,7 +11,7 @@ A personal, manual stock journal and performance tracker for people who actively
 **Pillars** (these double as landing-page section anchors):
 
 1. **Multi-platform manual ledger** — log every buy/sell across all your brokers in one place
-2. **Realized & unrealized P/L** — FIFO matching, deterministic, fully auditable
+2. **Realized & unrealized P/L** — moving average cost basis, deterministic, fully auditable
 3. **Capital curves** — cumulative P/L over 1M / 3M / 1Y / All-time
 4. **Wins/Losses tracking** — win rate, P/L by symbol, recent trades, per-period performance
 5. **RSI badges everywhere** — same RSI signal shown on Symbols (watchlist), Positions, and Shadow cases
@@ -26,7 +26,7 @@ A personal, manual stock journal and performance tracker for people who actively
 ### In scope (shipped)
 - Auth (social login via Better Auth)
 - CRUD: platforms, symbols (watchlist), trades
-- FIFO realized P/L with persisted lot matches
+- Average-cost realized P/L with persisted lot matches
 - Unrealized P/L from live quotes
 - Dashboard with KPIs, cumulative P/L chart, goals, platforms summary, recent trades, P/L by symbol
 - Per-period performance (Daily / Weekly / Monthly / Yearly) with realized P/L and win rate
@@ -40,7 +40,7 @@ A personal, manual stock journal and performance tracker for people who actively
 - Ticker catalog autocomplete
 
 ### Planned (next)
-- **CSV / Excel import** — bulk-load historical trades from any broker export. Schema-detect, preview, confirm, then write through the same FIFO pipeline as manual entry.
+- **CSV / Excel import** — bulk-load historical trades from any broker export. Schema-detect, preview, confirm, then write through the same average-cost pipeline as manual entry.
 - **Full export** — one-click export of trades, platforms, symbols, and goals to CSV (so the user can hand it to an accountant or migrate to another tool).
 - **Shadow Theses** — narrative containers grouping multiple shadow cases under a single thesis.
 - **Catalyst Calendar** — upcoming earnings, ex-dividend, and economic events relevant to tracked symbols.
@@ -76,7 +76,7 @@ A personal, manual stock journal and performance tracker for people who actively
 | Platform | A broker/account (e.g. Revolut, IBKR). One currency per platform. |
 | Symbol | A ticker the user has chosen to track / watch. Acts as the watchlist. |
 | Trade | A buy or sell record in the raw ledger. Source of truth. |
-| Lot Match | A FIFO pairing between a sell trade and one or more prior buys. |
+| Lot Match | A persisted quantity/cost-basis match between a sell trade and one or more prior buys. |
 | Position | Derived open holding scoped by user × platform × symbol. |
 | Realized P/L | Sum of `realized_pnl` over matched lots. |
 | Unrealized P/L | `open_qty × live_price − open_cost_basis`. |
@@ -88,19 +88,24 @@ A personal, manual stock journal and performance tracker for people who actively
 
 ## 5. P/L logic
 
-**Method:** FIFO. Deterministic, reproducible, easy to explain.
+**Method:** moving weighted-average cost basis, scoped by user × platform × symbol.
 
 ```
-realized_pnl   = sell_proceeds − matched_buy_cost − fees
-sell_proceeds  = sell_qty × sell_price
-matched_buy_cost = Σ FIFO-matched buy lots
+average_cost_before_sell = open_position_cost / open_position_qty
+realized_pnl             = sell_proceeds − sold_average_cost − fees
+sell_proceeds            = sell_qty × sell_price
+sold_average_cost        = sell_qty × average_cost_before_sell
 
 unrealized_pnl = open_qty × live_price − open_cost_basis
 ```
 
 **Rules:**
 - Sell quantity cannot exceed open quantity for that symbol × platform
-- Editing or deleting a historical trade triggers FIFO rematch for the affected scope from that date forward
+- Buys increase both open quantity and open cost basis
+- Sells reduce open quantity and remove cost at the average cost immediately before the sell
+- Because trades only have dates, same-day buys and non-cash position adjustments are processed before same-day sells
+- Editing or deleting a historical trade rebuilds cost-basis matches for the affected scope
+- Broker imports may create a non-cash position adjustment lot when the file contains a sell but not the opening buy lot
 - All summaries reproducible from raw trades — no hidden state
 
 ---
@@ -114,7 +119,7 @@ Source of truth: `db/schema/app.ts` and `db/schema/auth.ts`.
 | `platforms` | Brokers/accounts. `(user_id, name)` unique. |
 | `symbols` | User's tracked tickers (the watchlist). `(user_id, ticker)` unique. |
 | `trades` | Raw ledger of buys and sells. |
-| `trade_lot_matches` | Persisted FIFO matches for auditability and incremental recompute. |
+| `trade_lot_matches` | Persisted cost-basis matches for auditability and incremental recompute. |
 | `goals` | `goal_type ∈ {monthly_profit, yearly_profit}`, `amount`, `is_active`. |
 | `capital_progress_settings` | Starting capital + monthly contribution config. |
 | `shadow_cases` | One tracked idea: thesis, direction, entry/exit, outcome, status. |
@@ -232,10 +237,10 @@ Sign in → add a platform → add symbols you care about → set monthly/yearly
 Trades → Add → platform, symbol, Buy, date, qty, price, fee → save → positions recompute.
 
 **Add a sell**
-Trades → Add → platform + symbol, Sell, qty, price, fee → server validates open qty → FIFO matches written → realized P/L updates.
+Trades → Add → platform + symbol, Sell, qty, price, fee → server validates open qty → average-cost matches written → realized P/L updates.
 
 **Edit a historical trade**
-Edit → server marks dependent matches dirty → rebuilds FIFO from that date forward for the same user × platform × symbol scope.
+Edit → server marks dependent matches dirty → rebuilds average-cost matches for the same user × platform × symbol scope.
 
 **Track an idea you didn't trade**
 Shadow → New Case → symbol, direction, entry price, thesis → observe → Review → outcome + lessons → archive.
@@ -250,9 +255,9 @@ Dashboard → Goals card → live monthly + yearly progress vs target.
 | Area | Requirement |
 |---|---|
 | Performance | Tables remain usable with 10k+ trade rows; dashboard feels instant on cached data |
-| Accuracy | P/L deterministic, currency rounding consistent, FIFO reproducible from raw trades |
+| Accuracy | P/L deterministic, currency rounding consistent, average cost reproducible from raw trades |
 | Security | Every query scoped by authenticated `userId` server-side; no client-trusted user ids |
-| Auditability | User can inspect raw trades and FIFO lot matches behind every P/L figure |
+| Auditability | User can inspect raw trades and cost-basis lot matches behind every P/L figure |
 | Currency | One currency per platform; no FX conversion in v1 |
 | Responsive | Every page works on phone widths; touch targets ≥ 44px |
 
@@ -268,11 +273,11 @@ Build the landing page from the pillars in §1 and the surfaces in §7. Suggeste
 4. **Feature deep-dives (alternating screenshot left/right):**
    - Dashboard — KPIs, cumulative P/L, goals
    - Positions — table + heatmap with RSI badges
-   - Trades — filterable log, FIFO realized P/L per sell
+   - Trades — filterable log, average-cost realized P/L per sell
    - Performance — daily/weekly/monthly/yearly + win rate
    - Symbols — watchlist with RSI states and backtest
    - Shadow Trading — track what you almost did
-5. **"Built like a journal, not a brokerage"** — manual, auditable, FIFO, your data, your file.
+5. **"Built like a journal, not a brokerage"** — manual, auditable, average-cost P/L, your data, your file.
 6. **Mobile** — phone screenshot strip.
 7. **What's not here** — short, honest list (no broker sync, no taxes, no options) — signals focus.
 8. **CTA** — sign in with Google.

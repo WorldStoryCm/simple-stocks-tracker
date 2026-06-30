@@ -17,6 +17,8 @@ export type CostBasisTrade = {
   quantity: string | number;
   price: string | number;
   fee: string | number;
+  tradeDate?: string;
+  createdAt?: Date | string;
 };
 
 export type CostBasisMatchDraft = {
@@ -48,6 +50,21 @@ function formatPrice(value: number) {
 
 function formatMoney(value: number) {
   return value.toFixed(2);
+}
+
+function compareValue(left: string, right: string) {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function costBasisTypeRank(trade: CostBasisTrade) {
+  return trade.tradeType === "buy" ? 0 : 1;
+}
+
+export function compareCostBasisTrades(left: CostBasisTrade, right: CostBasisTrade) {
+  return compareValue(left.tradeDate ?? "", right.tradeDate ?? "")
+    || costBasisTypeRank(left) - costBasisTypeRank(right)
+    || compareValue(String(left.createdAt ?? ""), String(right.createdAt ?? ""))
+    || compareValue(left.id, right.id);
 }
 
 export function calculateAverageCostMatches(orderedTrades: CostBasisTrade[]): CostBasisCalculation {
@@ -118,14 +135,14 @@ export function calculateAverageCostMatches(orderedTrades: CostBasisTrade[]): Co
 }
 
 export async function rebuildAverageCostMatches(tx: Tx, scope: CostBasisScope) {
-  const scopeTrades = await tx.query.trades.findMany({
+  const scopeTrades = (await tx.query.trades.findMany({
     where: and(
       eq(trades.userId, scope.userId),
       eq(trades.platformId, scope.platformId),
       eq(trades.symbolId, scope.symbolId),
     ),
     orderBy: [asc(trades.tradeDate), asc(trades.createdAt), asc(trades.id)],
-  });
+  })).sort(compareCostBasisTrades);
 
   const sellIds = scopeTrades
     .filter((trade) => trade.tradeType === "sell")

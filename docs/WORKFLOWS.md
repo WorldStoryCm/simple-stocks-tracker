@@ -32,7 +32,7 @@
 5. Enter date, quantity, price, fee, bucket.
 6. System validates that enough open quantity exists.
 7. Save.
-8. System creates FIFO matches.
+8. System creates average-cost matches.
 9. System recalculates realized P/L.
 
 ---
