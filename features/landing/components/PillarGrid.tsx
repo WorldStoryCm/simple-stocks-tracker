@@ -21,7 +21,7 @@ const pillars: Pillar[] = [
   {
     icon: TrendingUp,
     title: "Realized & unrealized P/L",
-    body: "FIFO matching. Deterministic. Every figure traces back to the raw trade that produced it.",
+    body: "Weighted-average cost basis. Deterministic. Every figure traces back to the raw trade that produced it.",
   },
   {
     icon: LineChart,

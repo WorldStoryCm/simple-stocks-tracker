@@ -38,9 +38,9 @@ const features: Feature[] = [
     slot: "trades",
     eyebrow: "Trades",
     title: "Every buy and sell, filterable.",
-    body: "A clean, sortable log with FIFO realized P/L written next to every sell. Filter by symbol, platform, or action and keep imported rows traceable to the source file.",
+    body: "A clean, sortable log with average-cost realized P/L written next to every sell. Filter by symbol, platform, or action and keep imported rows traceable to the source file.",
     bullets: ["All Actions / Buy / Sell tabs", "Sort by date, price, qty, P/L", "Source metadata for imported trades"],
-    label: "Trades — filterable log with FIFO realized P/L",
+    label: "Trades — filterable log with average-cost realized P/L",
   },
   {
     slot: "dividends",

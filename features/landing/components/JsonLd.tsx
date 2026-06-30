@@ -12,7 +12,7 @@ const softwareApplication = {
   offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
   featureList: [
     "Multi-platform manual trade ledger",
-    "FIFO realized profit and loss",
+    "Average-cost realized profit and loss",
     "Unrealized P/L with live quotes",
     "Revolut CSV import preview",
     "Import batch rollback",
@@ -58,7 +58,7 @@ const faq = {
       name: "How does it calculate profit and loss?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Stock Tracker uses FIFO (first-in, first-out) matching. Every sell is matched against the oldest open buy lots for the same symbol and platform, producing a deterministic realized P/L that you can audit down to the lot.",
+        text: "Stock Tracker uses moving weighted-average cost basis. Every sell is compared against the average cost of the currently open position for that symbol and platform, producing deterministic realized P/L.",
       },
     },
     {
@@ -66,7 +66,7 @@ const faq = {
       name: "Does it track dividends?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Yes. Dividends and dividend tax are stored as separate cash events, so income can be reviewed without mixing it into FIFO trade P/L.",
+        text: "Yes. Dividends and dividend tax are stored as separate cash events, so income can be reviewed without mixing it into trade P/L.",
       },
     },
     {

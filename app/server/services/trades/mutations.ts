@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { db } from "@/db/drizzle";
 import { trades, platforms, tradeLotMatches } from "@/db/schema";
-import { rebuildFifoMatches, type FifoScope } from "./fifo";
+import { rebuildAverageCostMatches, type CostBasisScope } from "./costBasis";
 
 export type TradeCreateInput = {
   platformId: string;
@@ -21,7 +21,7 @@ const ZERO_EPSILON = 0.000001;
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type TradeRecord = typeof trades.$inferSelect;
 
-function scopeFor(trade: Pick<TradeRecord, "userId" | "platformId" | "symbolId">): FifoScope {
+function scopeFor(trade: Pick<TradeRecord, "userId" | "platformId" | "symbolId">): CostBasisScope {
   return {
     userId: trade.userId,
     platformId: trade.platformId,
@@ -29,7 +29,7 @@ function scopeFor(trade: Pick<TradeRecord, "userId" | "platformId" | "symbolId">
   };
 }
 
-function scopesEqual(left: FifoScope, right: FifoScope) {
+function scopesEqual(left: CostBasisScope, right: CostBasisScope) {
   return left.userId === right.userId
     && left.platformId === right.platformId
     && left.symbolId === right.symbolId;
@@ -43,8 +43,8 @@ async function getUserPlatform(tx: Tx, userId: string, platformId: string) {
   return platform;
 }
 
-async function rebuildOrThrow(tx: Tx, scope: FifoScope) {
-  const result = await rebuildFifoMatches(tx, scope);
+async function rebuildOrThrow(tx: Tx, scope: CostBasisScope) {
+  const result = await rebuildAverageCostMatches(tx, scope);
   if (result.shortfall && result.shortfall.remaining > ZERO_EPSILON) {
     throw new TRPCError({
       code: "BAD_REQUEST",
@@ -53,8 +53,8 @@ async function rebuildOrThrow(tx: Tx, scope: FifoScope) {
   }
 }
 
-async function rebuildAffectedScopes(tx: Tx, scopes: FifoScope[]) {
-  const rebuilt: FifoScope[] = [];
+async function rebuildAffectedScopes(tx: Tx, scopes: CostBasisScope[]) {
+  const rebuilt: CostBasisScope[] = [];
   for (const scope of scopes) {
     if (rebuilt.some((existing) => scopesEqual(existing, scope))) continue;
     await rebuildOrThrow(tx, scope);
@@ -97,7 +97,7 @@ export async function create(userId: string, input: TradeCreateInput) {
       .set({ cashBalance: newBalance.toFixed(2) })
       .where(and(eq(platforms.id, platformId), eq(platforms.userId, userId)));
 
-    // 3. Rebuild the scope so backdated/manual edits keep FIFO matches current.
+    // 3. Rebuild the scope so backdated/manual edits keep average-cost matches current.
     await rebuildOrThrow(tx, { userId, platformId, symbolId });
 
     return trade;

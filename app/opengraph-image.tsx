@@ -73,7 +73,7 @@ export default function OpenGraphImage() {
             </span>
           </div>
           <div style={{ fontSize: 28, color: "#c8cbd6", maxWidth: 900 }}>
-            Multi-broker ledger · FIFO realized P/L · RSI signals · Shadow Trading
+            Multi-broker ledger · average-cost P/L · RSI signals · Shadow Trading
           </div>
         </div>
       </div>

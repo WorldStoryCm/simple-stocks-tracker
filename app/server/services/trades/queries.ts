@@ -43,7 +43,7 @@ export async function list(userId: string, input: TradesListInput) {
   const totalCountRes = await db.select({ value: count() }).from(trades).where(whereClause);
   const totalCount = totalCountRes[0].value;
 
-  // Aggregate realized P/L per sell trade from FIFO lot matches.
+  // Aggregate realized P/L per sell trade from cost-basis lot matches.
   const sellIds = items.filter((t) => t.tradeType === "sell").map((t) => t.id);
   const pnlBySell = new Map<string, number>();
   if (sellIds.length > 0) {

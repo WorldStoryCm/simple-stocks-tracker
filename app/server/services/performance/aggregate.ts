@@ -15,6 +15,7 @@ type Trade = {
 type Match = {
   buyTradeId: string;
   matchedQuantity: string | number;
+  matchedCost: string | number;
   realizedPnl: string | number;
   sellTrade?: {
     platformId: string;
@@ -77,6 +78,7 @@ type PositionAccumulator = {
   bought: number;
   sold: number;
   costUSD: number;
+  soldCostUSD: number;
 };
 
 export function aggregatePositionCosts(
@@ -98,6 +100,7 @@ export function aggregatePositionCosts(
       bought: 0,
       sold: 0,
       costUSD: 0,
+      soldCostUSD: 0,
     };
     p.bought += Number(t.quantity);
     const buyCost = Number(t.quantity) * Number(t.price) + Number(t.fee);
@@ -111,7 +114,9 @@ export function aggregatePositionCosts(
     if (!buyTrade) continue;
     const key = `${buyTrade.platformId}_${buyTrade.symbolId}`;
     const p = positionsMap.get(key);
-    if (p) p.sold += Number(m.matchedQuantity);
+    if (!p) continue;
+    p.sold += Number(m.matchedQuantity);
+    p.soldCostUSD += convertToUSD(Number(m.matchedCost), getPlatformCurrency(buyTrade.platformId), rates);
   }
 
   const platformCostMap = new Map<string, number>();
@@ -122,8 +127,7 @@ export function aggregatePositionCosts(
   for (const p of positionsMap.values()) {
     if (!activePlatformIds.has(p.platformId)) continue;
     const openQty = p.bought - p.sold;
-    const openRatio = p.bought > 0 ? openQty / p.bought : 0;
-    const openCostUSD = p.costUSD * openRatio;
+    const openCostUSD = Math.max(0, p.costUSD - p.soldCostUSD);
     totalInvested += openCostUSD;
 
     if (openCostUSD <= 0) continue;

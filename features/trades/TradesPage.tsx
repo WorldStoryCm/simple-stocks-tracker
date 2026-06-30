@@ -74,7 +74,7 @@ export function TradesPage() {
   }, []);
 
   const handleDelete = useCallback((id: string) => {
-    if (confirm("Are you sure you want to delete this trade? It may corrupt FIFO matches if not careful.")) {
+    if (confirm("Are you sure you want to delete this trade? It will recalculate average-cost matches for this symbol.")) {
       deleteMutation.mutate({ id });
     }
   }, [deleteMutation]);

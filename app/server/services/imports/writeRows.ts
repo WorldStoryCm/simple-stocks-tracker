@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { db } from "@/db/drizzle";
 import { cashEvents, platforms, symbols, trades } from "@/db/schema";
-import { applyFifoMatch } from "../trades/fifo";
+import { rebuildAverageCostMatches } from "../trades/costBasis";
 import { convertImportCashImpact } from "./currency";
 import type { PreviewImportRow } from "./types";
 
@@ -126,22 +126,16 @@ export async function insertTradeRow({
     .set({ cashBalance: newBalance.toFixed(2) })
     .where(and(eq(platforms.id, platformId), eq(platforms.userId, userId)));
 
-  if (row.tradeType === "sell") {
-    const { remaining } = await applyFifoMatch(tx, {
-      userId,
-      sellTradeId: trade.id,
-      platformId,
-      symbolId: symbol.id,
-      quantity,
-      sellPrice: price,
-      sellFee: fee,
+  const matchResult = await rebuildAverageCostMatches(tx, {
+    userId,
+    platformId,
+    symbolId: symbol.id,
+  });
+  if (matchResult.shortfall && matchResult.shortfall.remaining > ZERO_EPSILON) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: `Row ${row.rowIndex} has insufficient open quantity. Short by ${matchResult.shortfall.remaining.toFixed(8)}.`,
     });
-    if (remaining > ZERO_EPSILON) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: `Row ${row.rowIndex} has insufficient open quantity. Short by ${remaining.toFixed(8)}.`,
-      });
-    }
   }
 
   return { id: trade.id, cashBalance: newBalance, positionAdjustmentTradeId };

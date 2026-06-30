@@ -1,14 +1,15 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db/drizzle";
-import { trades, tradeLotMatches } from "@/db/schema";
+import { platforms, symbols, trades, tradeLotMatches } from "@/db/schema";
 import { tradePassesFilters, type PerformanceFilters } from "./performance/filters";
 
 type PositionAggregate = {
-  platform: any;
-  symbol: any;
+  platform: typeof platforms.$inferSelect;
+  symbol: typeof symbols.$inferSelect;
   totalBoughtQty: number;
   totalCost: number;
   totalSoldQty: number;
+  soldCost: number;
   realizedPnl: number;
 };
 
@@ -35,11 +36,12 @@ async function list(userId: string, filters?: PositionFilters) {
     const key = `${trade.platformId}_${trade.symbolId}`;
     if (!positionsMap.has(key)) {
       positionsMap.set(key, {
-        platform: (trade as any).platform,
-        symbol: (trade as any).symbol,
+        platform: trade.platform,
+        symbol: trade.symbol,
         totalBoughtQty: 0,
         totalCost: 0,
         totalSoldQty: 0,
+        soldCost: 0,
         realizedPnl: 0,
       });
     }
@@ -59,13 +61,13 @@ async function list(userId: string, filters?: PositionFilters) {
     const p = positionsMap.get(key);
     if (!p) continue;
     p.totalSoldQty += Number(match.matchedQuantity);
+    p.soldCost += Number(match.matchedCost);
     p.realizedPnl += Number(match.realizedPnl);
   }
 
   return Array.from(positionsMap.values()).map((p) => {
     const openQty = p.totalBoughtQty - p.totalSoldQty;
-    const openRatio = p.totalBoughtQty > 0 ? openQty / p.totalBoughtQty : 0;
-    const investedAmount = openRatio * p.totalCost;
+    const investedAmount = Math.max(0, p.totalCost - p.soldCost);
     const avgCost = openQty > 0 ? investedAmount / openQty : 0;
 
     return {

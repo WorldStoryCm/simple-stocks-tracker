@@ -10,14 +10,14 @@ export function LandingHero() {
       <div className="mx-auto w-full max-w-[1200px] px-6 lg:px-8 pt-16 sm:pt-24 pb-12 sm:pb-16">
         <div className="text-center max-w-3xl mx-auto">
           <span className="inline-flex items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-1)] px-3 py-1 text-xs text-text-secondary">
-            Revolut CSV import · IBKR-ready workflow · FIFO P/L
+            Revolut CSV import · IBKR-ready workflow · average-cost P/L
           </span>
           <h1 className="mt-5 text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.05]">
             Turn broker exports into a clean stock ledger.
           </h1>
           <p className="mt-5 text-base sm:text-lg text-text-secondary max-w-2xl mx-auto">
             Import activity from Revolut, review matched and missing rows before anything is saved,
-            track dividends separately, and get FIFO realized P/L across your platforms.
+            track dividends separately, and get average-cost realized P/L across your platforms.
           </p>
           <div className="mt-8 flex items-center justify-center gap-3">
             <Link
@@ -40,7 +40,7 @@ export function LandingHero() {
           <Screenshot
             slot="hero"
             aspect="16 / 9"
-            label="Dashboard — broker activity, dividends, FIFO P/L, open positions"
+            label="Dashboard — broker activity, dividends, average-cost P/L, open positions"
           />
         </div>
       </div>

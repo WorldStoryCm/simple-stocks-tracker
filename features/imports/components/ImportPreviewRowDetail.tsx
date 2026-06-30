@@ -14,7 +14,7 @@ function detailRow(row: ImportPreviewRow, replaceHistory: boolean, isSelected: b
       label: "Position adjustment",
       primary: row.message ?? "Will add a non-cash opening lot before this sell.",
       secondary: `Adds ${row.positionAdjustment.quantity.toLocaleString("en-US", { maximumFractionDigits: 8 })} shares at ${formatPrice(row.positionAdjustment.price, row.currencyCode ?? "USD")}`,
-      action: "Selected import creates the lot for FIFO matching without changing cash.",
+      action: "Selected import creates the lot for cost-basis matching without changing cash.",
     };
   }
   if (row.matched?.recordLabel) {
