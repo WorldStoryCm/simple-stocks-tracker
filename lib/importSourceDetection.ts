@@ -1,4 +1,4 @@
-export type DetectedImportSource = "revolut" | "manual";
+export type DetectedImportSource = "revolut" | "ibkr" | "manual";
 
 function firstHeaderCells(content: string) {
   const firstLine = content.replace(/^\uFEFF/, "").split(/\r?\n/, 1)[0] ?? "";
@@ -7,6 +7,12 @@ function firstHeaderCells(content: string) {
 
 function hasHeaders(headers: string[], required: string[]) {
   return required.every((header) => headers.includes(header));
+}
+
+function hasIbkrTransactionHistory(content: string) {
+  const prefix = content.replace(/^\uFEFF/, "").split(/\r?\n/, 40).join("\n").toLowerCase();
+  return prefix.includes("statement,data,title,transaction history")
+    && prefix.includes("transaction history,header,date,account,description,transaction type,symbol,quantity,price,price currency,gross amount");
 }
 
 export function detectImportSourceSystem(fileName: string, content: string): DetectedImportSource | undefined {
@@ -22,6 +28,10 @@ export function detectImportSourceSystem(fileName: string, content: string): Det
 
   if (hasHeaders(headers, ["date", "ticker", "type", "quantity", "price per share", "total amount", "currency"])) {
     return "revolut";
+  }
+
+  if (hasIbkrTransactionHistory(content)) {
+    return "ibkr";
   }
 
   return undefined;

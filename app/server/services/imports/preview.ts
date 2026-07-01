@@ -7,6 +7,7 @@ import { sha256 } from "./hash";
 import { classifyImportRow } from "./match";
 import { parseRevolutCsv } from "./adapters/revolut";
 import { parseManualCsv } from "./adapters/manual";
+import { parseIbkrCsv } from "./adapters/ibkr";
 import { applyQuantityAvailability } from "./availability";
 import type { ImportPreview, ImportStatus, NormalizedImportRow, SourceSystem } from "./types";
 
@@ -21,6 +22,7 @@ export type PreviewInput = {
 function parseRows(input: PreviewInput): { sourceSystem: SourceSystem; rows: NormalizedImportRow[] } {
   const sourceSystem = detectImportSourceSystem(input.fileName, input.fileContent) ?? input.sourceSystem;
   if (sourceSystem === "revolut") return { sourceSystem, rows: parseRevolutCsv(input.fileContent) };
+  if (sourceSystem === "ibkr") return { sourceSystem, rows: parseIbkrCsv(input.fileContent) };
   if (sourceSystem === "manual") return { sourceSystem, rows: parseManualCsv(input.fileContent) };
   throw new TRPCError({ code: "BAD_REQUEST", message: "This broker adapter is not implemented yet." });
 }

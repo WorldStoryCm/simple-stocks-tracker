@@ -15,4 +15,12 @@ trade,Revolut,2024-02-01,buy,TSLA,2,100,-201,USD,1,,manual buy
     const csv = "Date,Ticker,Type,Quantity,Price per share,Total Amount,Currency,FX Rate\n";
     assert.equal(detectImportSourceSystem("trading-account-statement.csv", csv), "revolut");
   });
+
+  it("detects IBKR transaction-history CSVs", () => {
+    const csv = `Statement,Header,Field Name,Field Value
+Statement,Data,Title,Transaction History
+Transaction History,Header,Date,Account,Description,Transaction Type,Symbol,Quantity,Price,Price Currency,Gross Amount ,Commission,Net Amount
+`;
+    assert.equal(detectImportSourceSystem("U24116477.TRANSACTIONS.1Y.csv", csv), "ibkr");
+  });
 });
