@@ -12,6 +12,7 @@ import { rsiRouter } from './rsi';
 import { tickerCatalogRouter } from './tickerCatalog';
 import { dividendsRouter } from './dividends';
 import { importsRouter } from './imports';
+import { newsRouter } from './news';
 
 export const appRouter = router({
   platforms: platformsRouter,
@@ -27,6 +28,7 @@ export const appRouter = router({
   tickerCatalog: tickerCatalogRouter,
   dividends: dividendsRouter,
   imports: importsRouter,
+  news: newsRouter,
 });
 
 export type AppRouter = typeof appRouter;

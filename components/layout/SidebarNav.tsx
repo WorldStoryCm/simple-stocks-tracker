@@ -13,6 +13,7 @@ import {
   Tags,
   Sparkles,
   Banknote,
+  Newspaper,
 } from "lucide-react";
 import { cn } from "@/components/component.utils";
 
@@ -33,6 +34,7 @@ const NAV_GROUPS: NavGroup[] = [
       { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
       { name: "Trades", href: "/trades", icon: ArrowRightLeft },
       { name: "Dividends", href: "/dividends", icon: Banknote },
+      { name: "News", href: "/news", icon: Newspaper },
       { name: "Positions", href: "/positions", icon: PieChart },
       { name: "Performance", href: "/performance", icon: LineChart },
     ],
