@@ -25,11 +25,16 @@ type ExportPosition = {
     ticker: string;
   };
   openQty: number | string;
+  avgCost?: number | string;
+  investedAmount?: number | string;
+  currencyCode?: string | null;
 };
 
 type ExportRow = {
   ticker: string;
   quantity: number;
+  investedAmount: number;
+  currencyCode?: string | null;
 };
 
 const EXPORT_LABELS: Record<ExportFormat, string> = {
@@ -42,6 +47,19 @@ function formatQuantity(quantity: number) {
   return fixed.replace(/\.?0+$/, "");
 }
 
+function formatCost(value: number) {
+  const fixed = value.toFixed(4);
+  return fixed.replace(/\.?0+$/, "");
+}
+
+function positionInvestedAmount(position: ExportPosition, quantity: number) {
+  const investedAmount = Number(position.investedAmount);
+  if (Number.isFinite(investedAmount)) return investedAmount;
+
+  const avgCost = Number(position.avgCost);
+  return Number.isFinite(avgCost) ? quantity * avgCost : 0;
+}
+
 function getExportRows(positions: ExportPosition[]) {
   const rows = new Map<string, ExportRow>();
 
@@ -51,9 +69,12 @@ function getExportRows(positions: ExportPosition[]) {
 
     const existing = rows.get(ticker);
     const quantity = Number(position.openQty);
+    const safeQuantity = Number.isFinite(quantity) ? quantity : 0;
     rows.set(ticker, {
       ticker,
-      quantity: (existing?.quantity ?? 0) + (Number.isFinite(quantity) ? quantity : 0),
+      quantity: (existing?.quantity ?? 0) + safeQuantity,
+      investedAmount: (existing?.investedAmount ?? 0) + positionInvestedAmount(position, safeQuantity),
+      currencyCode: existing?.currencyCode ?? position.currencyCode,
     });
   }
 
@@ -66,7 +87,11 @@ function formatExport(rows: ExportRow[], format: ExportFormat) {
   }
 
   return rows
-    .map((row) => `${row.ticker}: ${formatQuantity(row.quantity)}`)
+    .map((row) => {
+      const avgCost = row.quantity > 0 ? row.investedAmount / row.quantity : 0;
+      const currency = row.currencyCode ? ` ${row.currencyCode}` : "";
+      return `${row.ticker}: ${formatQuantity(row.quantity)} @ avg ${formatCost(avgCost)}${currency}`;
+    })
     .join("\n");
 }
 
