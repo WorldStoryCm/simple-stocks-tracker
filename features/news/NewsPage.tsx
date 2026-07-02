@@ -1,15 +1,28 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { AlertCircle, CalendarDays, Loader2, Newspaper, RefreshCw, Tags } from "lucide-react";
 import { Button } from "@/components/button";
 import { Card } from "@/components/card";
+import { SegmentedControl } from "@/components/SegmentedControl";
+import type { NewsFeedScope } from "@/app/server/services/news/types";
 import { trpc } from "@/lib/trpc";
 import { EventCalendar } from "./components/EventCalendar";
 import { NewsFeedList } from "./components/NewsFeedList";
 import { SourceResearch } from "./components/SourceResearch";
 import { formatDateTime } from "./format";
 
-const QUERY_INPUT = { limitSymbols: 40, newsPerSymbol: 4 };
+const SCOPE_OPTIONS: { value: NewsFeedScope; label: string }[] = [
+  { value: "all", label: "All symbols" },
+  { value: "active", label: "Active positions" },
+  { value: "owned_before", label: "Owned before" },
+];
+
+const SCOPE_LABELS: Record<NewsFeedScope, string> = {
+  all: "all tracked symbols",
+  active: "active positions",
+  owned_before: "closed past holdings",
+};
 
 function MetricCard({
   label,
@@ -36,7 +49,9 @@ function MetricCard({
 }
 
 export function NewsPage() {
-  const { data, isLoading, isFetching, error, refetch } = trpc.news.feed.useQuery(QUERY_INPUT, {
+  const [scope, setScope] = useState<NewsFeedScope>("all");
+  const queryInput = useMemo(() => ({ limitSymbols: 40, newsPerSymbol: 4, scope }), [scope]);
+  const { data, isLoading, isFetching, error, refetch } = trpc.news.feed.useQuery(queryInput, {
     refetchOnWindowFocus: false,
     staleTime: 5 * 60 * 1000,
   });
@@ -54,20 +69,32 @@ export function NewsPage() {
             Refresh-on-demand company headlines, earnings dates, and dividend events for your symbols.
           </p>
         </div>
-        <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
-          {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          Refresh
-        </Button>
+        <div className="flex max-w-full flex-wrap items-center justify-end gap-2">
+          <div className="max-w-full overflow-x-auto pb-1">
+            <SegmentedControl
+              options={SCOPE_OPTIONS}
+              value={scope}
+              onChange={setScope}
+              disabled={isFetching}
+              className="min-w-max"
+            />
+          </div>
+          <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
+            {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Refresh
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
         <MetricCard label="Symbols covered" value={(data?.symbolCount ?? 0).toLocaleString()} icon={Tags} />
-        <MetricCard label="Upcoming events" value={events.length.toLocaleString()} icon={CalendarDays} />
         <MetricCard label="Headlines" value={news.length.toLocaleString()} icon={Newspaper} />
+        <MetricCard label="Upcoming events" value={events.length.toLocaleString()} icon={CalendarDays} />
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-[color:var(--surface-2)] px-4 py-3 text-sm text-text-secondary">
         <span>Current provider: Yahoo Finance via server-side yahoo-finance2 calls.</span>
+        <span className="text-text-tertiary">Viewing {SCOPE_LABELS[scope]}</span>
         <span className="text-text-tertiary">Last refresh: {updatedLabel}</span>
       </div>
 
@@ -85,9 +112,9 @@ export function NewsPage() {
         </div>
       )}
 
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(380px,0.95fr)]">
-        <EventCalendar events={events} loading={isLoading} />
+      <div className="flex flex-col gap-4">
         <NewsFeedList news={news} loading={isLoading} />
+        <EventCalendar events={events} loading={isLoading} />
       </div>
 
       <SourceResearch />

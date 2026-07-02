@@ -3,7 +3,10 @@ import { symbols } from "@/db/schema";
 export type NewsFeedInput = {
   limitSymbols?: number;
   newsPerSymbol?: number;
+  scope?: NewsFeedScope;
 };
+
+export type NewsFeedScope = "all" | "active" | "owned_before";
 
 export type CompanyEventType =
   | "earnings"
