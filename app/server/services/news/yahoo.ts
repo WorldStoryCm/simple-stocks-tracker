@@ -10,6 +10,29 @@ import type {
 } from "./types";
 
 const yahooFinance = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
+const YAHOO_CACHE_TTL_MS = 10 * 60 * 1000;
+
+type FetchOptions = { forceRefresh?: boolean };
+type EventResult = { events: CompanyEvent[]; warning: string | null };
+type NewsResult = { items: CompanyNewsItem[]; warning: string | null };
+type CacheEntry<T> = { expiresAt: number; value: T };
+
+const eventCache = new Map<string, CacheEntry<EventResult>>();
+const newsCache = new Map<string, CacheEntry<NewsResult>>();
+
+function readCache<T>(cache: Map<string, CacheEntry<T>>, key: string, nowMs: number) {
+  const entry = cache.get(key);
+  if (!entry) return null;
+  if (entry.expiresAt <= nowMs) {
+    cache.delete(key);
+    return null;
+  }
+  return entry.value;
+}
+
+function writeCache<T>(cache: Map<string, CacheEntry<T>>, key: string, value: T, nowMs: number) {
+  cache.set(key, { expiresAt: nowMs + YAHOO_CACHE_TTL_MS, value });
+}
 
 function quoteUrl(ticker: string) {
   return `https://finance.yahoo.com/quote/${encodeURIComponent(ticker)}`;
@@ -94,7 +117,7 @@ function relatedTickers(news: RawSearchNews, fallbackTicker: string) {
   return values.length ? values : [fallbackTicker];
 }
 
-export async function fetchEventsForSymbol(symbol: SymbolRow, now: Date) {
+async function fetchEventsFromYahoo(symbol: SymbolRow, now: Date): Promise<EventResult> {
   try {
     const summary = (await yahooFinance.quoteSummary(symbol.ticker, {
       modules: ["calendarEvents"],
@@ -121,7 +144,18 @@ export async function fetchEventsForSymbol(symbol: SymbolRow, now: Date) {
   }
 }
 
-export async function fetchNewsForSymbol(symbol: SymbolRow, newsPerSymbol: number) {
+export async function fetchEventsForSymbol(symbol: SymbolRow, now: Date, options: FetchOptions = {}) {
+  const nowMs = Date.now();
+  const key = symbol.ticker;
+  const cached = options.forceRefresh ? null : readCache(eventCache, key, nowMs);
+  if (cached) return cached;
+
+  const result = await fetchEventsFromYahoo(symbol, now);
+  writeCache(eventCache, key, result, nowMs);
+  return result;
+}
+
+async function fetchNewsFromYahoo(symbol: SymbolRow, newsPerSymbol: number): Promise<NewsResult> {
   try {
     const raw = (await yahooFinance.search(
       symbol.ticker,
@@ -153,4 +187,19 @@ export async function fetchNewsForSymbol(symbol: SymbolRow, newsPerSymbol: numbe
     console.error(`Failed to fetch news for ${symbol.ticker}`, error);
     return { items: [], warning: `News unavailable for ${symbol.ticker}` };
   }
+}
+
+export async function fetchNewsForSymbol(
+  symbol: SymbolRow,
+  newsPerSymbol: number,
+  options: FetchOptions = {},
+) {
+  const nowMs = Date.now();
+  const key = `${symbol.ticker}:${newsPerSymbol}`;
+  const cached = options.forceRefresh ? null : readCache(newsCache, key, nowMs);
+  if (cached) return cached;
+
+  const result = await fetchNewsFromYahoo(symbol, newsPerSymbol);
+  writeCache(newsCache, key, result, nowMs);
+  return result;
 }

@@ -6,6 +6,7 @@ import { fetchEventsForSymbol, fetchNewsForSymbol } from "./yahoo";
 import type { CompanyEvent, CompanyNewsItem, NewsFeedInput, NewsFeedScope, SymbolRow } from "./types";
 
 const OPEN_QTY_EPSILON = 0.00000001;
+type NewsFeedOptions = { forceRefresh?: boolean };
 
 async function listAllSymbols(userId: string, limitSymbols: number) {
   return db.query.symbols.findMany({
@@ -46,10 +47,10 @@ async function listSymbolsForScope(userId: string, scope: NewsFeedScope, limitSy
   return listPositionSymbols(userId, scope, limitSymbols);
 }
 
-async function feed(userId: string, input: NewsFeedInput = {}) {
+async function feed(userId: string, input: NewsFeedInput = {}, options: NewsFeedOptions = {}) {
   const limitSymbols = input.limitSymbols ?? 40;
   const newsPerSymbol = input.newsPerSymbol ?? 4;
-  const scope = input.scope ?? "all";
+  const scope = input.scope ?? "active";
   const trackedSymbols = await listSymbolsForScope(userId, scope, limitSymbols);
 
   const now = new Date();
@@ -60,8 +61,8 @@ async function feed(userId: string, input: NewsFeedInput = {}) {
 
   for (const symbol of trackedSymbols) {
     const [eventResult, newsResult] = await Promise.all([
-      fetchEventsForSymbol(symbol, now),
-      fetchNewsForSymbol(symbol, newsPerSymbol),
+      fetchEventsForSymbol(symbol, now, options),
+      fetchNewsForSymbol(symbol, newsPerSymbol, options),
     ]);
     events.push(...eventResult.events);
     if (eventResult.warning) warnings.push(eventResult.warning);
