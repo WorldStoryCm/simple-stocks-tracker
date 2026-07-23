@@ -6,6 +6,7 @@ import { getExchangeRates } from "@/lib/exchange-rates";
 import { buildPreview, type PreviewInput } from "./preview";
 import type { ImportCommitResult, PreviewImportRow } from "./types";
 import { applyCorporateActionRow, applyMergerStockRows } from "./corporateActions";
+import { prepareRowsForCommit } from "./commitQuantity";
 import { expandSelectedRowsWithRequiredCorporateActions } from "./selection";
 import { insertCashEventRow, insertTradeRow } from "./writeRows";
 
@@ -43,10 +44,10 @@ export async function commitImport(userId: string, input: CommitInput): Promise<
     preview.rows,
     replaceHistory ? defaultRows.map((row) => row.rowHash) : input.selectedRowHashes ?? defaultRows.map((row) => row.rowHash),
   );
-  const rowsToCommit = preview.rows
+  const selectedRowsToCommit = preview.rows
     .filter((row) => canCommit(row, selected, replaceHistory))
     .sort(byBrokerDate);
-  if (replaceHistory && rowsToCommit.length === 0) {
+  if (replaceHistory && selectedRowsToCommit.length === 0) {
     const blocked = preview.rows.find((row) => row.status === "needs_review" || row.kind === "unsupported");
     throw new TRPCError({
       code: "BAD_REQUEST",
@@ -81,6 +82,13 @@ export async function commitImport(userId: string, input: CommitInput): Promise<
         .set({ cashBalance: "0.00" })
         .where(and(eq(platforms.id, input.platformId), eq(platforms.userId, userId)));
     }
+
+    const rowsToCommit = await prepareRowsForCommit(
+      tx,
+      userId,
+      input.platformId,
+      selectedRowsToCommit,
+    );
 
     const [batch] = await tx.insert(importBatches).values({
       userId,
