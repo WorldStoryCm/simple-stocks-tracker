@@ -5,12 +5,21 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/table";
 import { sortSessionEvents } from "@/lib/trading-sessions/calculations";
+import type { SessionCurrency } from "@/lib/trading-sessions/currency";
 import {
   formatQuantity, formatSessionPrice, formatSessionTime,
 } from "../session-format";
 import type { TradingSessionDetail } from "../types";
 
-export function AcquisitionLots({ session }: { session: TradingSessionDetail }) {
+export function AcquisitionLots({
+  session,
+  displayCurrency,
+  conversionFactor,
+}: {
+  session: TradingSessionDetail;
+  displayCurrency: SessionCurrency;
+  conversionFactor: number;
+}) {
   const openingLots = session.openingLots.map((lot) => ({
     id: lot.id,
     source: "Opening" as const,
@@ -50,7 +59,7 @@ export function AcquisitionLots({ session }: { session: TradingSessionDetail }) 
                 <TableHead className="pl-4">Source</TableHead>
                 <TableHead>Acquired</TableHead>
                 <TableHead className="text-right">Quantity</TableHead>
-                <TableHead className="pr-4 text-right">Buy price</TableHead>
+                <TableHead className="pr-4 text-right">Buy price ({displayCurrency})</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -66,7 +75,7 @@ export function AcquisitionLots({ session }: { session: TradingSessionDetail }) 
                     {formatQuantity(row.quantity)}
                   </TableCell>
                   <TableCell className="pr-4 text-right font-mono tabular-nums">
-                    {formatSessionPrice(row.price, session.currencyCode)}
+                    {formatSessionPrice(row.price * conversionFactor, displayCurrency)}
                   </TableCell>
                 </TableRow>
               ))}

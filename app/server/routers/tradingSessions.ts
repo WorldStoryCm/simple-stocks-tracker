@@ -16,6 +16,8 @@ const createInput = z.object({
   openingQuantity: positiveDecimal.optional(),
   openingAverageCost: positiveDecimal.optional(),
   openingMarketPrice: positiveDecimal,
+  currencyCode: z.enum(["USD", "EUR"]),
+  usdPerEur: positiveDecimal.optional(),
   startedAt: z.string().datetime(),
   notes: z.string().max(1000).optional(),
 });
@@ -36,9 +38,21 @@ export const tradingSessionsRouter = router({
   get: protectedProcedure
     .input(z.object({ id: z.string().min(1) }))
     .query(({ ctx, input }) => tradingSessionsService.get(ctx.session.user.id, input.id)),
+  fxRate: protectedProcedure.query(() => tradingSessionsService.fxRate()),
   create: protectedProcedure
     .input(createInput)
     .mutation(({ ctx, input }) => tradingSessionsService.create(ctx.session.user.id, input)),
+  updateInputs: protectedProcedure
+    .input(z.object({
+      id: z.string().min(1),
+      openingAverageCost: positiveDecimal,
+      openingMarketPrice: positiveDecimal,
+      manualMarkPrice: positiveDecimal,
+      currencyCode: z.enum(["USD", "EUR"]),
+      usdPerEur: positiveDecimal,
+    }))
+    .mutation(({ ctx, input }) =>
+      tradingSessionsService.updateInputs(ctx.session.user.id, input)),
   addEvent: protectedProcedure
     .input(eventInput)
     .mutation(({ ctx, input }) => tradingSessionsService.addEvent(ctx.session.user.id, input)),

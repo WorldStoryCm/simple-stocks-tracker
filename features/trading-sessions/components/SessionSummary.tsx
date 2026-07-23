@@ -1,5 +1,6 @@
 import { Activity, CircleDollarSign, Crosshair, Layers3, Radio } from "lucide-react";
 import type { SessionMetrics } from "@/lib/trading-sessions/calculations";
+import type { SessionCurrency } from "@/lib/trading-sessions/currency";
 import {
   formatQuantity,
   formatSessionPrice,
@@ -10,14 +11,15 @@ import {
 export function SessionSummary({
   metrics,
   currentPrice,
-  currencyCode,
-  hasLiveQuote,
+  displayCurrency,
+  conversionFactor,
 }: {
   metrics: SessionMetrics;
   currentPrice: number;
-  currencyCode: string;
-  hasLiveQuote: boolean;
+  displayCurrency: SessionCurrency;
+  conversionFactor: number;
 }) {
+  const money = (value: number) => value * conversionFactor;
   const items = [
     {
       label: "Open quantity",
@@ -27,26 +29,26 @@ export function SessionSummary({
     },
     {
       label: "Average cost",
-      value: formatSessionPrice(metrics.state.averageCost, currencyCode),
-      caption: "Moving cost basis",
+      value: formatSessionPrice(money(metrics.state.averageCost), displayCurrency),
+      caption: `Moving cost basis · ${displayCurrency}`,
       icon: Crosshair,
     },
     {
       label: "Current mark",
-      value: formatSessionPrice(currentPrice, currencyCode),
-      caption: hasLiveQuote ? "Live quote" : "Latest session price",
+      value: formatSessionPrice(money(currentPrice), displayCurrency),
+      caption: `Manual session mark · ${displayCurrency}`,
       icon: Radio,
     },
     {
       label: "Session P/L",
-      value: formatSignedAmount(metrics.sessionPnl, currencyCode),
+      value: formatSignedAmount(money(metrics.sessionPnl), displayCurrency),
       caption: "Change since start mark",
       icon: Activity,
       valueClass: pnlClass(metrics.sessionPnl),
     },
     {
       label: "Position P/L",
-      value: formatSignedAmount(metrics.positionPnl, currencyCode),
+      value: formatSignedAmount(money(metrics.positionPnl), displayCurrency),
       caption: "Realized + remaining",
       icon: CircleDollarSign,
       valueClass: pnlClass(metrics.positionPnl),

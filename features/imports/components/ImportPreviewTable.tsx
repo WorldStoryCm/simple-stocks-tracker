@@ -18,8 +18,8 @@ export function ImportPreviewTable({
   className?: string;
 }) {
   return (
-    <div className={cn("min-h-[280px] overflow-y-auto overflow-x-hidden rounded-md border border-border", className)}>
-      <table className="w-full table-fixed text-xs">
+    <div className={cn("min-h-[280px] overflow-auto rounded-md border border-border [scrollbar-gutter:stable]", className)}>
+      <table className="w-full min-w-[960px] table-fixed text-xs">
         <colgroup>
           <col className="w-9" />
           <col className="w-11" />

@@ -50,10 +50,10 @@ export function TradesToolbar({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex w-full flex-wrap items-center gap-2">
+      <div className="grid w-full grid-cols-2 gap-2 lg:grid-cols-[150px_150px_minmax(0,1fr)]">
         <Popover open={symbolOpen} onOpenChange={setSymbolOpen}>
           <PopoverTrigger asChild>
-            <Button variant="outline" className="w-[150px] justify-between font-normal">
+            <Button variant="outline" className="w-full justify-between font-normal">
               {symbolFilter === "all"
                 ? "All Symbols"
                 : symbols.find((symbol) => symbol.id === symbolFilter)?.ticker || "All Symbols"}
@@ -109,7 +109,7 @@ export function TradesToolbar({
             resetPage();
           }}
         >
-          <SelectTrigger className="w-[150px]">
+          <SelectTrigger className="w-full">
             <SelectValue placeholder="All Platforms" />
           </SelectTrigger>
           <SelectContent>
@@ -122,10 +122,10 @@ export function TradesToolbar({
           </SelectContent>
         </Select>
 
-        <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-[color:var(--surface-1)] px-2 py-1.5">
-          <div className="flex flex-col gap-1">
+        <div className="col-span-2 flex w-full flex-wrap items-end gap-2 rounded-lg border border-border bg-[color:var(--surface-1)] px-2 py-1.5 lg:col-span-1">
+          <div className="flex min-w-[220px] flex-1 flex-col gap-1">
             <span className="text-[10px] font-medium uppercase tracking-wide text-text-tertiary">Trade date</span>
-            <div className="flex items-center gap-2">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
               <Input
                 type="date"
                 value={dateFrom}
@@ -133,7 +133,7 @@ export function TradesToolbar({
                   setDateFrom(event.target.value);
                   resetPage();
                 }}
-                className="h-8 w-[138px] text-xs"
+                className="h-8 min-w-0 text-xs"
                 aria-label="Trade date from"
               />
               <span className="text-xs text-text-tertiary">to</span>
@@ -144,7 +144,7 @@ export function TradesToolbar({
                   setDateTo(event.target.value);
                   resetPage();
                 }}
-                className="h-8 w-[138px] text-xs"
+                className="h-8 min-w-0 text-xs"
                 aria-label="Trade date to"
               />
             </div>

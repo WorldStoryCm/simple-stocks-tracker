@@ -50,7 +50,7 @@ export function SessionHeader({
             <SelectContent>
               {sessions.map((session) => (
                 <SelectItem key={session.id} value={session.id}>
-                  {session.symbol.ticker} · {session.platform.name} · {formatSessionTime(session.startedAt)}
+                  {session.symbol.ticker} · {session.currencyCode} · {session.platform.name} · {formatSessionTime(session.startedAt)}
                   {session.status === "closed" ? " · Closed" : ""}
                 </SelectItem>
               ))}

@@ -33,19 +33,19 @@ export function ImportSummaryStrip({
   onFilterChange: (filter: ImportFilter) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-gutter:stable] sm:flex-wrap sm:overflow-visible sm:pb-0">
       {LABELS.map(([filter, label]) => (
         <button
           key={filter}
           type="button"
           className={cn(
-            "flex h-10 min-w-[92px] items-center justify-between gap-3 rounded-md border border-border bg-[color:var(--surface-1)] px-3 text-left transition-colors hover:bg-[color:var(--surface-2)]",
+            "flex h-9 min-w-[84px] shrink-0 items-center justify-between gap-2 rounded-md border border-border bg-[color:var(--surface-1)] px-2.5 text-left transition-colors hover:bg-[color:var(--surface-2)] sm:h-10 sm:min-w-[92px] sm:gap-3 sm:px-3",
             activeFilter === filter && "border-[color:var(--info)] bg-[color:var(--info-soft)]",
           )}
           onClick={() => onFilterChange(filter)}
         >
           <span className="text-[10px] font-medium uppercase tracking-wide text-text-tertiary">{label}</span>
-          <span className="font-tabular text-base font-semibold text-text-primary">
+          <span className="font-tabular text-sm font-semibold text-text-primary sm:text-base">
             {countFor(filter, preview, selectedCount)}
           </span>
         </button>

@@ -5,6 +5,11 @@ import toast from "react-hot-toast";
 import { AlertTriangle } from "lucide-react";
 import { Skeleton } from "@/components/skeleton";
 import { trpc } from "@/lib/trpc";
+import {
+  currencyFactor,
+  sessionCurrency,
+  type SessionCurrency,
+} from "@/lib/trading-sessions/currency";
 import { AcquisitionLots } from "./components/AcquisitionLots";
 import { CreateSessionDialog } from "./components/CreateSessionDialog";
 import { PriceLadder } from "./components/PriceLadder";
@@ -12,6 +17,7 @@ import { SessionActivity } from "./components/SessionActivity";
 import { SessionEmptyState } from "./components/SessionEmptyState";
 import { SessionEventForm } from "./components/SessionEventForm";
 import { SessionHeader } from "./components/SessionHeader";
+import { SessionInputs } from "./components/SessionInputs";
 import { SessionSummary } from "./components/SessionSummary";
 import { TargetPriceCard } from "./components/TargetPriceCard";
 import { useTradingSessionsView } from "./useTradingSessionsView";
@@ -20,6 +26,10 @@ export function TradingSessionsPage() {
   const view = useTradingSessionsView();
   const [createOpen, setCreateOpen] = useState(false);
   const [plan, setPlan] = useState<{ sessionId: string; quantity: number } | null>(null);
+  const [display, setDisplay] = useState<{
+    sessionId: string;
+    currency: SessionCurrency;
+  } | null>(null);
   const { data: positions = [] } = trpc.positions.list.useQuery();
   const { data: platforms = [] } = trpc.platforms.list.useQuery();
   const { data: symbols = [] } = trpc.symbols.list.useQuery();
@@ -36,6 +46,19 @@ export function TradingSessionsPage() {
   const setPlannedQuantity = (quantity: number) => {
     if (!view.detail) return;
     setPlan({ sessionId: view.detail.id, quantity });
+  };
+  const canonicalCurrency = sessionCurrency(view.detail?.currencyCode);
+  const displayCurrency = display && display.sessionId === view.detail?.id
+    ? display.currency
+    : canonicalCurrency;
+  const conversionFactor = currencyFactor(
+    canonicalCurrency,
+    displayCurrency,
+    view.usdPerEur,
+  );
+  const setDisplayCurrency = (currency: SessionCurrency) => {
+    if (!view.detail) return;
+    setDisplay({ sessionId: view.detail.id, currency });
   };
 
   const closeMutation = trpc.tradingSessions.close.useMutation({
@@ -86,41 +109,58 @@ export function TradingSessionsPage() {
           <SessionSummary
             metrics={view.metrics}
             currentPrice={view.currentPrice}
-            currencyCode={view.detail.currencyCode}
-            hasLiveQuote={view.hasLiveQuote}
+            displayCurrency={displayCurrency}
+            conversionFactor={conversionFactor}
+          />
+          <SessionInputs
+            key={view.detail.id}
+            session={view.detail}
+            usdPerEur={view.usdPerEur}
+            displayCurrency={displayCurrency}
+            onDisplayCurrencyChange={setDisplayCurrency}
           />
 
           <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
             <PriceLadder
-              currentPrice={view.currentPrice}
-              averageCost={view.metrics.state.averageCost}
+              currentPrice={view.currentPrice * conversionFactor}
+              averageCost={view.metrics.state.averageCost * conversionFactor}
               availableQuantity={view.metrics.state.quantity}
               plannedQuantity={plannedQuantity}
               onPlannedQuantityChange={setPlannedQuantity}
-              currencyCode={view.detail.currencyCode}
+              currencyCode={displayCurrency}
             />
             <div className="flex flex-col gap-4">
               <TargetPriceCard
                 quantity={plannedQuantity}
                 maxQuantity={view.metrics.state.quantity}
                 onQuantityChange={setPlannedQuantity}
-                averageCost={view.metrics.state.averageCost}
-                currentPrice={view.currentPrice}
-                currencyCode={view.detail.currencyCode}
+                averageCost={view.metrics.state.averageCost * conversionFactor}
+                currentPrice={view.currentPrice * conversionFactor}
+                currencyCode={displayCurrency}
               />
               <SessionEventForm
-                key={view.detail.id}
+                key={`${view.detail.id}:${view.currentPrice}`}
                 sessionId={view.detail.id}
                 availableQuantity={view.metrics.state.quantity}
                 currentPrice={view.currentPrice}
                 isActive={view.detail.status === "active"}
+                currencyCode={canonicalCurrency}
               />
             </div>
           </div>
 
           <div className="grid items-start gap-4 xl:grid-cols-2">
-            <SessionActivity session={view.detail} snapshots={view.metrics.snapshots} />
-            <AcquisitionLots session={view.detail} />
+            <SessionActivity
+              session={view.detail}
+              snapshots={view.metrics.snapshots}
+              displayCurrency={displayCurrency}
+              conversionFactor={conversionFactor}
+            />
+            <AcquisitionLots
+              session={view.detail}
+              displayCurrency={displayCurrency}
+              conversionFactor={conversionFactor}
+            />
           </div>
         </>
       ) : (

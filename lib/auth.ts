@@ -5,14 +5,29 @@ import { redirect } from "next/navigation";
 import { db } from "../db/drizzle";
 import * as schema from "../db/schema";
 
+const THIRTY_DAYS_IN_SECONDS = 60 * 60 * 24 * 30;
+const ONE_DAY_IN_SECONDS = 60 * 60 * 24;
+
+const authBaseURL = process.env.BETTER_AUTH_URL;
+const trustedOrigins = [
+  authBaseURL,
+  process.env.NEXT_PUBLIC_BETTER_AUTH_URL,
+  process.env.NEXT_PUBLIC_AUTH_URL,
+  process.env.NODE_ENV !== "production" ? "http://localhost:3001" : undefined,
+  process.env.NODE_ENV !== "production" ? "http://127.0.0.1:3001" : undefined,
+].filter((origin): origin is string => Boolean(origin));
+
 export const auth = betterAuth({
-  trustedOrigins: process.env.BETTER_AUTH_URL
-    ? [process.env.BETTER_AUTH_URL]
-    : [],
+  baseURL: authBaseURL,
+  trustedOrigins,
   database: drizzleAdapter(db, {
     provider: "pg",
     schema,
   }),
+  session: {
+    expiresIn: THIRTY_DAYS_IN_SECONDS,
+    updateAge: ONE_DAY_IN_SECONDS,
+  },
   user: {
     additionalFields: {
       roles: {

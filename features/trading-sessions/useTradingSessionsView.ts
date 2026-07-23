@@ -18,23 +18,13 @@ export function useTradingSessionsView() {
     { enabled: Boolean(resolvedSelectedId) },
   );
   const detail = detailQuery.data;
-  const ticker = detail?.symbol.ticker;
-  const quotesQuery = trpc.quotes.getMany.useQuery(
-    { tickers: ticker ? [ticker] : [] },
-    { enabled: Boolean(ticker), refetchInterval: 60_000 },
+  const fxQuery = trpc.tradingSessions.fxRate.useQuery();
+  const currentPrice = Number(
+    detail?.manualMarkPrice
+    ?? detail?.openingMarketPrice
+    ?? 0,
   );
-
-  const currentPrice = useMemo(() => {
-    const quotePrice = ticker ? quotesQuery.data?.[ticker]?.price : undefined;
-    if (quotePrice && quotePrice > 0) return quotePrice;
-    if (detail?.events.length) {
-      const latest = [...detail.events].sort(
-        (a, b) => new Date(b.executedAt).getTime() - new Date(a.executedAt).getTime(),
-      )[0];
-      if (latest) return Number(latest.price);
-    }
-    return Number(detail?.openingMarketPrice ?? 0);
-  }, [detail, quotesQuery.data, ticker]);
+  const usdPerEur = Number(detail?.usdPerEur ?? fxQuery.data?.usdPerEur ?? 1);
 
   const metrics = useMemo(() => {
     if (!detail) return null;
@@ -53,7 +43,7 @@ export function useTradingSessionsView() {
     detail,
     detailQuery,
     currentPrice,
-    hasLiveQuote: Boolean(ticker && quotesQuery.data?.[ticker]?.price),
+    usdPerEur,
     metrics,
   };
 }

@@ -5,8 +5,19 @@ export type TradingSessionCreateInput = {
   openingQuantity?: string;
   openingAverageCost?: string;
   openingMarketPrice: string;
+  currencyCode: "USD" | "EUR";
+  usdPerEur?: string;
   startedAt: string;
   notes?: string;
+};
+
+export type TradingSessionInputsUpdate = {
+  id: string;
+  openingAverageCost: string;
+  openingMarketPrice: string;
+  manualMarkPrice: string;
+  currencyCode: "USD" | "EUR";
+  usdPerEur: string;
 };
 
 export type TradingSessionEventInput = {

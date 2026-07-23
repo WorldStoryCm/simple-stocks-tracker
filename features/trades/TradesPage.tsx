@@ -98,22 +98,23 @@ export function TradesPage() {
 
   return (
     <div className="flex flex-col gap-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Trading Ledger</h1>
-        <div className="flex items-center gap-2">
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
           <Button
             variant="outline"
+            className="min-w-0 justify-center"
             disabled={exportMutation.isPending}
             onClick={() => exportMutation.mutate({})}
           >
             <Download className="mr-1.5 h-4 w-4" />
             {exportMutation.isPending ? "Exporting..." : "Export Trades"}
           </Button>
-          <Button variant="outline" onClick={() => setIsImportOpen(true)}>
+          <Button variant="outline" className="min-w-0 justify-center" onClick={() => setIsImportOpen(true)}>
             <Upload className="mr-1.5 h-4 w-4" />
             Import
           </Button>
-          <AddTradeButton />
+          <AddTradeButton className="col-span-2 w-full justify-center sm:col-span-1 sm:w-auto" />
         </div>
       </div>
 
@@ -135,11 +136,11 @@ export function TradesPage() {
 
       <TradesTable table={table} columns={columns} isLoading={isLoading} tradesCount={trades.length} />
 
-      <div className="flex items-center justify-between py-2">
+      <div className="flex flex-col gap-2 py-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm text-text-tertiary">
           Showing page {page} of {totalPages} ({tradesData?.totalCount || 0} total)
         </div>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex">
           <Button
             variant="outline"
             size="sm"

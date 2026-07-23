@@ -13,15 +13,17 @@ import {
 import { SegmentedControl } from "@/components/SegmentedControl";
 import { Textarea } from "@/components/textarea";
 import { trpc } from "@/lib/trpc";
+import { convertSessionCurrency, sessionCurrency, type SessionCurrency } from "@/lib/trading-sessions/currency";
 import { formatQuantity, localDateTimeValue, toIso } from "../session-format";
 import type { PositionOption } from "../types";
+import { Field, ManualOpeningFields, type SessionPlatformOption, type SessionSymbolOption } from "./CreateSessionFields";
 
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   positions: PositionOption[];
-  platforms: { id: string; name: string }[];
-  symbols: { id: string; ticker: string; displayName: string | null }[];
+  platforms: SessionPlatformOption[];
+  symbols: SessionSymbolOption[];
   onCreated: (id: string) => void;
 };
 
@@ -40,6 +42,8 @@ export function CreateSessionDialog({
   const [quantity, setQuantity] = useState("");
   const [averageCost, setAverageCost] = useState("");
   const [openingPrice, setOpeningPrice] = useState("");
+  const [currencyOverride, setCurrencyOverride] = useState<SessionCurrency | null>(null);
+  const [fxRateInput, setFxRateInput] = useState("");
   const [startedAt, setStartedAt] = useState(localDateTimeValue());
   const [notes, setNotes] = useState("");
   const utils = trpc.useUtils();
@@ -52,16 +56,23 @@ export function CreateSessionDialog({
   const selectedSymbol = source === "position"
     ? selectedPosition?.symbol
     : symbols.find((symbol) => symbol.id === symbolId);
-  const { data: quote } = trpc.quotes.getMany.useQuery(
-    { tickers: selectedSymbol ? [selectedSymbol.ticker] : [] },
-    { enabled: Boolean(selectedSymbol) },
+  const { data: fxData } = trpc.tradingSessions.fxRate.useQuery();
+  const usdPerEur = Number(fxRateInput || fxData?.usdPerEur || 1);
+  const priceCurrency = currencyOverride ?? sessionCurrency(
+    selectedSymbol?.currencyCode
+    ?? selectedPosition?.currencyCode,
   );
-
-  const livePrice = selectedSymbol ? quote?.[selectedSymbol.ticker]?.price : undefined;
-  const suggestedPrice = livePrice && livePrice > 0
-    ? String(livePrice)
-    : selectedPosition ? String(selectedPosition.avgCost) : "";
-  const resolvedOpeningPrice = openingPrice || suggestedPrice;
+  const sourceCurrency = sessionCurrency(selectedPosition?.currencyCode);
+  const suggestedAverage = selectedPosition
+    ? convertSessionCurrency(
+      Number(selectedPosition.avgCost),
+      sourceCurrency,
+      priceCurrency,
+      usdPerEur,
+    ).toFixed(4)
+    : "";
+  const resolvedAverageCost = averageCost || suggestedAverage;
+  const resolvedOpeningPrice = openingPrice || resolvedAverageCost;
 
   const mutation = trpc.tradingSessions.create.useMutation({
     onSuccess: async (session) => {
@@ -80,7 +91,7 @@ export function CreateSessionDialog({
       toast.error("Choose a position and enter a starting market price.");
       return;
     }
-    if (source === "manual" && (!(Number(quantity) > 0) || !(Number(averageCost) > 0))) {
+    if (source === "manual" && (!(Number(quantity) > 0) || !(Number(resolvedAverageCost) > 0))) {
       toast.error("Enter an opening quantity and average cost greater than zero.");
       return;
     }
@@ -89,8 +100,10 @@ export function CreateSessionDialog({
       symbolId: resolvedSymbolId,
       openingSource: source,
       openingQuantity: source === "manual" ? quantity : undefined,
-      openingAverageCost: source === "manual" ? averageCost : undefined,
+      openingAverageCost: resolvedAverageCost,
       openingMarketPrice: resolvedOpeningPrice,
+      currencyCode: priceCurrency,
+      usdPerEur: String(usdPerEur),
       startedAt: toIso(startedAt),
       notes: notes.trim() || undefined,
     });
@@ -109,6 +122,8 @@ export function CreateSessionDialog({
               onChange={(value) => {
                 setSource(value);
                 setOpeningPrice("");
+                setAverageCost("");
+                setCurrencyOverride(null);
               }}
               options={[
                 { value: "position", label: "Current position", disabled: positions.length === 0 },
@@ -123,6 +138,8 @@ export function CreateSessionDialog({
               <Select value={positionKey} onValueChange={(value) => {
                 setPositionKey(value);
                 setOpeningPrice("");
+                setAverageCost("");
+                setCurrencyOverride(null);
               }}>
                 <SelectTrigger id="session-position" className="h-10">
                   <SelectValue placeholder="Choose a position" />
@@ -141,23 +158,65 @@ export function CreateSessionDialog({
               {selectedPosition && (
                 <div className="flex gap-4 rounded-lg bg-[color:var(--surface-2)] px-3 py-2 text-xs text-text-secondary">
                   <span>Quantity {formatQuantity(selectedPosition.openQty)}</span>
-                  <span>Average cost {Number(selectedPosition.avgCost).toFixed(4)}</span>
+                  <span>
+                    Imported basis {Number(selectedPosition.avgCost).toFixed(4)} {selectedPosition.currencyCode}
+                  </span>
                 </div>
               )}
+              <Field label={`Opening average price (${priceCurrency})`} htmlFor="position-average-cost">
+                <Input id="position-average-cost" type="number" min="0" step="0.0001"
+                  value={resolvedAverageCost}
+                  onChange={(event) => setAverageCost(event.target.value)} />
+              </Field>
             </div>
           ) : (
             <ManualOpeningFields
               platforms={platforms}
               symbols={symbols}
               values={{ platformId, symbolId, quantity, averageCost }}
-              setters={{ setPlatformId, setSymbolId, setQuantity, setAverageCost }}
+              setters={{
+                setPlatformId,
+                setSymbolId: (value) => {
+                  setSymbolId(value);
+                  setCurrencyOverride(null);
+                },
+                setQuantity,
+                setAverageCost,
+              }}
             />
           )}
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Starting market price" htmlFor="opening-price">
+            <Field label="Price currency" htmlFor="opening-price-currency">
+              <SegmentedControl<SessionCurrency>
+                value={priceCurrency}
+                onChange={(next) => {
+                  if (averageCost) {
+                    setAverageCost(convertSessionCurrency(
+                      Number(averageCost), priceCurrency, next, usdPerEur,
+                    ).toFixed(4));
+                  }
+                  if (openingPrice) {
+                    setOpeningPrice(convertSessionCurrency(
+                      Number(openingPrice), priceCurrency, next, usdPerEur,
+                    ).toFixed(4));
+                  }
+                  setCurrencyOverride(next);
+                }}
+                options={[
+                  { value: "USD", label: "USD" },
+                  { value: "EUR", label: "EUR" },
+                ]}
+              />
+            </Field>
+            <Field label={`Starting/current mark (${priceCurrency})`} htmlFor="opening-price">
               <Input id="opening-price" type="number" min="0" step="0.0001" value={resolvedOpeningPrice}
                 onChange={(event) => setOpeningPrice(event.target.value)} />
+            </Field>
+            <Field label="1 EUR equals (USD)" htmlFor="opening-fx-rate">
+              <Input id="opening-fx-rate" type="number" min="0" step="0.000001"
+                value={fxRateInput || usdPerEur}
+                onChange={(event) => setFxRateInput(event.target.value)} />
             </Field>
             <Field label="Session starts" htmlFor="session-start">
               <Input id="session-start" type="datetime-local" value={startedAt}
@@ -181,45 +240,5 @@ export function CreateSessionDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function Field({ label, htmlFor, children }: {
-  label: string; htmlFor: string; children: React.ReactNode;
-}) {
-  return <div className="flex flex-col gap-2"><Label htmlFor={htmlFor}>{label}</Label>{children}</div>;
-}
-
-function ManualOpeningFields({ platforms, symbols, values, setters }: {
-  platforms: Props["platforms"]; symbols: Props["symbols"];
-  values: { platformId: string; symbolId: string; quantity: string; averageCost: string };
-  setters: {
-    setPlatformId: (value: string) => void; setSymbolId: (value: string) => void;
-    setQuantity: (value: string) => void; setAverageCost: (value: string) => void;
-  };
-}) {
-  return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      <Field label="Platform" htmlFor="manual-platform">
-        <Select value={values.platformId} onValueChange={setters.setPlatformId}>
-          <SelectTrigger id="manual-platform" className="h-10"><SelectValue placeholder="Platform" /></SelectTrigger>
-          <SelectContent>{platforms.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent>
-        </Select>
-      </Field>
-      <Field label="Symbol" htmlFor="manual-symbol">
-        <Select value={values.symbolId} onValueChange={setters.setSymbolId}>
-          <SelectTrigger id="manual-symbol" className="h-10"><SelectValue placeholder="Symbol" /></SelectTrigger>
-          <SelectContent>{symbols.map((item) => <SelectItem key={item.id} value={item.id}>{item.ticker}</SelectItem>)}</SelectContent>
-        </Select>
-      </Field>
-      <Field label="Quantity" htmlFor="manual-quantity">
-        <Input id="manual-quantity" type="number" min="0" step="any" value={values.quantity}
-          onChange={(event) => setters.setQuantity(event.target.value)} />
-      </Field>
-      <Field label="Average cost" htmlFor="manual-average-cost">
-        <Input id="manual-average-cost" type="number" min="0" step="0.0001" value={values.averageCost}
-          onChange={(event) => setters.setAverageCost(event.target.value)} />
-      </Field>
-    </div>
   );
 }

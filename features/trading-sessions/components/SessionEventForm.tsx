@@ -10,6 +10,7 @@ import { Label } from "@/components/label";
 import { SegmentedControl } from "@/components/SegmentedControl";
 import { Textarea } from "@/components/textarea";
 import { trpc } from "@/lib/trpc";
+import type { SessionCurrency } from "@/lib/trading-sessions/currency";
 import { formatQuantity, localDateTimeValue, toIso } from "../session-format";
 
 export function SessionEventForm({
@@ -17,11 +18,13 @@ export function SessionEventForm({
   availableQuantity,
   currentPrice,
   isActive,
+  currencyCode,
 }: {
   sessionId: string;
   availableQuantity: number;
   currentPrice: number;
   isActive: boolean;
+  currencyCode: SessionCurrency;
 }) {
   const [eventType, setEventType] = useState<"buy" | "sell">("sell");
   const [quantity, setQuantity] = useState("");
@@ -109,11 +112,11 @@ export function SessionEventForm({
                   )}
                 </div>
               </Field>
-              <Field label="Price" htmlFor="event-price">
+              <Field label={`Price (${currencyCode})`} htmlFor="event-price">
                 <Input id="event-price" type="number" min="0" step="0.0001" value={price}
                   onChange={(event) => setPrice(event.target.value)} />
               </Field>
-              <Field label="Fee" htmlFor="event-fee">
+              <Field label={`Fee (${currencyCode})`} htmlFor="event-fee">
                 <Input id="event-fee" type="number" min="0" step="0.01" value={fee}
                   onChange={(event) => setFee(event.target.value)} />
               </Field>

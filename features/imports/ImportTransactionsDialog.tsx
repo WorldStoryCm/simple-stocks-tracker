@@ -148,10 +148,10 @@ export function ImportTransactionsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         accessibleTitle="Import transactions"
-        className="left-0 top-0 flex h-[100dvh] max-h-none w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-3 overflow-hidden rounded-none border-0 p-4 shadow-none sm:rounded-none sm:p-5"
+        className="left-0 top-0 flex h-[100dvh] max-h-none w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-2 overflow-hidden rounded-none border-0 p-3 shadow-none sm:gap-3 sm:rounded-none sm:p-5"
       >
-        <DialogHeader title="Import Activity" className="shrink-0 pb-3" />
-        <div className="flex min-h-0 flex-1 flex-col gap-3">
+        <DialogHeader title="Import Activity" className="shrink-0 pb-2 sm:pb-3" />
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto [scrollbar-gutter:stable] sm:gap-3">
           <ImportControls
             sourceSystem={sourceSystem}
             platformId={platformId}
@@ -172,7 +172,7 @@ export function ImportTransactionsDialog({
             onPreview={runPreview}
           />
 
-          <label className="flex items-start gap-2 rounded-md border border-border bg-[color:var(--surface-1)] px-3 py-2 text-xs text-text-tertiary">
+          <label className="flex items-start gap-2 rounded-md border border-border bg-[color:var(--surface-1)] px-3 py-1.5 text-[11px] text-text-tertiary sm:py-2 sm:text-xs">
             <Checkbox
               checked={replaceHistory}
               onCheckedChange={(value) => handleReplaceHistory(value === true)}
@@ -196,7 +196,7 @@ export function ImportTransactionsDialog({
             selected={selected}
             toggle={toggle}
             replaceHistory={replaceHistory}
-            className="min-h-[360px] flex-1"
+            className="min-h-[280px] flex-1 sm:min-h-[360px]"
           />
           {showHistory && (
             <ImportHistoryPanel
@@ -208,14 +208,19 @@ export function ImportTransactionsDialog({
           )}
         </div>
 
-        <DialogFooter className="shrink-0 border-t border-border pt-3">
+        <DialogFooter className="grid shrink-0 grid-cols-2 gap-2 border-t border-border pt-2 sm:flex sm:justify-end sm:pt-3">
           <Button type="button" variant="ghost" disabled={pending} onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button type="button" disabled={selected.size === 0 || pending} onClick={runCommit}>
             {commitMutation.isPending
               ? "Importing..."
-              : replaceHistory ? `Replace Data With ${selected.size} Rows` : `Import ${selected.size} Rows`}
+              : replaceHistory ? (
+                <>
+                  <span className="sm:hidden">Replace {selected.size}</span>
+                  <span className="hidden sm:inline">Replace Data With {selected.size} Rows</span>
+                </>
+              ) : `Import ${selected.size} Rows`}
           </Button>
         </DialogFooter>
       </DialogContent>

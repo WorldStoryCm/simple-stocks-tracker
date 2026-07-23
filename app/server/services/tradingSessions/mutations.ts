@@ -9,8 +9,16 @@ import {
   tradingSessions,
 } from "@/db/schema";
 import { replaySession } from "@/lib/trading-sessions/calculations";
+import {
+  currencyFactor,
+  sessionCurrency,
+} from "@/lib/trading-sessions/currency";
 import { snapshotCurrentPosition } from "./snapshot";
-import type { TradingSessionCreateInput, TradingSessionEventInput } from "./types";
+import type {
+  TradingSessionCreateInput,
+  TradingSessionEventInput,
+  TradingSessionInputsUpdate,
+} from "./types";
 
 async function verifyScope(userId: string, platformId: string, symbolId: string) {
   const [platform, symbol] = await Promise.all([
@@ -45,9 +53,30 @@ function manualSnapshot(input: TradingSessionCreateInput) {
 
 export async function create(userId: string, input: TradingSessionCreateInput) {
   const { platform } = await verifyScope(userId, input.platformId, input.symbolId);
-  const snapshot = input.openingSource === "position"
+  const rawSnapshot = input.openingSource === "position"
     ? await snapshotCurrentPosition(userId, input.platformId, input.symbolId)
     : manualSnapshot(input);
+  const usdPerEur = Number(input.usdPerEur) || 1;
+  const factor = input.openingSource === "position"
+    ? currencyFactor(
+      sessionCurrency(platform.currencyCode),
+      input.currencyCode,
+      usdPerEur,
+    )
+    : 1;
+  const openingQuantity = Number(rawSnapshot.quantity);
+  const suppliedAverage = Number(input.openingAverageCost);
+  const openingTotalCost = suppliedAverage > 0
+    ? openingQuantity * suppliedAverage
+    : Number(rawSnapshot.totalCost) * factor;
+  const snapshot = {
+    ...rawSnapshot,
+    totalCost: openingTotalCost.toFixed(4),
+    lots: rawSnapshot.lots.map((lot) => ({
+      ...lot,
+      unitPrice: (Number(lot.unitPrice) * factor).toFixed(4),
+    })),
+  };
 
   return db.transaction(async (tx) => {
     const [session] = await tx.insert(tradingSessions).values({
@@ -58,7 +87,9 @@ export async function create(userId: string, input: TradingSessionCreateInput) {
       openingQuantity: snapshot.quantity,
       openingTotalCost: snapshot.totalCost,
       openingMarketPrice: input.openingMarketPrice,
-      currencyCode: platform.currencyCode,
+      manualMarkPrice: input.openingMarketPrice,
+      currencyCode: input.currencyCode,
+      usdPerEur: usdPerEur.toFixed(8),
       startedAt: new Date(input.startedAt),
       notes: input.notes,
     }).returning();
@@ -69,6 +100,58 @@ export async function create(userId: string, input: TradingSessionCreateInput) {
       );
     }
     return session;
+  });
+}
+
+export async function updateInputs(userId: string, input: TradingSessionInputsUpdate) {
+  const session = await db.query.tradingSessions.findFirst({
+    where: and(eq(tradingSessions.id, input.id), eq(tradingSessions.userId, userId)),
+    with: { events: true, openingLots: true },
+  });
+  if (!session) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Trading session not found" });
+  }
+
+  const usdPerEur = Number(input.usdPerEur);
+  const factor = currencyFactor(
+    sessionCurrency(session.currencyCode),
+    input.currencyCode,
+    usdPerEur,
+  );
+  const openingTotalCost = Number(session.openingQuantity) * Number(input.openingAverageCost);
+  const previousAverage = Number(session.openingTotalCost) / Number(session.openingQuantity);
+  const lotFactor = previousAverage > 0
+    ? Number(input.openingAverageCost) / previousAverage
+    : factor;
+
+  return db.transaction(async (tx) => {
+    if (factor !== 1) {
+      for (const event of session.events) {
+        await tx.update(tradingSessionEvents).set({
+          price: (Number(event.price) * factor).toFixed(4),
+          fee: (Number(event.fee) * factor).toFixed(4),
+        }).where(eq(tradingSessionEvents.id, event.id));
+      }
+    }
+    if (lotFactor !== 1) {
+      for (const lot of session.openingLots) {
+        await tx.update(tradingSessionOpeningLots).set({
+          unitPrice: (Number(lot.unitPrice) * lotFactor).toFixed(4),
+        }).where(eq(tradingSessionOpeningLots.id, lot.id));
+      }
+    }
+
+    const [updated] = await tx.update(tradingSessions).set({
+      openingTotalCost: openingTotalCost.toFixed(4),
+      openingMarketPrice: input.openingMarketPrice,
+      manualMarkPrice: input.manualMarkPrice,
+      currencyCode: input.currencyCode,
+      usdPerEur: usdPerEur.toFixed(8),
+    }).where(and(
+      eq(tradingSessions.id, input.id),
+      eq(tradingSessions.userId, userId),
+    )).returning();
+    return updated;
   });
 }
 

@@ -10,6 +10,7 @@ import {
 import {
   sortSessionEvents, type SessionEventSnapshot,
 } from "@/lib/trading-sessions/calculations";
+import type { SessionCurrency } from "@/lib/trading-sessions/currency";
 import { trpc } from "@/lib/trpc";
 import {
   formatQuantity, formatSessionPrice, formatSessionTime, formatSignedAmount, pnlClass,
@@ -19,9 +20,13 @@ import type { TradingSessionDetail } from "../types";
 export function SessionActivity({
   session,
   snapshots,
+  displayCurrency,
+  conversionFactor,
 }: {
   session: TradingSessionDetail;
   snapshots: SessionEventSnapshot[];
+  displayCurrency: SessionCurrency;
+  conversionFactor: number;
 }) {
   const utils = trpc.useUtils();
   const snapshotById = new Map(snapshots.map((snapshot) => [snapshot.event.id, snapshot]));
@@ -64,7 +69,7 @@ export function SessionActivity({
                   <TableHead className="pl-4">Time</TableHead>
                   <TableHead>Action</TableHead>
                   <TableHead className="text-right">Quantity</TableHead>
-                  <TableHead className="text-right">Price</TableHead>
+                  <TableHead className="text-right">Price ({displayCurrency})</TableHead>
                   <TableHead className="text-right">Realized P/L</TableHead>
                   <TableHead className="text-right">After</TableHead>
                   <TableHead className="w-12 pr-4" />
@@ -89,10 +94,18 @@ export function SessionActivity({
                         {formatQuantity(Number(event.quantity))}
                       </TableCell>
                       <TableCell className="text-right font-mono tabular-nums">
-                        {formatSessionPrice(Number(event.price), session.currencyCode)}
+                        {formatSessionPrice(
+                          Number(event.price) * conversionFactor,
+                          displayCurrency,
+                        )}
                       </TableCell>
                       <TableCell className={`text-right font-mono font-semibold tabular-nums ${pnlClass(snapshot?.realizedPnl ?? 0)}`}>
-                        {isBuy || !snapshot ? "—" : formatSignedAmount(snapshot.realizedPnl, session.currencyCode)}
+                        {isBuy || !snapshot
+                          ? "—"
+                          : formatSignedAmount(
+                            snapshot.realizedPnl * conversionFactor,
+                            displayCurrency,
+                          )}
                       </TableCell>
                       <TableCell className="text-right font-mono tabular-nums text-text-secondary">
                         {snapshot ? formatQuantity(snapshot.state.quantity) : "—"}

@@ -32,7 +32,7 @@ export function ImportControls({
   onPreview: () => void;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-2 md:grid-cols-[140px_170px_minmax(220px,1fr)_136px]">
+    <div className="grid grid-cols-2 gap-2 md:grid-cols-[140px_170px_minmax(220px,1fr)_136px]">
       <Select value={sourceSystem} onValueChange={(value) => onSourceChange(value as SourceSystem)}>
         <SelectTrigger className="h-9"><SelectValue placeholder="Source" /></SelectTrigger>
         <SelectContent>
@@ -52,7 +52,7 @@ export function ImportControls({
         </SelectContent>
       </Select>
 
-      <label className="flex h-9 min-w-0 cursor-pointer items-center gap-2 rounded-md border border-dashed border-border bg-[color:var(--surface-1)] px-3 text-sm hover:bg-[color:var(--surface-2)]/60">
+      <label className="col-span-2 flex h-9 min-w-0 cursor-pointer items-center gap-2 rounded-md border border-dashed border-border bg-[color:var(--surface-1)] px-3 text-sm hover:bg-[color:var(--surface-2)]/60 md:col-span-1">
         <FileUp className="h-4 w-4 shrink-0 text-text-tertiary" />
         <span className="min-w-0 flex-1 truncate text-text-primary">{fileName || "Choose CSV import"}</span>
         <input
@@ -70,7 +70,7 @@ export function ImportControls({
       <Button
         type="button"
         variant="outline"
-        className="h-9 px-3"
+        className="col-span-2 h-9 px-3 md:col-span-1"
         disabled={!platformId || !fileName || pending}
         onClick={() => onPreview()}
       >

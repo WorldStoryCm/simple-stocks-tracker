@@ -2,6 +2,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { db } from "@/db/drizzle";
 import { tradingSessions } from "@/db/schema";
+import { getExchangeRates } from "@/lib/exchange-rates";
 
 export async function list(userId: string) {
   return db.query.tradingSessions.findMany({
@@ -29,4 +30,9 @@ export async function get(userId: string, id: string) {
     throw new TRPCError({ code: "NOT_FOUND", message: "Trading session not found" });
   }
   return session;
+}
+
+export async function fxRate() {
+  const rates = await getExchangeRates();
+  return { usdPerEur: rates.EUR ?? 1 };
 }

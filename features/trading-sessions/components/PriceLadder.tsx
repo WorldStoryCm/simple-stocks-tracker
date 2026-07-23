@@ -66,6 +66,7 @@ export function PriceLadder({
             </div>
             <p className="mt-1 text-xs text-text-tertiary">
               15 price steps above and below the current mark. Sale P/L uses the moving average cost.
+              {" "}Displayed in {currencyCode}.
             </p>
           </div>
           <Button
@@ -120,7 +121,7 @@ export function PriceLadder({
           <Table>
             <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--border)]">
               <TableRow className="hover:bg-transparent">
-                <TableHead className="pl-4">Exit price</TableHead>
+                <TableHead className="pl-4">Exit price ({currencyCode})</TableHead>
                 <TableHead className="text-right">Net proceeds</TableHead>
                 <TableHead className="text-right">Sale P/L</TableHead>
                 <TableHead className="text-right">Return</TableHead>
