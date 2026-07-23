@@ -27,7 +27,12 @@ export async function exportLedger(userId: string, platformId?: string) {
       where: platformId
         ? and(eq(trades.userId, userId), eq(trades.platformId, platformId))
         : eq(trades.userId, userId),
-      orderBy: [asc(trades.tradeDate), asc(trades.createdAt)],
+      orderBy: [
+        asc(trades.tradeDate),
+        asc(trades.executedAt),
+        asc(trades.executionOrder),
+        asc(trades.createdAt),
+      ],
       with: { platform: true, symbol: true },
     }),
     db.query.cashEvents.findMany({
@@ -57,7 +62,7 @@ export async function exportLedger(userId: string, platformId?: string) {
     ...platformTrades.map((trade) => [
       "trade",
       trade.platform?.name ?? "",
-      trade.tradeDate,
+      trade.executedAt ?? trade.tradeDate,
       trade.tradeType,
       trade.symbol?.ticker ?? "",
       trade.quantity,

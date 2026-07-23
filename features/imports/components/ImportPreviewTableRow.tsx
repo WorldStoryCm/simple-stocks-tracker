@@ -170,7 +170,15 @@ export function ImportPreviewTableRow({
             </span>
           )}
         </td>
-        <td className="whitespace-nowrap px-2 py-2 font-tabular text-text-secondary">{row.date ?? "-"}</td>
+        <td
+          className="whitespace-nowrap px-2 py-2 font-tabular text-text-secondary"
+          title={row.executedAt ?? row.date ?? "-"}
+        >
+          <span>{row.date ?? "-"}</span>
+          {row.executedAt && (
+            <span className="block text-[10px] text-text-tertiary">{row.executedAt.slice(11)}</span>
+          )}
+        </td>
         <td className="truncate px-2 py-2 text-text-primary" title={row.tradeType ?? row.eventType ?? row.sourceType}>
           {typeLabel(row)}
         </td>

@@ -7,6 +7,7 @@ import { buildPreview, type PreviewInput } from "./preview";
 import type { ImportCommitResult, PreviewImportRow } from "./types";
 import { applyCorporateActionRow, applyMergerStockRows } from "./corporateActions";
 import { prepareRowsForCommit } from "./commitQuantity";
+import { compareImportRows } from "./ordering";
 import { expandSelectedRowsWithRequiredCorporateActions } from "./selection";
 import { insertCashEventRow, insertTradeRow } from "./writeRows";
 
@@ -14,11 +15,6 @@ type CommitInput = PreviewInput & {
   selectedRowHashes?: string[];
   replaceHistory?: boolean;
 };
-
-function byBrokerDate(left: PreviewImportRow, right: PreviewImportRow) {
-  const dateCompare = (left.date ?? "").localeCompare(right.date ?? "");
-  return dateCompare || left.rowIndex - right.rowIndex;
-}
 
 function canCommit(row: PreviewImportRow, selected: Set<string>, replaceHistory: boolean) {
   if (!selected.has(row.rowHash) || !row.importable) return false;
@@ -46,7 +42,7 @@ export async function commitImport(userId: string, input: CommitInput): Promise<
   );
   const selectedRowsToCommit = preview.rows
     .filter((row) => canCommit(row, selected, replaceHistory))
-    .sort(byBrokerDate);
+    .sort(compareImportRows);
   if (replaceHistory && selectedRowsToCommit.length === 0) {
     const blocked = preview.rows.find((row) => row.status === "needs_review" || row.kind === "unsupported");
     throw new TRPCError({

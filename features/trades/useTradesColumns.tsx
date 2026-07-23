@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ArrowDown, ArrowUp, ArrowUpDown, MoreHorizontal } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/button";
@@ -15,7 +15,7 @@ import { formatAmount, formatPrice } from "@/lib/currency";
 import type { SortDir, SortField, Trade } from "./types";
 
 export const COLUMN_SIZES = {
-  date: 120,
+  date: 150,
   action: 90,
   symbol: 100,
   platform: 90,
@@ -86,10 +86,12 @@ export function useTradesColumns({
       {
         id: "tradeDate",
         header: () => (
-          <SortHeader field="tradeDate" label="Trade date" sortField={sortField} sortDir={sortDir} onSort={onSort} />
+          <SortHeader field="tradeDate" label="Trade time" sortField={sortField} sortDir={sortDir} onSort={onSort} />
         ),
         size: COLUMN_SIZES.date,
-        cell: ({ row }) => format(new Date(row.original.tradeDate), "MMM d, yyyy"),
+        cell: ({ row }) => row.original.executedAt
+          ? format(parseISO(row.original.executedAt), "MMM d, yyyy HH:mm:ss")
+          : format(parseISO(row.original.tradeDate), "MMM d, yyyy"),
       },
       {
         id: "tradeType",

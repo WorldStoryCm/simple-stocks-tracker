@@ -1,4 +1,5 @@
 import { parseCsv } from "../csv";
+import { parseExecution } from "../execution";
 import { sha256, stableJson } from "../hash";
 import type { NormalizedImportRow } from "../types";
 
@@ -35,12 +36,15 @@ function rowHash(raw: Record<string, string>) {
 }
 
 function baseRow(rowIndex: number, raw: Record<string, string>) {
+  const execution = parseExecution(raw.Date);
   return {
     rowIndex,
     rowHash: rowHash(raw),
     raw,
     sourceType: raw.Type,
-    date: raw.Date?.slice(0, 10),
+    date: execution.date,
+    executedAt: execution.executedAt,
+    executionOrder: rowIndex,
     ticker: raw.Ticker?.trim().toUpperCase() || undefined,
     amount: parseNumber(raw.Amount),
     currencyCode: raw.Currency?.trim().toUpperCase() || "USD",

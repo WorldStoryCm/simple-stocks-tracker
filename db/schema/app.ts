@@ -51,6 +51,8 @@ export const trades = pgTable(
     symbolId: text("symbol_id").notNull().references(() => symbols.id, { onDelete: "restrict" }),
     tradeType: text("trade_type", { enum: ["buy", "sell"] }).notNull(),
     tradeDate: date("trade_date").notNull(),
+    executedAt: text("executed_at"),
+    executionOrder: integer("execution_order"),
     quantity: decimal("quantity", { precision: 18, scale: 8 }).notNull(),
     price: decimal("price", { precision: 16, scale: 4 }).notNull(),
     fee: decimal("fee", { precision: 12, scale: 4 }).notNull().default("0"),
@@ -65,6 +67,14 @@ export const trades = pgTable(
   (table) => [
     index("trades_user_id_trade_date_idx").on(table.userId, table.tradeDate),
     index("trades_user_plat_sym_date_idx").on(table.userId, table.platformId, table.symbolId, table.tradeDate),
+    index("trades_user_plat_sym_execution_idx").on(
+      table.userId,
+      table.platformId,
+      table.symbolId,
+      table.tradeDate,
+      table.executedAt,
+      table.executionOrder,
+    ),
     unique("trades_user_source_row_unique").on(table.userId, table.sourceSystem, table.sourceRowHash),
   ]
 );

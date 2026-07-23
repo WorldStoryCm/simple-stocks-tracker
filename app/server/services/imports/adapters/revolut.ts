@@ -1,5 +1,6 @@
 import { sha256, stableJson } from "../hash";
 import { parseCsv } from "../csv";
+import { parseExecution } from "../execution";
 import type { NormalizedImportRow } from "../types";
 
 function parseMoney(value: string | undefined) {
@@ -40,7 +41,7 @@ function signedAmount(value: number | undefined, direction: "positive" | "negati
 
 function normalizeRow(rowIndex: number, raw: Record<string, string>): NormalizedImportRow {
   const type = raw.Type?.trim().toUpperCase() ?? "";
-  const date = raw.Date?.slice(0, 10);
+  const execution = parseExecution(raw.Date);
   const ticker = raw.Ticker?.trim().toUpperCase() || undefined;
   const quantity = parseNumber(raw.Quantity);
   const price = parseMoney(raw["Price per share"]).amount;
@@ -52,7 +53,9 @@ function normalizeRow(rowIndex: number, raw: Record<string, string>): Normalized
     rowHash: rowHash(raw),
     raw,
     sourceType: raw.Type,
-    date,
+    date: execution.date,
+    executedAt: execution.executedAt,
+    executionOrder: rowIndex,
     ticker,
     amount: total.amount,
     currencyCode,

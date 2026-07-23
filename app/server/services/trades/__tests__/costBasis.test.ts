@@ -52,6 +52,18 @@ describe("calculateAverageCostMatches", () => {
     assert.deepEqual(ordered.map((item) => item.id), ["adjustment-buy", "sell"]);
   });
 
+  it("preserves same-day execution sequence instead of pooling later buys", () => {
+    const ordered = [
+      trade({ id: "later-buy", tradeDate: "2026-07-17", executionOrder: 3, tradeType: "buy", quantity: 10, price: 200, fee: 0 }),
+      trade({ id: "first-sell", tradeDate: "2026-07-17", executionOrder: 2, tradeType: "sell", quantity: 10, price: 110, fee: 0 }),
+      trade({ id: "opening-buy", tradeDate: "2026-07-17", executionOrder: 1, tradeType: "buy", quantity: 10, price: 100, fee: 0 }),
+    ].sort(compareCostBasisTrades);
+    const result = calculateAverageCostMatches(ordered);
+
+    assert.deepEqual(ordered.map((item) => item.id), ["opening-buy", "first-sell", "later-buy"]);
+    assert.equal(pnlTotal(result.matches), "100.00");
+  });
+
   it("returns a shortfall when sells exceed available open quantity", () => {
     const result = calculateAverageCostMatches([
       trade({ id: "buy", tradeType: "buy", quantity: 5, price: 10, fee: 0 }),

@@ -116,4 +116,33 @@ describe("applyQuantityAvailability", () => {
     assert.equal(rows[1].importable, true);
     assert.equal(rows[1].positionAdjustment?.quantity.toFixed(8), "24.03898016");
   });
+
+  it("uses broker execution order for same-day buys and sells", () => {
+    const rows = applyQuantityAvailability([
+      row({
+        rowHash: "newer-sell",
+        rowIndex: 1,
+        executionOrder: -1,
+        kind: "trade",
+        tradeType: "sell",
+        ticker: "RKLB",
+        quantity: 10,
+        price: 70,
+        date: "2026-07-17",
+      }),
+      row({
+        rowHash: "older-buy",
+        rowIndex: 2,
+        executionOrder: -2,
+        kind: "trade",
+        tradeType: "buy",
+        ticker: "RKLB",
+        quantity: 10,
+        price: 69,
+        date: "2026-07-17",
+      }),
+    ], new Map());
+
+    assert.equal(rows[0].positionAdjustment, undefined);
+  });
 });

@@ -1,4 +1,5 @@
 import { parseCsv } from "../csv";
+import { parseExecution } from "../execution";
 import { sha256, stableJson } from "../hash";
 import type { NormalizedImportRow } from "../types";
 
@@ -37,10 +38,20 @@ function ticker(value: string | undefined) {
   return clean(value)?.toUpperCase();
 }
 
+function executionValue(raw: Record<string, string>) {
+  return clean(
+    raw["Date/Time"]
+    ?? raw["Trade Date/Time"]
+    ?? raw.DateTime
+    ?? raw.TradeDate
+    ?? raw.Date,
+  );
+}
+
 function rowHash(rowIndex: number, raw: Record<string, string>) {
   return sha256(`ibkr:${stableJson({
     rowIndex,
-    date: raw.Date,
+    date: executionValue(raw),
     account: raw.Account,
     description: raw.Description,
     type: raw["Transaction Type"],
@@ -61,6 +72,15 @@ function findBaseCurrency(matrix: string[][]) {
     }
   }
   return "USD";
+}
+
+function findStatementPeriod(matrix: string[][]) {
+  const row = matrix.find((cells) =>
+    cells[0]?.trim() === "Statement"
+    && cells[1]?.trim() === "Data"
+    && cells[2]?.trim().toLowerCase() === "period",
+  );
+  return clean(row?.[3]);
 }
 
 function signedAmount(value: number | undefined, direction: "positive" | "negative") {
@@ -94,7 +114,7 @@ function eventTicker(type: string, symbol: string | undefined) {
 function normalizeRow(rowIndex: number, raw: Record<string, string>, baseCurrency: string): NormalizedImportRow {
   const sourceType = clean(raw["Transaction Type"]) ?? "Unknown";
   const type = sourceType.toLowerCase();
-  const date = clean(raw.Date)?.slice(0, 10);
+  const execution = parseExecution(executionValue(raw));
   const netAmount = parseNumber(raw["Net Amount"]);
   const commission = parseNumber(raw.Commission);
   const base = {
@@ -102,7 +122,9 @@ function normalizeRow(rowIndex: number, raw: Record<string, string>, baseCurrenc
     rowHash: rowHash(rowIndex, raw),
     raw,
     sourceType,
-    date,
+    date: execution.date,
+    executedAt: execution.executedAt,
+    executionOrder: -rowIndex,
     amount: netAmount,
     currencyCode: baseCurrency,
   };
@@ -185,5 +207,29 @@ export function parseIbkrCsv(content: string): NormalizedImportRow[] {
     rows.push(normalizeRow(rowIndex, raw, baseCurrency));
   }
 
-  return rows;
+  const datedRows = rows.filter((row) => row.date);
+  const firstDate = datedRows[0]?.date;
+  const comparisonDate = datedRows.find((row) => row.date !== firstDate)?.date;
+  const sourceDirection = firstDate && comparisonDate && firstDate < comparisonDate ? 1 : -1;
+  const statementPeriod = findStatementPeriod(matrix);
+  const firstTradeIndex = rows.findIndex((row) => row.kind === "trade");
+  const hasExactTradeTimes = rows.some((row) => row.kind === "trade" && row.executedAt);
+
+  return rows.map((row, index) => {
+    const warnings = index === firstTradeIndex
+      ? [
+        !hasExactTradeTimes
+          ? "This IBKR export has dates only; same-day execution order is inferred from CSV row order."
+          : undefined,
+        statementPeriod
+          ? `Statement period: ${statementPeriod}. Opening cost basis must already exist for realized P/L to be complete.`
+          : undefined,
+      ].filter(Boolean)
+      : [];
+    return {
+      ...row,
+      executionOrder: sourceDirection * row.rowIndex,
+      message: [row.message, ...warnings].filter(Boolean).join(" "),
+    };
+  });
 }

@@ -28,9 +28,17 @@ export async function list(userId: string, input: TradesListInput) {
 
   const whereClause = and(...conditions);
 
+  const direction = sortDir === "desc" ? desc : asc;
   const orderBy = sortField === "total"
-    ? [sortDir === "desc" ? desc(sql`${trades.quantity} * ${trades.price}`) : asc(sql`${trades.quantity} * ${trades.price}`)]
-    : [sortDir === "desc" ? desc(trades[sortField]) : asc(trades[sortField])];
+    ? [direction(sql`${trades.quantity} * ${trades.price}`)]
+    : sortField === "tradeDate"
+      ? [
+        direction(trades.tradeDate),
+        direction(trades.executedAt),
+        direction(trades.executionOrder),
+        direction(trades.createdAt),
+      ]
+      : [direction(trades[sortField])];
 
   const items = await db.query.trades.findMany({
     where: whereClause,
@@ -108,7 +116,12 @@ export async function symbolPnl(
 
   const symbolTrades = await db.query.trades.findMany({
     where: and(...conditions),
-    orderBy: [asc(trades.tradeDate), asc(trades.createdAt)],
+    orderBy: [
+      asc(trades.tradeDate),
+      asc(trades.executedAt),
+      asc(trades.executionOrder),
+      asc(trades.createdAt),
+    ],
   });
 
   if (symbolTrades.length === 0) return { chartData: [], totalPnl: 0 };

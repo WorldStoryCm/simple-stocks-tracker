@@ -6,6 +6,7 @@ type ExistingTrade = {
   id: string;
   tradeType: "buy" | "sell";
   tradeDate: string;
+  executedAt?: string | null;
   quantity: string | number;
   price: string | number;
   sourceSystem: string | null;
@@ -66,7 +67,7 @@ function compactNumber(value: string | number | undefined, maxDigits = 4) {
 
 function tradeRecordLabel(trade: ExistingTrade) {
   const symbol = trade.symbol?.ticker ?? "-";
-  return `${trade.tradeDate} ${trade.tradeType.toUpperCase()} ${symbol} ${compactNumber(trade.quantity)} @ ${compactNumber(trade.price, 2)}`;
+  return `${trade.executedAt ?? trade.tradeDate} ${trade.tradeType.toUpperCase()} ${symbol} ${compactNumber(trade.quantity)} @ ${compactNumber(trade.price, 2)}`;
 }
 
 function cashEventRecordLabel(event: ExistingCashEvent) {

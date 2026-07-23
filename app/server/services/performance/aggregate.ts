@@ -10,9 +10,11 @@ type Trade = {
   quantity: string | number;
   price: string | number;
   fee: string | number;
+  currencyCode: string;
 };
 
 type Match = {
+  sellTradeId: string;
   buyTradeId: string;
   matchedQuantity: string | number;
   matchedCost: string | number;
@@ -20,6 +22,7 @@ type Match = {
   sellTrade?: {
     platformId: string;
     tradeDate: string | null;
+    currencyCode: string;
   } | null;
 };
 
@@ -46,17 +49,17 @@ export function aggregatePnlByPeriod(
   const dailyPnl: Record<string, number> = {};
   const weeklyPnl: Record<string, number> = {};
   const monthlyPnl: Record<string, number> = {};
+  const pnlBySell = new Map<string, number>();
   let totalRealizedPnl = 0;
-  let winningTrades = 0;
 
   for (const match of matches) {
     const pId = match.sellTrade?.platformId;
-    const currency = getPlatformCurrency(pId);
+    const currency = match.sellTrade?.currencyCode || getPlatformCurrency(pId);
     const rawPnl = Number(match.realizedPnl);
     const pnl = convertToUSD(rawPnl, currency, rates);
 
     totalRealizedPnl += pnl;
-    if (pnl > 0) winningTrades++;
+    pnlBySell.set(match.sellTradeId, (pnlBySell.get(match.sellTradeId) ?? 0) + pnl);
 
     if (!match.sellTrade?.tradeDate) continue;
 
@@ -69,7 +72,15 @@ export function aggregatePnlByPeriod(
     monthlyPnl[monthKey] = (monthlyPnl[monthKey] || 0) + pnl;
   }
 
-  return { dailyPnl, weeklyPnl, monthlyPnl, totalRealizedPnl, winningTrades };
+  const winningTrades = [...pnlBySell.values()].filter((pnl) => pnl > 0).length;
+  return {
+    dailyPnl,
+    weeklyPnl,
+    monthlyPnl,
+    totalRealizedPnl,
+    winningTrades,
+    closedTrades: pnlBySell.size,
+  };
 }
 
 type PositionAccumulator = {
@@ -104,7 +115,7 @@ export function aggregatePositionCosts(
     };
     p.bought += Number(t.quantity);
     const buyCost = Number(t.quantity) * Number(t.price) + Number(t.fee);
-    p.costUSD += convertToUSD(buyCost, getPlatformCurrency(t.platformId), rates);
+    p.costUSD += convertToUSD(buyCost, t.currencyCode || getPlatformCurrency(t.platformId), rates);
     positionsMap.set(key, p);
   }
 
@@ -116,7 +127,11 @@ export function aggregatePositionCosts(
     const p = positionsMap.get(key);
     if (!p) continue;
     p.sold += Number(m.matchedQuantity);
-    p.soldCostUSD += convertToUSD(Number(m.matchedCost), getPlatformCurrency(buyTrade.platformId), rates);
+    p.soldCostUSD += convertToUSD(
+      Number(m.matchedCost),
+      buyTrade.currencyCode || getPlatformCurrency(buyTrade.platformId),
+      rates,
+    );
   }
 
   const platformCostMap = new Map<string, number>();
@@ -188,7 +203,7 @@ export function buildPortfolioGrowth(
 
   for (const t of trades) {
     const monthKey = t.tradeDate.substring(0, 7);
-    const currency = getPlatformCurrency(t.platformId);
+    const currency = t.currencyCode || getPlatformCurrency(t.platformId);
     if (t.tradeType === "buy") {
       const cost = Number(t.quantity) * Number(t.price) + Number(t.fee);
       monthlyBuyCostUSD[monthKey] = (monthlyBuyCostUSD[monthKey] || 0) + convertToUSD(cost, currency, rates);

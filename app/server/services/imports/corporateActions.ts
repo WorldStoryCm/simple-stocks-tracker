@@ -92,7 +92,7 @@ export async function applyCorporateActionRow({
       eq(trades.symbolId, symbol.id),
       eq(trades.tradeType, "buy"),
     ),
-    orderBy: [asc(trades.tradeDate), asc(trades.createdAt)],
+    orderBy: [asc(trades.tradeDate), asc(trades.executedAt), asc(trades.executionOrder), asc(trades.createdAt)],
   });
   const buyIds = new Set(buyLots.map((buy) => buy.id));
   const matches = buyIds.size
@@ -149,7 +149,7 @@ async function openLotsForTicker(tx: Tx, userId: string, platformId: string, tic
       eq(trades.symbolId, symbol.id),
       eq(trades.tradeType, "buy"),
     ),
-    orderBy: [asc(trades.tradeDate), asc(trades.createdAt)],
+    orderBy: [asc(trades.tradeDate), asc(trades.executedAt), asc(trades.executionOrder), asc(trades.createdAt)],
   });
   const buyIds = new Set(buyLots.map((buy) => buy.id));
   const matches = buyIds.size
@@ -224,6 +224,8 @@ export async function applyMergerStockRows({ tx, userId, platformId, sourceSyste
       symbolId: symbol.id,
       tradeType: "buy",
       tradeDate: row.date,
+      executedAt: row.executedAt,
+      executionOrder: row.executionOrder,
       quantity: row.quantity.toFixed(8),
       price: unitCost.toFixed(4),
       fee: "0.0000",

@@ -98,20 +98,26 @@ async function stats(userId: string, filters?: PerformanceFilters) {
   // Apply filters
   const allTrades = allTradesRaw.filter((t) => tradePassesFilters(t, filters));
   const tradeIdSet = new Set(allTrades.map((t) => t.id));
-  const allMatches = allMatchesRaw.filter(
+  const positionMatches = allMatchesRaw.filter(
     (m) => (m.sellTrade ? tradePassesFilters(m.sellTrade, filters) : false) && tradeIdSet.has(m.buyTradeId),
+  );
+  const pnlMatches = allMatchesRaw.filter(
+    (m) => m.sellTrade ? tradePassesFilters(m.sellTrade, filters) : false,
   );
 
   // PnL aggregations
-  const { dailyPnl, weeklyPnl, monthlyPnl, totalRealizedPnl, winningTrades } = aggregatePnlByPeriod(
-    allMatches,
-    rates,
-    getPlatformCurrency,
-  );
+  const {
+    dailyPnl,
+    weeklyPnl,
+    monthlyPnl,
+    totalRealizedPnl,
+    winningTrades,
+    closedTrades,
+  } = aggregatePnlByPeriod(pnlMatches, rates, getPlatformCurrency);
 
   // Position cost aggregations
   const { platformCostMap, sectorCostMap, openPositionSummaries, totalInvested } =
-    aggregatePositionCosts(allTrades, allMatches, activePlatformIds, symbolMap as any, rates, getPlatformCurrency);
+    aggregatePositionCosts(allTrades, positionMatches, activePlatformIds, symbolMap, rates, getPlatformCurrency);
 
   const liveQuotes = await getLiveQuotes(openPositionSummaries.map((p) => p.ticker));
 
@@ -123,7 +129,7 @@ async function stats(userId: string, filters?: PerformanceFilters) {
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value);
 
-  const winRate = allMatches.length > 0 ? (winningTrades / allMatches.length) * 100 : 0;
+  const winRate = closedTrades > 0 ? (winningTrades / closedTrades) * 100 : 0;
 
   // Period stats
   const today = format(new Date(), "yyyy-MM-dd");
@@ -163,7 +169,7 @@ async function stats(userId: string, filters?: PerformanceFilters) {
     investedPerPlatform,
     investedPerSector,
     winRate,
-    totalMatches: allMatches.length,
+    totalMatches: pnlMatches.length,
     dailyStats,
     weeklyStats,
     monthlyStats,

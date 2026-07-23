@@ -12,7 +12,7 @@ function hasHeaders(headers: string[], required: string[]) {
 function hasIbkrTransactionHistory(content: string) {
   const prefix = content.replace(/^\uFEFF/, "").split(/\r?\n/, 40).join("\n").toLowerCase();
   return prefix.includes("statement,data,title,transaction history")
-    && prefix.includes("transaction history,header,date,account,description,transaction type,symbol,quantity,price,price currency,gross amount");
+    && /transaction history,header,(?:date|date\/time|trade date\/time|datetime|tradedate),account,description,transaction type,symbol,quantity,price,price currency,gross amount/.test(prefix);
 }
 
 export function detectImportSourceSystem(fileName: string, content: string): DetectedImportSource | undefined {

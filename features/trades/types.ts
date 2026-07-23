@@ -1,6 +1,7 @@
 export type Trade = {
   id: string;
   tradeDate: string;
+  executedAt?: string | null;
   tradeType: "buy" | "sell";
   symbol: { ticker: string };
   platform: { name: string };

@@ -1,4 +1,5 @@
 import type { PreviewImportRow } from "./types";
+import { compareImportRows } from "./ordering";
 
 const ZERO_EPSILON = 0.000001;
 
@@ -9,6 +10,8 @@ type OpenQuantityInput = {
   quantity?: number;
   price?: number;
   date?: string;
+  executedAt?: string;
+  executionOrder?: number;
   rowIndex: number;
   rowHash: string;
   importable: boolean;
@@ -29,9 +32,7 @@ export function analyzeQuantityAvailability(
   const openByTicker = new Map(initialOpenByTicker);
   const blocked = new Map<string, string>();
   const adjustments = new Map<string, PositionAdjustment>();
-  const orderedRows = [...rows].sort((left, right) =>
-    (left.date ?? "").localeCompare(right.date ?? "") || left.rowIndex - right.rowIndex,
-  );
+  const orderedRows = [...rows].sort(compareImportRows);
 
   for (const row of orderedRows) {
     if (

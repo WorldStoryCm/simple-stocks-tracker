@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
 import { cn } from "@/components/component.utils";
 import { formatAmount } from "@/lib/currency";
 import { fmtMoney, fmtPct } from "../lib/format";
+import { buildGoalRowState } from "../lib/goals";
 
 export function KpiCard({
   label,
@@ -110,8 +111,7 @@ export function CapitalGoalCard({
 }
 
 function GoalRow({ label, current, target }: { label: string; current: number; target: number }) {
-  const pct = target > 0 ? Math.min((current / target) * 100, 100) : 0;
-  const remaining = Math.max(target - current, 0);
+  const state = buildGoalRowState(current, target);
 
   return (
     <div className="space-y-2">
@@ -122,19 +122,31 @@ function GoalRow({ label, current, target }: { label: string; current: number; t
             ${target.toLocaleString(undefined, { maximumFractionDigits: 0 })}
           </span>
         </div>
-        <div className="font-tabular text-base font-semibold tracking-tight text-[color:var(--positive)]">
-          {fmtMoney(current, false)}
+        <div
+          className={cn(
+            "font-tabular text-base font-semibold tracking-tight",
+            state.isNegative ? "text-[color:var(--negative)]" : "text-[color:var(--positive)]",
+          )}
+        >
+          {state.currentLabel}
         </div>
       </div>
       <div className="h-2 w-full overflow-hidden rounded-full bg-[color:var(--surface-2)]">
         <div
           className="h-full rounded-full [background-image:linear-gradient(90deg,var(--brand-from),var(--positive))] transition-all duration-500"
-          style={{ width: `${pct}%` }}
+          style={{ width: `${state.fillPercentage}%` }}
         />
       </div>
       <div className="flex items-center justify-between text-xs text-text-tertiary">
-        <span>${remaining.toLocaleString(undefined, { maximumFractionDigits: 0 })} to go</span>
-        <span className="font-tabular">{pct.toFixed(0)}%</span>
+        <span>${state.remaining.toLocaleString(undefined, { maximumFractionDigits: 0 })} to go</span>
+        <span
+          className={cn(
+            "font-tabular",
+            state.isNegative && "text-[color:var(--negative)]",
+          )}
+        >
+          {state.percentage.toFixed(0)}%
+        </span>
       </div>
     </div>
   );

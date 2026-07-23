@@ -18,6 +18,8 @@ export type CostBasisTrade = {
   price: string | number;
   fee: string | number;
   tradeDate?: string;
+  executedAt?: string | null;
+  executionOrder?: number | null;
   createdAt?: Date | string;
 };
 
@@ -61,9 +63,25 @@ function costBasisTypeRank(trade: CostBasisTrade) {
 }
 
 export function compareCostBasisTrades(left: CostBasisTrade, right: CostBasisTrade) {
-  return compareValue(left.tradeDate ?? "", right.tradeDate ?? "")
-    || costBasisTypeRank(left) - costBasisTypeRank(right)
-    || compareValue(String(left.createdAt ?? ""), String(right.createdAt ?? ""))
+  const dateCompare = compareValue(left.tradeDate ?? "", right.tradeDate ?? "");
+  if (dateCompare) return dateCompare;
+
+  if (left.executedAt || right.executedAt) {
+    const fallback = `${left.tradeDate ?? ""}T00:00:00`;
+    const executionCompare = compareValue(left.executedAt ?? fallback, right.executedAt ?? fallback);
+    if (executionCompare) return executionCompare;
+  }
+
+  if (left.executionOrder != null && right.executionOrder != null) {
+    const orderCompare = left.executionOrder - right.executionOrder;
+    if (orderCompare) return orderCompare;
+  }
+
+  return costBasisTypeRank(left) - costBasisTypeRank(right)
+    || compareValue(
+      left.createdAt instanceof Date ? left.createdAt.toISOString() : String(left.createdAt ?? ""),
+      right.createdAt instanceof Date ? right.createdAt.toISOString() : String(right.createdAt ?? ""),
+    )
     || compareValue(left.id, right.id);
 }
 
@@ -141,7 +159,13 @@ export async function rebuildAverageCostMatches(tx: Tx, scope: CostBasisScope) {
       eq(trades.platformId, scope.platformId),
       eq(trades.symbolId, scope.symbolId),
     ),
-    orderBy: [asc(trades.tradeDate), asc(trades.createdAt), asc(trades.id)],
+    orderBy: [
+      asc(trades.tradeDate),
+      asc(trades.executedAt),
+      asc(trades.executionOrder),
+      asc(trades.createdAt),
+      asc(trades.id),
+    ],
   })).sort(compareCostBasisTrades);
 
   const sellIds = scopeTrades

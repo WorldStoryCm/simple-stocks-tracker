@@ -18,6 +18,8 @@ export type NormalizedImportRow = {
   kind: ImportKind;
   sourceType: string;
   date?: string;
+  executedAt?: string;
+  executionOrder?: number;
   ticker?: string;
   tradeType?: "buy" | "sell";
   corporateActionType?: "stock_split" | "merger_stock";

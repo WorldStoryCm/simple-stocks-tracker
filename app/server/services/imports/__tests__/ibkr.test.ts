@@ -28,6 +28,9 @@ describe("parseIbkrCsv", () => {
     assert.equal(rows[0].price, 87.11623);
     assert.equal(rows[0].fee, 0.8755662662);
     assert.equal(rows[0].cashImpact, -872.0378662662);
+    assert.equal(rows[0].executedAt, undefined);
+    assert.equal(rows[0].executionOrder, -1);
+    assert.match(rows[0].message ?? "", /same-day execution order is inferred/);
 
     assert.equal(rows[1].tradeType, "sell");
     assert.equal(rows[1].quantity, 10);
@@ -59,5 +62,17 @@ describe("parseIbkrCsv", () => {
     assert.equal(rows[5].amount, -0.06690891644799635);
     assert.equal(rows[6].eventType, "other");
     assert.equal(rows[6].amount, 23.69105372243348);
+  });
+
+  it("imports an exact execution timestamp when the report provides one", () => {
+    const timestampCsv = `Summary,Data,Base Currency,EUR
+Transaction History,Header,Date/Time,Account,Description,Transaction Type,Symbol,Quantity,Price,Price Currency,Gross Amount,Commission,Net Amount
+Transaction History,Data,2026-07-17 15:42:09,U***16477,ROCKET LAB CORP,Sell,RKLB,-10,70,USD,610,-1,609
+`;
+
+    const [row] = parseIbkrCsv(timestampCsv);
+
+    assert.equal(row.date, "2026-07-17");
+    assert.equal(row.executedAt, "2026-07-17T15:42:09");
   });
 });

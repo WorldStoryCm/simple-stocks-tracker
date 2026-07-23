@@ -23,4 +23,11 @@ Transaction History,Header,Date,Account,Description,Transaction Type,Symbol,Quan
 `;
     assert.equal(detectImportSourceSystem("U24116477.TRANSACTIONS.1Y.csv", csv), "ibkr");
   });
+
+  it("detects timestamped IBKR transaction-history CSVs", () => {
+    const csv = `Statement,Data,Title,Transaction History
+Transaction History,Header,Date/Time,Account,Description,Transaction Type,Symbol,Quantity,Price,Price Currency,Gross Amount,Commission,Net Amount
+`;
+    assert.equal(detectImportSourceSystem("ibkr-trades.csv", csv), "ibkr");
+  });
 });
